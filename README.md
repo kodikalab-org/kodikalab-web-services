@@ -123,6 +123,20 @@ Si usan pgAdmin, pueden crearla visualmente con el nombre:
 kodikalab_db
 ```
 
+El proyecto usa enfoque **code-first** con JPA/Hibernate. Esto significa que las entidades Java son la fuente de verdad del modelo de datos y Hibernate crea o actualiza las tablas automáticamente al iniciar la aplicación.
+
+Por eso, para desarrollo local, solo es obligatorio crear la base de datos vacía. No es obligatorio ejecutar manualmente un script SQL antes de iniciar el backend.
+
+El archivo:
+
+```txt
+docs/sdd/assets/init_schema.sql
+```
+
+queda como snapshot/export de referencia del esquema, útil para revisión, documentación o generación de diagramas, pero no es el paso principal de arranque local.
+
+> Importante: el proyecto usa `spring.jpa.hibernate.ddl-auto=update` en desarrollo. Si se modifican entidades JPA, Hibernate puede reflejar esos cambios en la base local.
+
 ---
 
 ### Paso 3: Configurar el archivo de secretos `.env`
@@ -253,16 +267,24 @@ KodikalabApplication
 URL base de la API:
 
 ```txt
-http://localhost:8080/api/v1
+http://localhost:8080/api
 ```
 
 Swagger UI:
 
 ```txt
-http://localhost:8080/api/v1/swagger-ui.html
+http://localhost:8080/api/swagger-ui.html
 ```
 
-> Nota: el prefijo `/api/v1` se configura mediante `server.servlet.context-path` en `src/main/resources/application.yaml`.
+También puede abrirse desde:
+
+```txt
+http://localhost:8080/api/swagger-ui/index.html
+```
+
+Para validar los endpoints durante el desarrollo, el equipo puede utilizar **Swagger UI**. Desde esa interfaz se pueden revisar las rutas disponibles, probar requests y confirmar las respuestas sin necesidad de Postman.
+
+> Nota: el prefijo `/api` se configura mediante `server.servlet.context-path` en `src/main/resources/application.yaml`.
 
 ---
 
