@@ -33,11 +33,16 @@ Todos los demás endpoints deberían requerir token:
 Authorization: Bearer <token>
 ```
 
+## Implementado en US-01
+
+- Bean `PasswordEncoder` con BCrypt en `SecurityConfig`.
+- Registro con contraseña hasheada; nunca se devuelve contraseña/hash en la respuesta.
+- Se mantiene `permitAll()` sin JWT, según el alcance de desarrollo actual.
+
 ## Pendientes de seguridad
 
 - Implementar generación de JWT en login.
 - Implementar validación de JWT por request.
 - Implementar filtro JWT.
-- Implementar `PasswordEncoder`.
 - Definir roles y permisos.
 - Proteger endpoints por rol si la historia lo requiere.
