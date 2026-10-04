@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RestController
+@RestController("legacyAuthController")
 @RequestMapping("/auth")
 public class AuthController {
 
@@ -20,7 +20,8 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @PostMapping("/register")
+    // Historical scaffold retained; POST /auth/register is owned by the auth module.
+    @Deprecated(forRemoval = false)
     public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
     }

@@ -2923,7 +2923,7 @@
         "id": "final_usuario_rol",
         "tableId": "ZJ_QdzY0JDFVgIYumlgoX",
         "name": "rolUsuario",
-        "comment": "Rol único del usuario: PRACTICANTE, COACH o ADMIN. El rol COACH requiere verificación antes de activarse.",
+        "comment": "Rol único: PRACTICANTE (PRACTITIONER en Java), COACH o ADMIN. US-01 crea ACTIVE; la verificación del coach es una política futura fuera de esta tarea.",
         "dataType": "VARCHAR(30)",
         "default": "",
         "options": 8,

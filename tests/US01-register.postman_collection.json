@@ -1,0 +1,964 @@
+{
+  "info": {
+    "name": "KodikaLab - US-01 Registro modular",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Validación de US-01. Ejecutar en orden con Collection Runner. Crea tres usuarios de prueba por corrida; no borra datos. No usa JWT ni implementa login. Consultar tests/README.md."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName === '01 Registro exitoso - PRACTITIONER' || !pm.collectionVariables.get('registrationEmail')) {",
+          "  const id = pm.variables.replaceIn('{{$guid}}');",
+          "  const email = `us01.${id}@upc.edu.pe`;",
+          "  pm.collectionVariables.set('registrationEmail', email);",
+          "  pm.collectionVariables.set('uppercaseEmail', email.toUpperCase());",
+          "  pm.collectionVariables.set('coachEmail', `us01.coach.${id}@upc.edu.pe`);",
+          "  pm.collectionVariables.set('adminEmail', `us01.admin.${id}@upc.edu.pe`);",
+          "  pm.collectionVariables.set('invalidEmail', `us01.invalid.${id}@upc.edu.pe`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Registro exitoso - PRACTITIONER",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{registrationEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Inicia una corrida nueva y genera correos únicos. Ejecutar primero."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol seleccionado', () => pm.expect(body.role).to.eql(\"PRACTITIONER\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{registrationEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Correo duplicado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{registrationEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Depende del caso 01."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El correo institucional ya está vinculado a una cuenta existente\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Correo duplicado con mayúsculas y espacios",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"  {{uppercaseEmail}}  \",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Comprueba la normalización del correo creado en 01."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El correo institucional ya está vinculado a una cuenta existente\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Registro exitoso - COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol seleccionado', () => pm.expect(body.role).to.eql(\"COACH\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{coachEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Registro exitoso - ADMIN",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"ADMIN\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "TAREA.md permite los roles del enum. No constituye autorización JWT; pendiente política de roles públicos antes de producción."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol seleccionado', () => pm.expect(body.role).to.eql(\"ADMIN\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{adminEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Contraseña débil - 12345",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"12345\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"La contraseña debe contener al menos 8 caracteres, una mayúscula y un número\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Contraseña sin mayúscula",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"La contraseña debe contener al menos 8 caracteres, una mayúscula y un número\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Contraseña sin número",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"La contraseña debe contener al menos 8 caracteres, una mayúscula y un número\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Correo con formato inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"correo-invalido\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Nombre ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Apellido ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Correo ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Contraseña ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Rol ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Rol no definido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"ROOT\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El rol debe ser PRACTITIONER, COACH o ADMIN\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Rol nulo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": null\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Nombre en blanco",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"   \",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Contraseña supera 72 bytes ASCII",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"A1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"La contraseña no debe superar 72 bytes en UTF-8\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Contraseña supera 72 bytes UTF-8",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Matias\",\n  \"lastName\": \"Del Castillo\",\n  \"email\": \"{{invalidEmail}}\",\n  \"password\": \"A1ññññññññññññññññññññññññññññññññññññ\",\n  \"role\": \"PRACTITIONER\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"La contraseña no debe superar 72 bytes en UTF-8\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 JSON malformado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{broken}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Respuesta sin contraseña ni token', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje de validación', () => pm.expect(body.message).to.be.a('string').and.not.empty);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

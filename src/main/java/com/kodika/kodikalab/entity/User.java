@@ -1,14 +1,12 @@
 package com.kodika.kodikalab.entity;
 import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.OffsetDateTime;
 
-@Entity
-@Table(name = "users")
+/** Historical scaffold, not managed by JPA. Use com.kodika.kodikalab.users.User. */
+@Deprecated(forRemoval = false)
 public class User {
 
     @Id

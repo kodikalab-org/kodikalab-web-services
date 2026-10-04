@@ -6,7 +6,8 @@ import com.kodika.kodikalab.dto.AuthResponse;
 import com.kodika.kodikalab.service.AuthService;
 import org.springframework.stereotype.Service;
 
-@Service
+// Retained for the legacy login scaffold (US-02); registration lives in auth/.
+@Service("legacyAuthService")
 public class AuthServiceImpl implements AuthService {
 
     @Override

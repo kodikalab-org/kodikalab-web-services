@@ -123,7 +123,15 @@ Si usan pgAdmin, pueden crearla visualmente con el nombre:
 kodikalab_db
 ```
 
-El proyecto usa enfoque **code-first** con JPA/Hibernate. Esto significa que las entidades Java son la fuente de verdad del modelo de datos y Hibernate crea o actualiza las tablas automáticamente al iniciar la aplicación.
+El proyecto usa enfoque **code-first guiado por el ERD del SDD** con JPA/Hibernate.
+
+Esto significa que el diseño funcional y relacional esperado está documentado en:
+
+```txt
+docs/sdd/assets/diagrama_entidad_relacion.erd
+```
+
+Las entidades Java implementan técnicamente ese diseño y Hibernate puede crear o actualizar las tablas automáticamente al iniciar la aplicación.
 
 Por eso, para desarrollo local, solo es obligatorio crear la base de datos vacía. No es obligatorio ejecutar manualmente un script SQL antes de iniciar el backend.
 
@@ -135,7 +143,7 @@ docs/sdd/assets/init_schema.sql
 
 queda como snapshot/export de referencia del esquema, útil para revisión, documentación o generación de diagramas, pero no es el paso principal de arranque local.
 
-> Importante: el proyecto usa `spring.jpa.hibernate.ddl-auto=update` en desarrollo. Si se modifican entidades JPA, Hibernate puede reflejar esos cambios en la base local.
+> Importante: el proyecto usa `spring.jpa.hibernate.ddl-auto=update` en desarrollo. Si se modifican entidades JPA, primero debe revisarse el ERD del SDD y luego reflejar el cambio en código y documentación cuando corresponda.
 
 ---
 
@@ -416,30 +424,58 @@ Paquete raíz:
 com.kodika.kodikalab
 ```
 
-Estructura base:
+KodikaLab se organiza como un **monolito modular simple**: una sola aplicación Spring Boot y una sola base de datos PostgreSQL, pero con paquetes separados por dominio.
+
+La estructura inicial por capas puede existir durante el scaffolding, pero las nuevas funcionalidades deben tender a esta estructura:
 
 ```txt
 src/main/java/com/kodika/kodikalab
+├── auth
+├── users
+├── profiles
+├── teams
+├── problems
+├── assignments
+├── competitions
+├── analytics
+├── ai
+├── security
 ├── config
-├── controller
-├── dto
-├── entity
-├── repository
-└── service
-    └── impl
+└── common
 ```
 
-Responsabilidad por capa:
+Módulos principales:
 
-| Capa | Responsabilidad |
+| Módulo | Responsabilidad |
 |---|---|
-| `controller` | Exponer endpoints REST y delegar a servicios. |
-| `service` | Definir contratos de negocio. |
-| `service/impl` | Implementar casos de uso. |
-| `repository` | Acceso a datos mediante Spring Data JPA. |
-| `entity` | Modelo persistente JPA. |
-| `dto` | Objetos de entrada y salida de la API. |
-| `config` | Configuración transversal: seguridad, Swagger, CORS, etc. |
+| `auth` | Registro, login, autenticación y JWT futuro. |
+| `users` | Cuenta de usuario, rol, estado y disponibilidad. |
+| `profiles` | Perfil competitivo y cuentas externas. |
+| `teams` | Equipos, coach, membresías, solicitudes y horarios. |
+| `problems` | Catálogo de problemas, temas y recursos académicos. |
+| `assignments` | Asignaciones, destinatarios, detalles y resoluciones/envíos. |
+| `competitions` | Competencias y resultados. |
+| `analytics` | Métricas, progreso, rankings y debilidades. |
+| `ai` | Conversaciones, mensajes y acciones del asistente IA. |
+| `security` | Filtros, permisos y seguridad transversal. |
+| `config` | Configuración transversal de Spring. |
+| `common` | Excepciones, respuestas comunes y utilidades compartidas. |
+
+Reglas básicas:
+
+- Controllers delegan en services.
+- Controllers no usan repositories directamente.
+- Un módulo debe usar preferentemente sus propios repositories.
+- Evitar acceder directamente a repositories internos de otros módulos.
+- Los DTOs deben vivir preferentemente dentro del módulo que los usa.
+- Las entidades JPA deben alinearse con el ERD del SDD.
+
+Ver detalle en:
+
+```txt
+docs/sdd/05-architecture.md
+docs/sdd/04-database-model.md
+```
 
 ---
 
