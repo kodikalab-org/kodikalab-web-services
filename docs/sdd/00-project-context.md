@@ -24,7 +24,13 @@ El backend se desarrollará como un **monolito modular simple**.
 
 Esto implica una sola aplicación Spring Boot y una sola base de datos, pero con el código organizado por módulos de dominio como `auth`, `users`, `profiles`, `teams`, `problems`, `analytics` y `ai`.
 
-La estructura inicial por capas puede existir durante el scaffolding, pero la dirección oficial del proyecto es evolucionar hacia paquetes por dominio.
+El código implementado se organiza por dominio. El scaffolding inicial por capas fue retirado tras revisar sus dependencias y confirmar que carecía de lógica funcional.
+
+## Fuente de datos vigente
+
+El diseño oficial está en `docs/sdd/assets/oficial.erd`. Sus tablas físicas usan los nombres allí definidos, por ejemplo `usuario`, `coach`, `practicante` y `grupo_estudio`; las clases, rutas y claves JSON conservan sus nombres ingleses, mientras los valores de enums de cuenta usan el español del ERD.
+
+No hay un snapshot SQL vigente en la carpeta de assets. Los campos, relaciones y diferencias frente al código anterior están documentados en `04-database-model.md`.
 
 ## URL base local
 
@@ -42,17 +48,20 @@ http://localhost:8080/api/swagger-ui.html
 
 ## Estado actual
 
-El proyecto contiene scaffolding inicial por capas:
+La estructura actual conserva únicamente código funcional:
 
-- `controller`
-- `service`
-- `service.impl`
-- `repository`
-- `entity`
-- `dto`
-- `config`
+- `auth`, incluido `auth/dto`.
+- `users`.
+- `security`.
+- `common/exception`.
+- `config`.
+- `KodikalabApplication`.
 
-La seguridad está abierta temporalmente para desarrollo con `permitAll()`.
+Se retiraron 55 archivos de los paquetes raíz `controller`, `dto`, `entity`, `repository` y `service`; ver `12-source-cleanup.md`.
+
+Registro y login en `auth`/`users` ya persisten en `usuario` según el ERD oficial, con ID entero, nombre completo y enums de rol/estado en español mediante `@Enumerated(EnumType.STRING)`, sin conversores. El login prepara una sesión HTTP en `security`.
+
+La adaptación de cuentas tiene pruebas Java/HTTP/PostgreSQL y fixtures actualizadas; no es una migración de datos ni una alineación global del esquema. Los demás módulos permanecen como diseño pendiente, sin endpoints ficticios ni entidades legacy en runtime. La seguridad continúa temporalmente abierta con `permitAll()`, sin JWT.
 
 ## Dirección de evolución
 

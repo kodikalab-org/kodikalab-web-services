@@ -1,0 +1,3567 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dineug/erd-editor/main/json-schema/schema.json",
+  "version": "3.0.0",
+  "settings": {
+    "width": 3200,
+    "height": 2400,
+    "scrollTop": 0,
+    "scrollLeft": 0,
+    "originX": -279.6703,
+    "originY": 113.0677,
+    "zoomLevel": 0.42,
+    "show": 511,
+    "database": 16,
+    "databaseName": "kodikalab_db",
+    "canvasType": "ERD",
+    "language": 1,
+    "tableNameCase": 4,
+    "columnNameCase": 2,
+    "bracketType": 1,
+    "relationshipDataTypeSync": true,
+    "relationshipOptimization": false,
+    "columnOrder": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32,
+      64
+    ],
+    "maxWidthComment": -1,
+    "ignoreSaveSettings": 0
+  },
+  "doc": {
+    "tableIds": [
+      "t_usuario",
+      "t_coach",
+      "t_practicante",
+      "t_grupo_estudio",
+      "t_miembro_grupo",
+      "t_competencia",
+      "t_competencia_problema",
+      "t_problema",
+      "t_resolucion_problema",
+      "t_material",
+      "t_tema",
+      "t_problema_tema",
+      "xqI0Y224rco0ts20q7sSH"
+    ],
+    "relationshipIds": [
+      "rel_usr_coa",
+      "rel_usr_pra",
+      "rel_coa_grp",
+      "rel_grp_pg",
+      "rel_pra_pg",
+      "rel_grp_cmp",
+      "rel_prb_cpp",
+      "rel_cpp_rsp",
+      "rel_prb_mat",
+      "rel_problema_problema_tema",
+      "rel_tema_problema_tema",
+      "rel_cmp_cpp",
+      "_sV7OqJzssR3loW4PSNws",
+      "xeaG--WQjGdCAeLxi0mYB"
+    ],
+    "indexIds": [
+      "ix_pg_unique",
+      "ix_cpp_unique",
+      "ix_cpp_orden",
+      "ix_fk_c_grp_cid",
+      "ix_fk_c_mbg_pid",
+      "ix_fk_c_cmp_gid",
+      "ix_fk_c_cpp_pid",
+      "ix_fk_c_rsp_cpp",
+      "ix_fk_c_mat_pid",
+      "ix_problema_tema_tema"
+    ],
+    "memoIds": []
+  },
+  "collections": {
+    "tableEntities": {
+      "t_usuario": {
+        "id": "t_usuario",
+        "name": "usuario",
+        "comment": "Cuentas base y autenticacion",
+        "columnIds": [
+          "c_usr_id",
+          "c_usr_nom",
+          "c_usr_cor",
+          "c_usr_pwd",
+          "c_usr_rol",
+          "c_usr_est",
+          "c_usr_fec"
+        ],
+        "seqColumnIds": [
+          "c_usr_id",
+          "c_usr_nom",
+          "c_usr_cor",
+          "c_usr_pwd",
+          "c_usr_rol",
+          "c_usr_est",
+          "c_usr_fec"
+        ],
+        "ui": {
+          "x": -594.6571,
+          "y": -18.2911,
+          "zIndex": 1,
+          "widthName": 60,
+          "widthComment": 156,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989725641,
+          "createAt": 1790924582549
+        }
+      },
+      "t_coach": {
+        "id": "t_coach",
+        "name": "coach",
+        "comment": "Perfil docente / entrenador (1:1)",
+        "columnIds": [
+          "c_coa_uid",
+          "c_coa_esp",
+          "c_coa_org",
+          "c_coa_exp",
+          "c_coa_bio"
+        ],
+        "seqColumnIds": [
+          "c_coa_uid",
+          "c_coa_esp",
+          "c_coa_org",
+          "c_coa_exp",
+          "c_coa_bio"
+        ],
+        "ui": {
+          "x": 240.8274,
+          "y": 6.7062,
+          "zIndex": 2,
+          "widthName": 60,
+          "widthComment": 171,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989866907,
+          "createAt": 1790924582549
+        }
+      },
+      "t_practicante": {
+        "id": "t_practicante",
+        "name": "practicante",
+        "comment": "Perfil competidor (1:1)",
+        "columnIds": [
+          "c_pra_uid",
+          "c_pra_cod",
+          "c_pra_car",
+          "c_pra_cic",
+          "c_pra_niv",
+          "c_pra_cfh",
+          "c_pra_cfr",
+          "c_pra_ath",
+          "c_pra_vjh"
+        ],
+        "seqColumnIds": [
+          "c_pra_uid",
+          "c_pra_cod",
+          "c_pra_car",
+          "c_pra_cic",
+          "c_pra_niv",
+          "c_pra_cfh",
+          "c_pra_cfr",
+          "c_pra_ath",
+          "c_pra_vjh"
+        ],
+        "ui": {
+          "x": -583.0781,
+          "y": 322.7552,
+          "zIndex": 3,
+          "widthName": 61,
+          "widthComment": 119,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989656038,
+          "createAt": 1790924582549
+        }
+      },
+      "t_grupo_estudio": {
+        "id": "t_grupo_estudio",
+        "name": "grupo_estudio",
+        "comment": "Equipos de entrenamiento",
+        "columnIds": [
+          "c_grp_id",
+          "c_grp_cid",
+          "c_grp_nom",
+          "c_grp_des",
+          "c_grp_niv",
+          "c_grp_cup",
+          "c_grp_hor",
+          "c_grp_cod",
+          "c_grp_est",
+          "c_grp_fec",
+          "7dIUvdcRAUOcs-XJ3GA-Q"
+        ],
+        "seqColumnIds": [
+          "c_grp_id",
+          "c_grp_cid",
+          "c_grp_nom",
+          "c_grp_des",
+          "c_grp_niv",
+          "c_grp_cup",
+          "c_grp_hor",
+          "c_grp_cod",
+          "c_grp_est",
+          "c_grp_fec",
+          "7dIUvdcRAUOcs-XJ3GA-Q"
+        ],
+        "ui": {
+          "x": 1051.2171,
+          "y": -47.8998,
+          "zIndex": 4,
+          "widthName": 78,
+          "widthComment": 142,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989928674,
+          "createAt": 1790924582549
+        }
+      },
+      "t_miembro_grupo": {
+        "id": "t_miembro_grupo",
+        "name": "practicante_grupo",
+        "comment": "Pertenencia efectiva del practicante al grupo. UNIQUE(grupo_id, practicante_id); al reingresar se reactiva el registro para conservar el progreso.",
+        "columnIds": [
+          "c_mbg_id",
+          "c_mbg_gid",
+          "c_mbg_pid",
+          "c_mbg_est",
+          "c_mbg_rol",
+          "c_mbg_fpo",
+          "c_pg_salida"
+        ],
+        "seqColumnIds": [
+          "c_mbg_id",
+          "c_mbg_gid",
+          "c_mbg_pid",
+          "c_mbg_est",
+          "c_mbg_rol",
+          "c_mbg_fpo",
+          "c_pg_salida"
+        ],
+        "ui": {
+          "x": 205.1496,
+          "y": 346.044,
+          "zIndex": 5,
+          "widthName": 98,
+          "widthComment": 754,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989719816,
+          "createAt": 1790924582549
+        }
+      },
+      "t_competencia": {
+        "id": "t_competencia",
+        "name": "competencia",
+        "comment": "Contests / Maratones estilo VJudge",
+        "columnIds": [
+          "c_cmp_id",
+          "c_cmp_gid",
+          "c_cmp_nom",
+          "c_cmp_des",
+          "c_cmp_acc",
+          "c_cmp_pas",
+          "c_cmp_reg",
+          "c_cmp_dur",
+          "c_cmp_frz",
+          "c_cmp_est",
+          "c_cmp_fin",
+          "c_cmp_ffi"
+        ],
+        "seqColumnIds": [
+          "c_cmp_id",
+          "c_cmp_gid",
+          "c_cmp_nom",
+          "c_cmp_des",
+          "c_cmp_acc",
+          "c_cmp_pas",
+          "c_cmp_reg",
+          "c_cmp_dur",
+          "c_cmp_frz",
+          "c_cmp_est",
+          "c_cmp_fin",
+          "c_cmp_ffi"
+        ],
+        "ui": {
+          "x": 2000.591,
+          "y": -62.0075,
+          "zIndex": 6,
+          "widthName": 70,
+          "widthComment": 189,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989749602,
+          "createAt": 1790924582549
+        }
+      },
+      "t_competencia_problema": {
+        "id": "t_competencia_problema",
+        "name": "competencia_problema",
+        "comment": "Problemas asignados dentro de una competencia. UNIQUE(competencia_id, problema_id) y UNIQUE(competencia_id, orden_letra).",
+        "columnIds": [
+          "c_cpp_id",
+          "c_cpp_cid",
+          "c_cpp_pid",
+          "c_cpp_ord",
+          "c_cpp_pnt",
+          "c_cpp_rgb",
+          "c_cpp_fecha_asignacion"
+        ],
+        "seqColumnIds": [
+          "c_cpp_id",
+          "c_cpp_cid",
+          "c_cpp_pid",
+          "c_cpp_ord",
+          "c_cpp_pnt",
+          "c_cpp_rgb",
+          "c_cpp_fecha_asignacion"
+        ],
+        "ui": {
+          "x": 1948.2603,
+          "y": 613.9131,
+          "zIndex": 7,
+          "widthName": 126,
+          "widthComment": 690,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1791125825302,
+          "createAt": 1790924582549
+        }
+      },
+      "t_problema": {
+        "id": "t_problema",
+        "name": "problema",
+        "comment": "Catalogo general de ejercicios",
+        "columnIds": [
+          "c_prb_id",
+          "c_prb_cod",
+          "c_prb_tit",
+          "c_prb_plt",
+          "c_prb_url",
+          "c_prb_dif",
+          "c_prb_tms",
+          "c_prb_mmb"
+        ],
+        "seqColumnIds": [
+          "c_prb_id",
+          "c_prb_cod",
+          "c_prb_tit",
+          "c_prb_plt",
+          "c_prb_url",
+          "c_prb_dif",
+          "c_prb_tms",
+          "c_prb_mmb"
+        ],
+        "ui": {
+          "x": 1434.7583,
+          "y": 849.9112,
+          "zIndex": 8,
+          "widthName": 60,
+          "widthComment": 161,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790924582549
+        }
+      },
+      "t_resolucion_problema": {
+        "id": "t_resolucion_problema",
+        "name": "resolucion_problema",
+        "comment": "Intentos de resolucion por integrante y problema de competencia. Validar que ambos pertenezcan al mismo grupo. Los rankings cuentan problemas distintos aceptados.",
+        "columnIds": [
+          "c_rsp_id",
+          "c_rsp_ver",
+          "c_rsp_lan",
+          "c_rsp_tms",
+          "c_rsp_mkb",
+          "c_rsp_fec",
+          "c_rsp_cpp",
+          "IJkt8hREWfSCiWLPerHT8",
+          "c_rsp_evidencia"
+        ],
+        "seqColumnIds": [
+          "c_rsp_id",
+          "c_rsp_ver",
+          "c_rsp_lan",
+          "c_rsp_tms",
+          "c_rsp_mkb",
+          "c_rsp_fec",
+          "c_rsp_pg",
+          "c_rsp_cpp",
+          "IJkt8hREWfSCiWLPerHT8",
+          "c_rsp_evidencia"
+        ],
+        "ui": {
+          "x": 3081.5288,
+          "y": 400.5936,
+          "zIndex": 9,
+          "widthName": 112,
+          "widthComment": 894,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1791157888917,
+          "createAt": 1790924582549
+        }
+      },
+      "t_material": {
+        "id": "t_material",
+        "name": "material",
+        "comment": "Biblioteca virtual y guias de apoyo (US19/20)",
+        "columnIds": [
+          "c_mat_id",
+          "c_mat_pid",
+          "c_mat_tit",
+          "c_mat_aut",
+          "c_mat_tip",
+          "c_mat_tem",
+          "c_mat_url",
+          "c_mat_des"
+        ],
+        "seqColumnIds": [
+          "c_mat_id",
+          "c_mat_pid",
+          "c_mat_tit",
+          "c_mat_aut",
+          "c_mat_tip",
+          "c_mat_tem",
+          "c_mat_url",
+          "c_mat_des"
+        ],
+        "ui": {
+          "x": 1444.1645,
+          "y": 1234.1536,
+          "zIndex": 10,
+          "widthName": 60,
+          "widthComment": 239,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790991574942,
+          "createAt": 1790924582549
+        }
+      },
+      "t_solicitud_grupo": {
+        "id": "t_solicitud_grupo",
+        "name": "solicitud_grupo",
+        "comment": "Postulacion al grupo; maximo una PENDIENTE por grupo y practicante mediante indice unico parcial en PostgreSQL. Migracion: CREATE UNIQUE INDEX uq_solicitud_grupo_pendiente ON solicitud_grupo (grupo_id, practicante_id) WHERE estado = 'PENDIENTE';",
+        "columnIds": [
+          "c_sg_id",
+          "c_sg_grupo",
+          "c_sg_practicante",
+          "c_sg_estado",
+          "c_sg_mensaje",
+          "c_sg_motivo",
+          "c_sg_fecha",
+          "c_sg_respuesta"
+        ],
+        "seqColumnIds": [
+          "c_sg_id",
+          "c_sg_grupo",
+          "c_sg_practicante",
+          "c_sg_estado",
+          "c_sg_mensaje",
+          "c_sg_motivo",
+          "c_sg_fecha",
+          "c_sg_respuesta"
+        ],
+        "ui": {
+          "x": -149.2605,
+          "y": 624.3049,
+          "zIndex": 20,
+          "widthName": 83,
+          "widthComment": 1371,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790989721847,
+          "createAt": 1790989509851
+        }
+      },
+      "t_tema": {
+        "id": "t_tema",
+        "name": "tema",
+        "comment": "Catalogo de temas algoritmicos compartidos por varios problemas.",
+        "columnIds": [
+          "c_tema_id",
+          "c_tema_nombre",
+          "c_tema_descripcion"
+        ],
+        "seqColumnIds": [
+          "c_tema_id",
+          "c_tema_nombre",
+          "c_tema_descripcion"
+        ],
+        "ui": {
+          "x": 108.6936,
+          "y": 911.5286,
+          "zIndex": 21,
+          "widthName": 60,
+          "widthComment": 357,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790991480313,
+          "createAt": 1790991443480
+        }
+      },
+      "t_problema_tema": {
+        "id": "t_problema_tema",
+        "name": "problema_tema",
+        "comment": "Relacion N:M; PK compuesta impide repetir un tema en el mismo problema.",
+        "columnIds": [
+          "c_pt_problema",
+          "c_pt_tema"
+        ],
+        "seqColumnIds": [
+          "c_pt_problema",
+          "c_pt_tema"
+        ],
+        "ui": {
+          "x": 728.9157,
+          "y": 922.2892,
+          "zIndex": 22,
+          "widthName": 85,
+          "widthComment": 403,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1790991469585,
+          "createAt": 1790991443480
+        }
+      },
+      "xqI0Y224rco0ts20q7sSH": {
+        "id": "xqI0Y224rco0ts20q7sSH",
+        "name": "Categoria",
+        "comment": "",
+        "columnIds": [
+          "ocwG4XDkd-7XBFGipXljg",
+          "8zcpdqn9ZOnnB9cUeC4lh",
+          "c1waBQ8PniXPst-gYIE7n",
+          "evVbhAQBFmDOon-saq9oz"
+        ],
+        "seqColumnIds": [
+          "ocwG4XDkd-7XBFGipXljg",
+          "8zcpdqn9ZOnnB9cUeC4lh",
+          "c1waBQ8PniXPst-gYIE7n",
+          "uTEAp_JY9tT3j_ANZEjrA",
+          "evVbhAQBFmDOon-saq9oz"
+        ],
+        "ui": {
+          "x": 1496.6347,
+          "y": -350.5562,
+          "zIndex": 23,
+          "widthName": 60,
+          "widthComment": 60,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1791083382990,
+          "createAt": 1791078395588
+        }
+      }
+    },
+    "tableColumnEntities": {
+      "c_usr_id": {
+        "id": "c_usr_id",
+        "tableId": "t_usuario",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_usr_nom": {
+        "id": "c_usr_nom",
+        "tableId": "t_usuario",
+        "name": "nombre_completo",
+        "comment": "",
+        "dataType": "VARCHAR(150)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 99,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_usr_cor": {
+        "id": "c_usr_cor",
+        "tableId": "t_usuario",
+        "name": "correo",
+        "comment": "",
+        "dataType": "VARCHAR(100)",
+        "default": "",
+        "options": 12,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791157089648,
+          "createAt": 1790924582549
+        }
+      },
+      "c_usr_pwd": {
+        "id": "c_usr_pwd",
+        "tableId": "t_usuario",
+        "name": "password_hash",
+        "comment": "",
+        "dataType": "VARCHAR(255)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 82,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_usr_rol": {
+        "id": "c_usr_rol",
+        "tableId": "t_usuario",
+        "name": "rol",
+        "comment": "COACH / PRACTICANTE",
+        "dataType": "VARCHAR(20)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 127,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_usr_est": {
+        "id": "c_usr_est",
+        "tableId": "t_usuario",
+        "name": "estado_cuenta",
+        "comment": "ACTIVO / SUSPENDIDO",
+        "dataType": "VARCHAR(20)",
+        "default": "'ACTIVO'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 78,
+          "widthComment": 126,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_usr_fec": {
+        "id": "c_usr_fec",
+        "tableId": "t_usuario",
+        "name": "fecha_registro",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "CURRENT_TIMESTAMP",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 76,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 122
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_coa_uid": {
+        "id": "c_coa_uid",
+        "tableId": "t_coach",
+        "name": "usuario_id",
+        "comment": "PK, FK a usuario.id",
+        "dataType": "INT",
+        "default": "",
+        "options": 10,
+        "ui": {
+          "keys": 3,
+          "widthName": 60,
+          "widthComment": 99,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_coa_esp": {
+        "id": "c_coa_esp",
+        "tableId": "t_coach",
+        "name": "especialidad_principal",
+        "comment": "DP, Grafos, Flujo, etc.",
+        "dataType": "VARCHAR(120)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 118,
+          "widthComment": 113,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_coa_org": {
+        "id": "c_coa_org",
+        "tableId": "t_coach",
+        "name": "organizacion_club",
+        "comment": "Universidad / Club",
+        "dataType": "VARCHAR(150)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 97,
+          "widthComment": 100,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_coa_exp": {
+        "id": "c_coa_exp",
+        "tableId": "t_coach",
+        "name": "anios_experiencia",
+        "comment": "",
+        "dataType": "INT",
+        "default": "0",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 95,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_coa_bio": {
+        "id": "c_coa_bio",
+        "tableId": "t_coach",
+        "name": "presentacion",
+        "comment": "Perfil publico",
+        "dataType": "VARCHAR(500)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 70,
+          "widthComment": 71,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989887804,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_uid": {
+        "id": "c_pra_uid",
+        "tableId": "t_practicante",
+        "name": "usuario_id",
+        "comment": "PK, FK a usuario.id",
+        "dataType": "INT",
+        "default": "",
+        "options": 10,
+        "ui": {
+          "keys": 3,
+          "widthName": 60,
+          "widthComment": 99,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_cod": {
+        "id": "c_pra_cod",
+        "tableId": "t_practicante",
+        "name": "codigo_estudiante",
+        "comment": "Matricula universitaria",
+        "dataType": "VARCHAR(20)",
+        "default": "",
+        "options": 12,
+        "ui": {
+          "keys": 0,
+          "widthName": 99,
+          "widthComment": 119,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_car": {
+        "id": "c_pra_car",
+        "tableId": "t_practicante",
+        "name": "carrera",
+        "comment": "Carrera universitaria",
+        "dataType": "VARCHAR(100)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 108,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_cic": {
+        "id": "c_pra_cic",
+        "tableId": "t_practicante",
+        "name": "ciclo_academico",
+        "comment": "",
+        "dataType": "INT",
+        "default": "1",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 88,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_niv": {
+        "id": "c_pra_niv",
+        "tableId": "t_practicante",
+        "name": "nivel_competitivo",
+        "comment": "PRINCIPIANTE/INTERMEDIO/AVANZADO",
+        "dataType": "VARCHAR(30)",
+        "default": "'PRINCIPIANTE'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 95,
+          "widthComment": 219,
+          "widthDataType": 75,
+          "widthDefault": 83
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_cfh": {
+        "id": "c_pra_cfh",
+        "tableId": "t_practicante",
+        "name": "codeforces_handle",
+        "comment": "",
+        "dataType": "VARCHAR(50)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 101,
+          "widthComment": 60,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_cfr": {
+        "id": "c_pra_cfr",
+        "tableId": "t_practicante",
+        "name": "codeforces_rating",
+        "comment": "Max rating oficial",
+        "dataType": "INT",
+        "default": "0",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 96,
+          "widthComment": 93,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_ath": {
+        "id": "c_pra_ath",
+        "tableId": "t_practicante",
+        "name": "atcoder_handle",
+        "comment": "",
+        "dataType": "VARCHAR(50)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 83,
+          "widthComment": 60,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pra_vjh": {
+        "id": "c_pra_vjh",
+        "tableId": "t_practicante",
+        "name": "vjudge_handle",
+        "comment": "",
+        "dataType": "VARCHAR(50)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 79,
+          "widthComment": 60,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_id": {
+        "id": "c_grp_id",
+        "tableId": "t_grupo_estudio",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_cid": {
+        "id": "c_grp_cid",
+        "tableId": "t_grupo_estudio",
+        "name": "coach_id",
+        "comment": "FK a coach",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_nom": {
+        "id": "c_grp_nom",
+        "tableId": "t_grupo_estudio",
+        "name": "nombre",
+        "comment": "",
+        "dataType": "VARCHAR(120)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_des": {
+        "id": "c_grp_des",
+        "tableId": "t_grupo_estudio",
+        "name": "descripcion",
+        "comment": "",
+        "dataType": "VARCHAR(500)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 62,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_niv": {
+        "id": "c_grp_niv",
+        "tableId": "t_grupo_estudio",
+        "name": "nivel_esperado",
+        "comment": "Div3 / Div2 / Regional",
+        "dataType": "VARCHAR(50)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 81,
+          "widthComment": 117,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_cup": {
+        "id": "c_grp_cup",
+        "tableId": "t_grupo_estudio",
+        "name": "cupo_maximo",
+        "comment": "Capacidad de integrantes",
+        "dataType": "INT",
+        "default": "15",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 76,
+          "widthComment": 137,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_hor": {
+        "id": "c_grp_hor",
+        "tableId": "t_grupo_estudio",
+        "name": "horario_sesiones",
+        "comment": "Dias y horas de practica",
+        "dataType": "VARCHAR(150)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 90,
+          "widthComment": 128,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_cod": {
+        "id": "c_grp_cod",
+        "tableId": "t_grupo_estudio",
+        "name": "codigo_invitacion",
+        "comment": "Codigo de acceso directo",
+        "dataType": "VARCHAR(20)",
+        "default": "",
+        "options": 12,
+        "ui": {
+          "keys": 0,
+          "widthName": 94,
+          "widthComment": 136,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_est": {
+        "id": "c_grp_est",
+        "tableId": "t_grupo_estudio",
+        "name": "estado",
+        "comment": "ACTIVO / ARCHIVADO",
+        "dataType": "VARCHAR(20)",
+        "default": "'ACTIVO'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 120,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_grp_fec": {
+        "id": "c_grp_fec",
+        "tableId": "t_grupo_estudio",
+        "name": "fecha_creacion",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "CURRENT_TIMESTAMP",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 80,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 122
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mbg_id": {
+        "id": "c_mbg_id",
+        "tableId": "t_miembro_grupo",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mbg_gid": {
+        "id": "c_mbg_gid",
+        "tableId": "t_miembro_grupo",
+        "name": "grupo_id",
+        "comment": "FK a grupo",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mbg_pid": {
+        "id": "c_mbg_pid",
+        "tableId": "t_miembro_grupo",
+        "name": "practicante_id",
+        "comment": "FK a practicante",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 76,
+          "widthComment": 86,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mbg_est": {
+        "id": "c_mbg_est",
+        "tableId": "t_miembro_grupo",
+        "name": "estado",
+        "comment": "ACTIVO / RETIRADO / EXPULSADO",
+        "dataType": "VARCHAR(20)",
+        "default": "'ACTIVO'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 186,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mbg_rol": {
+        "id": "c_mbg_rol",
+        "tableId": "t_miembro_grupo",
+        "name": "rol_equipo",
+        "comment": "MIEMBRO / CAPITAN",
+        "dataType": "VARCHAR(30)",
+        "default": "'MIEMBRO'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 114,
+          "widthDataType": 75,
+          "widthDefault": 61
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mbg_fpo": {
+        "id": "c_mbg_fpo",
+        "tableId": "t_miembro_grupo",
+        "name": "fecha_ingreso",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "CURRENT_TIMESTAMP",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 75,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 122
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_id": {
+        "id": "c_cmp_id",
+        "tableId": "t_competencia",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_gid": {
+        "id": "c_cmp_gid",
+        "tableId": "t_competencia",
+        "name": "grupo_id",
+        "comment": "FK a grupo",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_nom": {
+        "id": "c_cmp_nom",
+        "tableId": "t_competencia",
+        "name": "nombre_evento",
+        "comment": "",
+        "dataType": "VARCHAR(150)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 85,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_des": {
+        "id": "c_cmp_des",
+        "tableId": "t_competencia",
+        "name": "descripcion",
+        "comment": "",
+        "dataType": "VARCHAR(500)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 62,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_acc": {
+        "id": "c_cmp_acc",
+        "tableId": "t_competencia",
+        "name": "tipo_acceso",
+        "comment": "PUBLICO_GRUPO / PRIVADO_PASS",
+        "dataType": "VARCHAR(30)",
+        "default": "'PUBLICO_GRUPO'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 64,
+          "widthComment": 185,
+          "widthDataType": 75,
+          "widthDefault": 99
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_pas": {
+        "id": "c_cmp_pas",
+        "tableId": "t_competencia",
+        "name": "clave_acceso",
+        "comment": "Password contest",
+        "dataType": "VARCHAR(100)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 69,
+          "widthComment": 94,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_reg": {
+        "id": "c_cmp_reg",
+        "tableId": "t_competencia",
+        "name": "regla_penalizacion",
+        "comment": "ICPC_20_MIN / IOI_POINTS",
+        "dataType": "VARCHAR(30)",
+        "default": "'ICPC_20_MIN'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 99,
+          "widthComment": 145,
+          "widthDataType": 75,
+          "widthDefault": 78
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_dur": {
+        "id": "c_cmp_dur",
+        "tableId": "t_competencia",
+        "name": "duracion_minutos",
+        "comment": "ej. 120 o 300 min",
+        "dataType": "INT",
+        "default": "300",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 96,
+          "widthComment": 93,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_frz": {
+        "id": "c_cmp_frz",
+        "tableId": "t_competencia",
+        "name": "congelar_scoreboard_min",
+        "comment": "Minutos previos al cierre",
+        "dataType": "INT",
+        "default": "60",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 137,
+          "widthComment": 132,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_est": {
+        "id": "c_cmp_est",
+        "tableId": "t_competencia",
+        "name": "estado",
+        "comment": "PROGRAMADA/EN_CURSO/FINALIZADA",
+        "dataType": "VARCHAR(20)",
+        "default": "'PROGRAMADA'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 215,
+          "widthDataType": 75,
+          "widthDefault": 88
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_fin": {
+        "id": "c_cmp_fin",
+        "tableId": "t_competencia",
+        "name": "fecha_inicio",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 64,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cmp_ffi": {
+        "id": "c_cmp_ffi",
+        "tableId": "t_competencia",
+        "name": "fecha_fin",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cpp_id": {
+        "id": "c_cpp_id",
+        "tableId": "t_competencia_problema",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cpp_cid": {
+        "id": "c_cpp_cid",
+        "tableId": "t_competencia_problema",
+        "name": "competencia_id",
+        "comment": "FK a competencia",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 85,
+          "widthComment": 95,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cpp_pid": {
+        "id": "c_cpp_pid",
+        "tableId": "t_competencia_problema",
+        "name": "problema_id",
+        "comment": "FK a problema",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 68,
+          "widthComment": 78,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cpp_ord": {
+        "id": "c_cpp_ord",
+        "tableId": "t_competencia_problema",
+        "name": "orden_letra",
+        "comment": "A, B, C, D...",
+        "dataType": "VARCHAR(5)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 62,
+          "widthComment": 60,
+          "widthDataType": 68,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cpp_pnt": {
+        "id": "c_cpp_pnt",
+        "tableId": "t_competencia_problema",
+        "name": "puntaje",
+        "comment": "Base scoreboard",
+        "dataType": "INT",
+        "default": "1",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 89,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_cpp_rgb": {
+        "id": "c_cpp_rgb",
+        "tableId": "t_competencia_problema",
+        "name": "color_globo",
+        "comment": "Hex RGB globo ICPC",
+        "dataType": "VARCHAR(20)",
+        "default": "'#FF0000'",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 65,
+          "widthComment": 110,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_id": {
+        "id": "c_prb_id",
+        "tableId": "t_problema",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_cod": {
+        "id": "c_prb_cod",
+        "tableId": "t_problema",
+        "name": "codigo_origen",
+        "comment": "ej. CF-158A, CSES-1633",
+        "dataType": "VARCHAR(50)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 78,
+          "widthComment": 125,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_tit": {
+        "id": "c_prb_tit",
+        "tableId": "t_problema",
+        "name": "titulo",
+        "comment": "",
+        "dataType": "VARCHAR(150)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_plt": {
+        "id": "c_prb_plt",
+        "tableId": "t_problema",
+        "name": "plataforma_origen",
+        "comment": "CODEFORCES/ATCODER/CSES",
+        "dataType": "VARCHAR(50)",
+        "default": "'CODEFORCES'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 99,
+          "widthComment": 160,
+          "widthDataType": 75,
+          "widthDefault": 80
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_url": {
+        "id": "c_prb_url",
+        "tableId": "t_problema",
+        "name": "url_problema",
+        "comment": "",
+        "dataType": "VARCHAR(300)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 72,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_dif": {
+        "id": "c_prb_dif",
+        "tableId": "t_problema",
+        "name": "dificultad_rating",
+        "comment": "800, 1400, 2100",
+        "dataType": "VARCHAR(30)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 87,
+          "widthComment": 85,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_tms": {
+        "id": "c_prb_tms",
+        "tableId": "t_problema",
+        "name": "limite_tiempo_ms",
+        "comment": "Tiempo CPU en ms",
+        "dataType": "INT",
+        "default": "1000",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 94,
+          "widthComment": 103,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_prb_mmb": {
+        "id": "c_prb_mmb",
+        "tableId": "t_problema",
+        "name": "limite_memoria_mb",
+        "comment": "Memoria RAM en MB",
+        "dataType": "INT",
+        "default": "256",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 106,
+          "widthComment": 116,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_rsp_id": {
+        "id": "c_rsp_id",
+        "tableId": "t_resolucion_problema",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_rsp_ver": {
+        "id": "c_rsp_ver",
+        "tableId": "t_resolucion_problema",
+        "name": "veredicto",
+        "comment": "PENDIENTE / ACCEPTED / WRONG_ANSWER / TLE / MLE / ERROR",
+        "dataType": "VARCHAR(30)",
+        "default": "'PENDIENTE'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 349,
+          "widthDataType": 75,
+          "widthDefault": 68
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_rsp_lan": {
+        "id": "c_rsp_lan",
+        "tableId": "t_resolucion_problema",
+        "name": "lenguaje",
+        "comment": "C++20, Python 3, Java 17",
+        "dataType": "VARCHAR(30)",
+        "default": "'C++20'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 136,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_rsp_tms": {
+        "id": "c_rsp_tms",
+        "tableId": "t_resolucion_problema",
+        "name": "tiempo_ejecucion_ms",
+        "comment": "Tiempo consumido en ms",
+        "dataType": "INT",
+        "default": "0",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 115,
+          "widthComment": 139,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790990805590,
+          "createAt": 1790924582549
+        }
+      },
+      "c_rsp_mkb": {
+        "id": "c_rsp_mkb",
+        "tableId": "t_resolucion_problema",
+        "name": "memoria_usada_kb",
+        "comment": "RAM consumida",
+        "dataType": "INT",
+        "default": "0",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 103,
+          "widthComment": 89,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_rsp_fec": {
+        "id": "c_rsp_fec",
+        "tableId": "t_resolucion_problema",
+        "name": "fecha_envio",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "CURRENT_TIMESTAMP",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 64,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 122
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_id": {
+        "id": "c_mat_id",
+        "tableId": "t_material",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_pid": {
+        "id": "c_mat_pid",
+        "tableId": "t_material",
+        "name": "problema_id",
+        "comment": "FK NULLABLE (NULL=Biblioteca libre)",
+        "dataType": "INT",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 2,
+          "widthName": 68,
+          "widthComment": 199,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_tit": {
+        "id": "c_mat_tit",
+        "tableId": "t_material",
+        "name": "titulo",
+        "comment": "",
+        "dataType": "VARCHAR(200)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_aut": {
+        "id": "c_mat_aut",
+        "tableId": "t_material",
+        "name": "autor",
+        "comment": "",
+        "dataType": "VARCHAR(150)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_tip": {
+        "id": "c_mat_tip",
+        "tableId": "t_material",
+        "name": "tipo_recurso",
+        "comment": "LIBRO/ARTICULO/REPOSITORIO",
+        "dataType": "VARCHAR(30)",
+        "default": "'LIBRO'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 67,
+          "widthComment": 170,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_tem": {
+        "id": "c_mat_tem",
+        "tableId": "t_material",
+        "name": "tema",
+        "comment": "Clasificador algoritmico",
+        "dataType": "VARCHAR(80)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 126,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_url": {
+        "id": "c_mat_url",
+        "tableId": "t_material",
+        "name": "enlace_url",
+        "comment": "",
+        "dataType": "VARCHAR(400)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_mat_des": {
+        "id": "c_mat_des",
+        "tableId": "t_material",
+        "name": "descripcion",
+        "comment": "Capitulo sugerido o notas",
+        "dataType": "VARCHAR(300)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 62,
+          "widthComment": 139,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790924582549,
+          "createAt": 1790924582549
+        }
+      },
+      "c_pg_salida": {
+        "id": "c_pg_salida",
+        "tableId": "t_miembro_grupo",
+        "name": "fecha_salida",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 66,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_id": {
+        "id": "c_sg_id",
+        "tableId": "t_solicitud_grupo",
+        "name": "id",
+        "comment": "",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_grupo": {
+        "id": "c_sg_grupo",
+        "tableId": "t_solicitud_grupo",
+        "name": "grupo_id",
+        "comment": "",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_practicante": {
+        "id": "c_sg_practicante",
+        "tableId": "t_solicitud_grupo",
+        "name": "practicante_id",
+        "comment": "",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 76,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_estado": {
+        "id": "c_sg_estado",
+        "tableId": "t_solicitud_grupo",
+        "name": "estado",
+        "comment": "PENDIENTE / ACEPTADA / RECHAZADA / CANCELADA",
+        "dataType": "VARCHAR(20)",
+        "default": "'PENDIENTE'",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 288,
+          "widthDataType": 75,
+          "widthDefault": 68
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_mensaje": {
+        "id": "c_sg_mensaje",
+        "tableId": "t_solicitud_grupo",
+        "name": "mensaje_postulacion",
+        "comment": "",
+        "dataType": "VARCHAR(255)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 112,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_motivo": {
+        "id": "c_sg_motivo",
+        "tableId": "t_solicitud_grupo",
+        "name": "motivo_respuesta",
+        "comment": "",
+        "dataType": "VARCHAR(255)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 95,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_fecha": {
+        "id": "c_sg_fecha",
+        "tableId": "t_solicitud_grupo",
+        "name": "fecha_postulacion",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "CURRENT_TIMESTAMP",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 97,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 122
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_sg_respuesta": {
+        "id": "c_sg_respuesta",
+        "tableId": "t_solicitud_grupo",
+        "name": "fecha_respuesta",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 86,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_cpp_fecha_asignacion": {
+        "id": "c_cpp_fecha_asignacion",
+        "tableId": "t_competencia_problema",
+        "name": "fecha_asignacion",
+        "comment": "Momento en que el coach agrega el problema a la competencia.",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "CURRENT_TIMESTAMP",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 92,
+          "widthComment": 343,
+          "widthDataType": 162,
+          "widthDefault": 122
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_rsp_pg": {
+        "id": "c_rsp_pg",
+        "tableId": "t_resolucion_problema",
+        "name": "practicante_grupo_id",
+        "comment": "",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 113,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_rsp_cpp": {
+        "id": "c_rsp_cpp",
+        "tableId": "t_resolucion_problema",
+        "name": "competencia_problema_id",
+        "comment": "",
+        "dataType": "INT",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 141,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "c_rsp_evidencia": {
+        "id": "c_rsp_evidencia",
+        "tableId": "t_resolucion_problema",
+        "name": "url_evidencia",
+        "comment": "",
+        "dataType": "VARCHAR(500)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 70,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "7dIUvdcRAUOcs-XJ3GA-Q": {
+        "id": "7dIUvdcRAUOcs-XJ3GA-Q",
+        "tableId": "t_grupo_estudio",
+        "name": "visibilidad",
+        "comment": "PUBLICO, PROTEGIDO, ARCHIVADO",
+        "dataType": "VARCHAR(50)",
+        "default": "'PUBLICO'",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 190,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790989975049,
+          "createAt": 1790989928674
+        }
+      },
+      "c_tema_id": {
+        "id": "c_tema_id",
+        "tableId": "t_tema",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "c_tema_nombre": {
+        "id": "c_tema_nombre",
+        "tableId": "t_tema",
+        "name": "nombre",
+        "comment": "Nombre unico del tema.",
+        "dataType": "VARCHAR(80)",
+        "default": "",
+        "options": 12,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 130,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "c_tema_descripcion": {
+        "id": "c_tema_descripcion",
+        "tableId": "t_tema",
+        "name": "descripcion",
+        "comment": "",
+        "dataType": "TEXT",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 62,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "c_pt_problema": {
+        "id": "c_pt_problema",
+        "tableId": "t_problema_tema",
+        "name": "problema_id",
+        "comment": "PK compuesta, FK a problema.id",
+        "dataType": "INT",
+        "default": "",
+        "options": 10,
+        "ui": {
+          "keys": 3,
+          "widthName": 68,
+          "widthComment": 172,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "c_pt_tema": {
+        "id": "c_pt_tema",
+        "tableId": "t_problema_tema",
+        "name": "tema_id",
+        "comment": "PK compuesta, FK a tema.id",
+        "dataType": "INT",
+        "default": "",
+        "options": 10,
+        "ui": {
+          "keys": 3,
+          "widthName": 60,
+          "widthComment": 148,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "ocwG4XDkd-7XBFGipXljg": {
+        "id": "ocwG4XDkd-7XBFGipXljg",
+        "tableId": "xqI0Y224rco0ts20q7sSH",
+        "name": "idCategoria",
+        "comment": "",
+        "dataType": "int",
+        "default": "",
+        "options": 10,
+        "ui": {
+          "keys": 1,
+          "widthName": 63,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791081989862,
+          "createAt": 1791081976144
+        }
+      },
+      "8zcpdqn9ZOnnB9cUeC4lh": {
+        "id": "8zcpdqn9ZOnnB9cUeC4lh",
+        "tableId": "xqI0Y224rco0ts20q7sSH",
+        "name": "descripcionCategoria",
+        "comment": "",
+        "dataType": "VARCHAR(100)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 114,
+          "widthComment": 60,
+          "widthDataType": 81,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791083345581,
+          "createAt": 1791081992729
+        }
+      },
+      "c1waBQ8PniXPst-gYIE7n": {
+        "id": "c1waBQ8PniXPst-gYIE7n",
+        "tableId": "xqI0Y224rco0ts20q7sSH",
+        "name": "nombreCategoria",
+        "comment": "",
+        "dataType": "VARCHAR(10)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 95,
+          "widthComment": 60,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791083350262,
+          "createAt": 1791083333429
+        }
+      },
+      "uTEAp_JY9tT3j_ANZEjrA": {
+        "id": "uTEAp_JY9tT3j_ANZEjrA",
+        "tableId": "xqI0Y224rco0ts20q7sSH",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791083367202,
+          "createAt": 1791083367201
+        }
+      },
+      "evVbhAQBFmDOon-saq9oz": {
+        "id": "evVbhAQBFmDOon-saq9oz",
+        "tableId": "xqI0Y224rco0ts20q7sSH",
+        "name": "idGrupo",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 60,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791083387070,
+          "createAt": 1791083382990
+        }
+      },
+      "IJkt8hREWfSCiWLPerHT8": {
+        "id": "IJkt8hREWfSCiWLPerHT8",
+        "tableId": "t_resolucion_problema",
+        "name": "practicante_grupo_id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 2,
+          "widthName": 113,
+          "widthComment": 60,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791157893166,
+          "createAt": 1791157870740
+        }
+      }
+    },
+    "relationshipEntities": {
+      "rel_usr_coa": {
+        "id": "rel_usr_coa",
+        "identification": true,
+        "relationshipType": 8,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_usuario",
+          "columnIds": [
+            "c_usr_id"
+          ],
+          "x": 93.34289999999999,
+          "y": 80.7089,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_coach",
+          "columnIds": [
+            "c_coa_uid"
+          ],
+          "x": 240.8274,
+          "y": 81.7062,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_usr_pra": {
+        "id": "rel_usr_pra",
+        "identification": true,
+        "relationshipType": 8,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_usuario",
+          "columnIds": [
+            "c_usr_id"
+          ],
+          "x": -250.6571,
+          "y": 179.7089,
+          "direction": 8
+        },
+        "end": {
+          "tableId": "t_practicante",
+          "columnIds": [
+            "c_pra_uid"
+          ],
+          "x": -252.07809999999995,
+          "y": 322.7552,
+          "direction": 4
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_coa_grp": {
+        "id": "rel_coa_grp",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_coach",
+          "columnIds": [
+            "c_coa_uid"
+          ],
+          "x": 790.8274,
+          "y": 81.7062,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_grupo_estudio",
+          "columnIds": [
+            "c_grp_cid"
+          ],
+          "x": 1051.2171,
+          "y": 99.1002,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_grp_pg": {
+        "id": "rel_grp_pg",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_grupo_estudio",
+          "columnIds": [
+            "c_grp_id"
+          ],
+          "x": 1424.2171,
+          "y": 246.1002,
+          "direction": 8
+        },
+        "end": {
+          "tableId": "t_miembro_grupo",
+          "columnIds": [
+            "c_mbg_gid"
+          ],
+          "x": 1139.1496,
+          "y": 385.044,
+          "direction": 2
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_pra_pg": {
+        "id": "rel_pra_pg",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_practicante",
+          "columnIds": [
+            "c_pra_uid"
+          ],
+          "x": 78.92190000000005,
+          "y": 445.75520000000006,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_miembro_grupo",
+          "columnIds": [
+            "c_mbg_pid"
+          ],
+          "x": 205.1496,
+          "y": 445.044,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_grp_sg": {
+        "id": "rel_grp_sg",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_grupo_estudio",
+          "columnIds": [
+            "c_grp_id"
+          ],
+          "x": 1484.2171,
+          "y": 246.1002,
+          "direction": 8
+        },
+        "end": {
+          "tableId": "t_solicitud_grupo",
+          "columnIds": [
+            "c_sg_grupo"
+          ],
+          "x": 1386.7395,
+          "y": 735.3049,
+          "direction": 2
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_pra_sg": {
+        "id": "rel_pra_sg",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_practicante",
+          "columnIds": [
+            "c_pra_uid"
+          ],
+          "x": -252.07809999999995,
+          "y": 568.7552000000001,
+          "direction": 8
+        },
+        "end": {
+          "tableId": "t_solicitud_grupo",
+          "columnIds": [
+            "c_sg_practicante"
+          ],
+          "x": -149.2605,
+          "y": 735.3049,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_grp_cmp": {
+        "id": "rel_grp_cmp",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_grupo_estudio",
+          "columnIds": [
+            "c_grp_id"
+          ],
+          "x": 1797.2171,
+          "y": 99.1002,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_competencia",
+          "columnIds": [
+            "c_cmp_gid"
+          ],
+          "x": 2000.591,
+          "y": 96.9925,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_cmp_cpp": {
+        "id": "rel_cmp_cpp",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_competencia",
+          "columnIds": [
+            "c_cmp_id"
+          ],
+          "x": 2396.091,
+          "y": 255.9925,
+          "direction": 8
+        },
+        "end": {
+          "tableId": "t_competencia_problema",
+          "columnIds": [
+            "c_cpp_cid"
+          ],
+          "x": 2397.2603,
+          "y": 613.9131,
+          "direction": 4
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_prb_cpp": {
+        "id": "rel_prb_cpp",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_problema",
+          "columnIds": [
+            "c_prb_id"
+          ],
+          "x": 1737.2583,
+          "y": 849.9112,
+          "direction": 4
+        },
+        "end": {
+          "tableId": "t_competencia_problema",
+          "columnIds": [
+            "c_cpp_pid"
+          ],
+          "x": 1948.2603,
+          "y": 712.9131,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_pg_rsp": {
+        "id": "rel_pg_rsp",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_miembro_grupo",
+          "columnIds": [
+            "c_mbg_id"
+          ],
+          "x": 1139.1496,
+          "y": 505.044,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_resolucion_problema",
+          "columnIds": [
+            "c_rsp_pg"
+          ],
+          "x": 3081.5288,
+          "y": 463.5935999999999,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_cpp_rsp": {
+        "id": "rel_cpp_rsp",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_competencia_problema",
+          "columnIds": [
+            "c_cpp_id"
+          ],
+          "x": 2846.2603,
+          "y": 712.9131,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_resolucion_problema",
+          "columnIds": [
+            "c_rsp_cpp"
+          ],
+          "x": 3081.5288,
+          "y": 583.5935999999999,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_prb_mat": {
+        "id": "rel_prb_mat",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 1,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_problema",
+          "columnIds": [
+            "c_prb_id"
+          ],
+          "x": 1737.2583,
+          "y": 1071.9112,
+          "direction": 8
+        },
+        "end": {
+          "tableId": "t_material",
+          "columnIds": [
+            "c_mat_pid"
+          ],
+          "x": 1737.1645,
+          "y": 1234.1536,
+          "direction": 4
+        },
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "rel_problema_problema_tema": {
+        "id": "rel_problema_problema_tema",
+        "identification": true,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_problema",
+          "columnIds": [
+            "c_prb_id"
+          ],
+          "x": 1434.7583,
+          "y": 960.9112,
+          "direction": 1
+        },
+        "end": {
+          "tableId": "t_problema_tema",
+          "columnIds": [
+            "c_pt_problema"
+          ],
+          "x": 1298.9157,
+          "y": 961.2892,
+          "direction": 2
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "rel_tema_problema_tema": {
+        "id": "rel_tema_problema_tema",
+        "identification": true,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_tema",
+          "columnIds": [
+            "c_tema_id"
+          ],
+          "x": 613.6936000000001,
+          "y": 962.5286,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_problema_tema",
+          "columnIds": [
+            "c_pt_tema"
+          ],
+          "x": 728.9157,
+          "y": 961.2892,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      },
+      "wiapNamjGgbljY0_ujikC": {
+        "id": "wiapNamjGgbljY0_ujikC",
+        "identification": false,
+        "relationshipType": 8,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_competencia",
+          "columnIds": [
+            "c_cmp_id"
+          ],
+          "x": 2396.091,
+          "y": -62.0075,
+          "direction": 4
+        },
+        "end": {
+          "tableId": "xqI0Y224rco0ts20q7sSH",
+          "columnIds": [
+            "uTEAp_JY9tT3j_ANZEjrA"
+          ],
+          "x": 2266.7906000000003,
+          "y": -244.98630000000003,
+          "direction": 8
+        },
+        "meta": {
+          "updateAt": 1791083367202,
+          "createAt": 1791083367202
+        }
+      },
+      "_sV7OqJzssR3loW4PSNws": {
+        "id": "_sV7OqJzssR3loW4PSNws",
+        "identification": false,
+        "relationshipType": 8,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_grupo_estudio",
+          "columnIds": [
+            "c_grp_id"
+          ],
+          "x": 1424.2171,
+          "y": -47.8998,
+          "direction": 4
+        },
+        "end": {
+          "tableId": "xqI0Y224rco0ts20q7sSH",
+          "columnIds": [
+            "evVbhAQBFmDOon-saq9oz"
+          ],
+          "x": 1496.6347,
+          "y": -287.5562,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1791083382990,
+          "createAt": 1791083382990
+        }
+      },
+      "xeaG--WQjGdCAeLxi0mYB": {
+        "id": "xeaG--WQjGdCAeLxi0mYB",
+        "identification": false,
+        "relationshipType": 16,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_miembro_grupo",
+          "columnIds": [
+            "c_mbg_id"
+          ],
+          "x": 1139.1496,
+          "y": 505.044,
+          "direction": 2
+        },
+        "end": {
+          "tableId": "t_resolucion_problema",
+          "columnIds": [
+            "IJkt8hREWfSCiWLPerHT8"
+          ],
+          "x": 3081.5288,
+          "y": 463.5935999999999,
+          "direction": 1
+        },
+        "meta": {
+          "updateAt": 1791157870742,
+          "createAt": 1791157870742
+        }
+      }
+    },
+    "indexEntities": {
+      "ix_pg_unique": {
+        "id": "ix_pg_unique",
+        "name": "uq_practicante_grupo",
+        "tableId": "t_miembro_grupo",
+        "indexColumnIds": [
+          "ix_pg_unique_c0",
+          "ix_pg_unique_c1"
+        ],
+        "seqIndexColumnIds": [
+          "ix_pg_unique_c0",
+          "ix_pg_unique_c1"
+        ],
+        "unique": true,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_cpp_unique": {
+        "id": "ix_cpp_unique",
+        "name": "uq_competencia_problema",
+        "tableId": "t_competencia_problema",
+        "indexColumnIds": [
+          "ix_cpp_unique_c0",
+          "ix_cpp_unique_c1"
+        ],
+        "seqIndexColumnIds": [
+          "ix_cpp_unique_c0",
+          "ix_cpp_unique_c1"
+        ],
+        "unique": true,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_cpp_orden": {
+        "id": "ix_cpp_orden",
+        "name": "uq_competencia_orden_letra",
+        "tableId": "t_competencia_problema",
+        "indexColumnIds": [
+          "ix_cpp_orden_c0",
+          "ix_cpp_orden_c1"
+        ],
+        "seqIndexColumnIds": [
+          "ix_cpp_orden_c0",
+          "ix_cpp_orden_c1"
+        ],
+        "unique": true,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_sg_busqueda": {
+        "id": "ix_sg_busqueda",
+        "name": "idx_solicitud_grupo_estado",
+        "tableId": "t_solicitud_grupo",
+        "indexColumnIds": [
+          "ix_sg_busqueda_c0",
+          "ix_sg_busqueda_c1",
+          "ix_sg_busqueda_c2"
+        ],
+        "seqIndexColumnIds": [
+          "ix_sg_busqueda_c0",
+          "ix_sg_busqueda_c1",
+          "ix_sg_busqueda_c2"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_grp_cid": {
+        "id": "ix_fk_c_grp_cid",
+        "name": "idx_grupo_estudio_coach_id",
+        "tableId": "t_grupo_estudio",
+        "indexColumnIds": [
+          "ix_fk_c_grp_cid_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_grp_cid_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_mbg_pid": {
+        "id": "ix_fk_c_mbg_pid",
+        "name": "idx_practicante_grupo_practicante_id",
+        "tableId": "t_miembro_grupo",
+        "indexColumnIds": [
+          "ix_fk_c_mbg_pid_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_mbg_pid_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_cmp_gid": {
+        "id": "ix_fk_c_cmp_gid",
+        "name": "idx_competencia_grupo_id",
+        "tableId": "t_competencia",
+        "indexColumnIds": [
+          "ix_fk_c_cmp_gid_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_cmp_gid_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_cpp_pid": {
+        "id": "ix_fk_c_cpp_pid",
+        "name": "idx_competencia_problema_problema_id",
+        "tableId": "t_competencia_problema",
+        "indexColumnIds": [
+          "ix_fk_c_cpp_pid_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_cpp_pid_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_rsp_pg": {
+        "id": "ix_fk_c_rsp_pg",
+        "name": "idx_resolucion_problema_practicante_grupo_id",
+        "tableId": "t_resolucion_problema",
+        "indexColumnIds": [
+          "ix_fk_c_rsp_pg_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_rsp_pg_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_rsp_cpp": {
+        "id": "ix_fk_c_rsp_cpp",
+        "name": "idx_resolucion_problema_competencia_problema_id",
+        "tableId": "t_resolucion_problema",
+        "indexColumnIds": [
+          "ix_fk_c_rsp_cpp_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_rsp_cpp_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_mat_pid": {
+        "id": "ix_fk_c_mat_pid",
+        "name": "idx_material_problema_id",
+        "tableId": "t_material",
+        "indexColumnIds": [
+          "ix_fk_c_mat_pid_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_mat_pid_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_sg_practicante": {
+        "id": "ix_fk_c_sg_practicante",
+        "name": "idx_solicitud_grupo_practicante_id",
+        "tableId": "t_solicitud_grupo",
+        "indexColumnIds": [
+          "ix_fk_c_sg_practicante_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_fk_c_sg_practicante_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_problema_tema_tema": {
+        "id": "ix_problema_tema_tema",
+        "name": "idx_problema_tema_tema_id",
+        "tableId": "t_problema_tema",
+        "indexColumnIds": [
+          "ix_problema_tema_tema_c0"
+        ],
+        "seqIndexColumnIds": [
+          "ix_problema_tema_tema_c0"
+        ],
+        "unique": false,
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      }
+    },
+    "indexColumnEntities": {
+      "ix_pg_unique_c0": {
+        "id": "ix_pg_unique_c0",
+        "indexId": "ix_pg_unique",
+        "columnId": "c_mbg_gid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_pg_unique_c1": {
+        "id": "ix_pg_unique_c1",
+        "indexId": "ix_pg_unique",
+        "columnId": "c_mbg_pid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_cpp_unique_c0": {
+        "id": "ix_cpp_unique_c0",
+        "indexId": "ix_cpp_unique",
+        "columnId": "c_cpp_cid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_cpp_unique_c1": {
+        "id": "ix_cpp_unique_c1",
+        "indexId": "ix_cpp_unique",
+        "columnId": "c_cpp_pid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_cpp_orden_c0": {
+        "id": "ix_cpp_orden_c0",
+        "indexId": "ix_cpp_orden",
+        "columnId": "c_cpp_cid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_cpp_orden_c1": {
+        "id": "ix_cpp_orden_c1",
+        "indexId": "ix_cpp_orden",
+        "columnId": "c_cpp_ord",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_sg_busqueda_c0": {
+        "id": "ix_sg_busqueda_c0",
+        "indexId": "ix_sg_busqueda",
+        "columnId": "c_sg_grupo",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_sg_busqueda_c1": {
+        "id": "ix_sg_busqueda_c1",
+        "indexId": "ix_sg_busqueda",
+        "columnId": "c_sg_practicante",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_sg_busqueda_c2": {
+        "id": "ix_sg_busqueda_c2",
+        "indexId": "ix_sg_busqueda",
+        "columnId": "c_sg_estado",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_grp_cid_c0": {
+        "id": "ix_fk_c_grp_cid_c0",
+        "indexId": "ix_fk_c_grp_cid",
+        "columnId": "c_grp_cid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_mbg_pid_c0": {
+        "id": "ix_fk_c_mbg_pid_c0",
+        "indexId": "ix_fk_c_mbg_pid",
+        "columnId": "c_mbg_pid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_cmp_gid_c0": {
+        "id": "ix_fk_c_cmp_gid_c0",
+        "indexId": "ix_fk_c_cmp_gid",
+        "columnId": "c_cmp_gid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_cpp_pid_c0": {
+        "id": "ix_fk_c_cpp_pid_c0",
+        "indexId": "ix_fk_c_cpp_pid",
+        "columnId": "c_cpp_pid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_rsp_pg_c0": {
+        "id": "ix_fk_c_rsp_pg_c0",
+        "indexId": "ix_fk_c_rsp_pg",
+        "columnId": "c_rsp_pg",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_rsp_cpp_c0": {
+        "id": "ix_fk_c_rsp_cpp_c0",
+        "indexId": "ix_fk_c_rsp_cpp",
+        "columnId": "c_rsp_cpp",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_mat_pid_c0": {
+        "id": "ix_fk_c_mat_pid_c0",
+        "indexId": "ix_fk_c_mat_pid",
+        "columnId": "c_mat_pid",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_fk_c_sg_practicante_c0": {
+        "id": "ix_fk_c_sg_practicante_c0",
+        "indexId": "ix_fk_c_sg_practicante",
+        "columnId": "c_sg_practicante",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790989509851,
+          "createAt": 1790989509851
+        }
+      },
+      "ix_problema_tema_tema_c0": {
+        "id": "ix_problema_tema_tema_c0",
+        "indexId": "ix_problema_tema_tema",
+        "columnId": "c_pt_tema",
+        "orderType": 1,
+        "meta": {
+          "updateAt": 1790991443480,
+          "createAt": 1790991443480
+        }
+      }
+    },
+    "memoEntities": {}
+  }
+}
