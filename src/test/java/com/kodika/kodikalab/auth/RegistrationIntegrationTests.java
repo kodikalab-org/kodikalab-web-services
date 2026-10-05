@@ -71,11 +71,11 @@ class RegistrationIntegrationTests {
     }
 
     private String email() {
-        return "registration." + UUID.randomUUID() + "@upc.edu.pe";
+        return "test.registration." + UUID.randomUUID() + "@gmail.com";
     }
 
     private Map<String, String> request(String email, String password, String role) {
-        return Map.of("firstName", "Matias", "lastName", "Del Castillo", "email", email,
+        return Map.of("firstName", "Usuario", "lastName", "Prueba", "email", email,
                 "password", password, "role", role);
     }
 
@@ -88,16 +88,75 @@ class RegistrationIntegrationTests {
     @Test
     void registrationPersistsOnlyHashedPasswordAndActiveRole() {
         String email = email();
-        var response = register(request(email.toUpperCase(), "Password123", "PRACTITIONER"));
+        var response = register(request(email.toUpperCase(), "Password123", "PRACTICANTE"));
         assertThat(response.getStatusCode().value()).isEqualTo(201);
         assertThat(response.getBody()).containsEntry("message", "Registro exitoso").containsEntry("email", email)
-                .containsEntry("role", "PRACTITIONER").doesNotContainKeys("password", "passwordHash", "token");
+                .containsEntry("role", "PRACTICANTE").doesNotContainKeys("password", "passwordHash", "token");
         User saved = repository.findByEmail(email).orElseThrow();
-        assertThat(saved.getFirstName()).isEqualTo("Matias");
-        assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVE);
+        assertThat(saved.getFullName()).isEqualTo("Usuario Prueba");
+        assertThat(saved.getId()).isPositive();
+        assertThat(saved.getStatus()).isEqualTo(UserStatus.ACTIVO);
         assertThat(saved.getCreatedAt()).isNotNull();
         assertThat(saved.getPasswordHash()).isNotEqualTo("Password123");
         assertThat(encoder.matches("Password123", saved.getPasswordHash())).isTrue();
+    }
+
+    @Test
+    void physicalAccountSchemaMatchesOfficialErd() throws SQLException {
+        try (Connection connection = connect(); var statement = connection.prepareStatement(
+                "SELECT column_name, data_type, character_maximum_length, is_nullable, column_default "
+                        + "FROM information_schema.columns WHERE table_schema = ? AND table_name = 'usuario'")) {
+            statement.setString(1, SCHEMA);
+            try (var rows = statement.executeQuery()) {
+                var columns = new java.util.HashMap<String, String>();
+                while (rows.next()) {
+                    String name = rows.getString("column_name");
+                    columns.put(name, rows.getString("data_type"));
+                    assertThat(rows.getString("is_nullable")).isEqualTo("NO");
+                    if (name.equals("correo")) assertThat(rows.getInt("character_maximum_length")).isEqualTo(100);
+                    if (name.equals("nombre_completo")) assertThat(rows.getInt("character_maximum_length")).isEqualTo(150);
+                    if (name.equals("password_hash")) assertThat(rows.getInt("character_maximum_length")).isEqualTo(255);
+                    if (name.equals("rol") || name.equals("estado_cuenta")) {
+                        assertThat(rows.getInt("character_maximum_length")).isEqualTo(20);
+                    }
+                    if (name.equals("estado_cuenta")) assertThat(rows.getString("column_default")).contains("ACTIVO");
+                    if (name.equals("fecha_registro")) assertThat(rows.getString("column_default")).isNotBlank();
+                }
+                assertThat(columns).containsOnlyKeys("id", "nombre_completo", "correo", "password_hash",
+                        "rol", "estado_cuenta", "fecha_registro");
+                assertThat(columns).containsEntry("id", "integer")
+                        .containsEntry("fecha_registro", "timestamp with time zone");
+            }
+        }
+    }
+
+    @Test
+    void acceptsExactLimitsAndRejectsOverflowWithoutPersisting() {
+        String email100 = "a".repeat(60) + "@" + "b".repeat(29) + ".gmail.com";
+        assertThat(email100).hasSize(100);
+        var valid = new java.util.HashMap<>(request(email100, "Password123", "COACH"));
+        valid.put("firstName", "a".repeat(80));
+        valid.put("lastName", "b".repeat(69));
+        assertThat(register(valid).getStatusCode().value()).isEqualTo(201);
+        assertThat(repository.findByEmail(email100).orElseThrow().getFullName()).hasSize(150);
+        String otherEmail = email();
+        valid.put("email", otherEmail);
+        valid.put("lastName", "b".repeat(70));
+        assertThat(register(valid).getStatusCode().value()).isEqualTo(400);
+        assertThat(repository.existsByEmail(otherEmail)).isFalse();
+        valid.put("lastName", "Prueba");
+        valid.put("email", "a" + email100);
+        assertThat(register(valid).getStatusCode().value()).isEqualTo(400);
+        assertThat(repository.existsByEmail("a" + email100)).isFalse();
+    }
+
+    @Test
+    void adminIsRejectedWithoutCreatingAnAccount() {
+        String email = email();
+        var response = register(request(email, "Password123", "ADMIN"));
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).containsEntry("message", "El rol debe ser PRACTICANTE o COACH");
+        assertThat(repository.existsByEmail(email)).isFalse();
     }
 
     @Test
@@ -114,7 +173,7 @@ class RegistrationIntegrationTests {
     @Test
     void weakPasswordDoesNotPersistAccount() {
         String email = email();
-        var response = register(request(email, "12345", "PRACTITIONER"));
+        var response = register(request(email, "12345", "PRACTICANTE"));
         assertThat(response.getStatusCode().value()).isEqualTo(400);
         assertThat(response.getBody()).containsEntry("message",
                 "La contraseña debe contener al menos 8 caracteres, una mayúscula y un número");
@@ -124,8 +183,17 @@ class RegistrationIntegrationTests {
     @Test
     void bcryptByteLimitDoesNotPersistAccount() {
         String email = email();
-        var response = register(request(email, "A1" + "ñ".repeat(36), "PRACTITIONER"));
+        var response = register(request(email, "A1" + "ñ".repeat(36), "PRACTICANTE"));
         assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(repository.existsByEmail(email)).isFalse();
+    }
+
+    @Test
+    void englishRoleIsRejectedWithoutCreatingAnAccount() {
+        String email = email();
+        var response = register(request(email, "Password123", "PRACTITIONER"));
+        assertThat(response.getStatusCode().value()).isEqualTo(400);
+        assertThat(response.getBody()).containsEntry("message", "El rol debe ser PRACTICANTE o COACH");
         assertThat(repository.existsByEmail(email)).isFalse();
     }
 
@@ -134,13 +202,13 @@ class RegistrationIntegrationTests {
         String email = email();
         assertThat(register(request(email, "Password123", "ROOT")).getStatusCode().value()).isEqualTo(400);
         assertThat(repository.existsByEmail(email)).isFalse();
-        assertThat(register(request("not-an-email", "Password123", "PRACTITIONER")).getStatusCode().value()).isEqualTo(400);
+        assertThat(register(request("not-an-email", "Password123", "PRACTICANTE")).getStatusCode().value()).isEqualTo(400);
     }
 
     @Test
     void concurrentRequestsCreateExactlyOneAccount() throws Exception {
         String email = email();
-        Callable<Integer> task = () -> register(request(email, "Password123", "PRACTITIONER")).getStatusCode().value();
+        Callable<Integer> task = () -> register(request(email, "Password123", "PRACTICANTE")).getStatusCode().value();
         try (var executor = Executors.newFixedThreadPool(2)) {
             var results = executor.invokeAll(List.of(task, task));
             assertThat(List.of(results.get(0).get(), results.get(1).get())).containsExactlyInAnyOrder(201, 409);
@@ -149,7 +217,7 @@ class RegistrationIntegrationTests {
     }
 
     @Test
-    void legacyFilesCoexistWithoutDuplicateMappingsOrEntities() {
+    void activeAuthUsesUniqueMappingsAndOneUserEntity() {
         long registrationRoutes = mappings.getHandlerMethods().keySet().stream()
                 .filter(mapping -> mapping.getPatternValues().contains("/auth/register")).count();
         long loginRoutes = mappings.getHandlerMethods().keySet().stream()
