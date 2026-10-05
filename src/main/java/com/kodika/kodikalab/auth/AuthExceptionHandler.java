@@ -3,6 +3,7 @@ package com.kodika.kodikalab.auth;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
+import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.users.Role;
 import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/** Registration errors only; the rest of the scaffolding retains its behavior. */
+/** Authentication errors only; the rest of the scaffolding retains its behavior. */
 @RestControllerAdvice(assignableTypes = AuthController.class)
 public class AuthExceptionHandler {
     public record ErrorResponse(String message, Map<String, String> errors) {
@@ -40,7 +41,7 @@ public class AuthExceptionHandler {
     public ResponseEntity<ErrorResponse> invalidBody(HttpMessageNotReadableException exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof InvalidFormatException format && format.getTargetType() == Role.class) {
-                return error(HttpStatus.BAD_REQUEST, "El rol debe ser PRACTITIONER, COACH o ADMIN");
+                return error(HttpStatus.BAD_REQUEST, "El rol debe ser PRACTICANTE o COACH");
             }
         }
         return error(HttpStatus.BAD_REQUEST, "La solicitud debe contener un JSON válido con los campos esperados");
@@ -54,6 +55,11 @@ public class AuthExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> conflict(ConflictException exception) {
         return error(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> unauthorized(UnauthorizedException exception) {
+        return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

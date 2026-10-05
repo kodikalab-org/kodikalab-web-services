@@ -1,5 +1,14 @@
 # 02 - User Stories
 
+## Relación con el ERD vigente
+
+Las historias funcionales se conservan. El modelo físico de referencia es `assets/oficial.erd`; actualizarlo no equivale a implementar nuevas historias ni a completar criterios sin contrato técnico.
+
+- US01/US02 usan la cuenta base `usuario`, con roles SQL `COACH`/`PRACTICANTE` y estados `ACTIVO`/`SUSPENDIDO`; ver `03-api-contracts.md` para la correspondencia Java/HTTP.
+- US03 debe definir el completado de los perfiles `coach`/`practicante` y sus datos obligatorios. No se crean perfiles con datos ficticios durante el registro base.
+- Equipos, competencias y catálogo se describen con las tablas oficiales nuevas, pero su código se adapta únicamente en la tarea del módulo correspondiente.
+- El escenario de recuperación de acceso de US02 sigue pendiente de contrato, no se da por completado por tener login.
+
 ## Sprint 1
 
 ### US01 - Registro con rol

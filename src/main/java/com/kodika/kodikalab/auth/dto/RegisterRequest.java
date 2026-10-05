@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import java.io.IOException;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,7 +24,7 @@ public record RegisterRequest(
         @Size(max = 80, message = "El apellido debe tener como máximo 80 caracteres") String lastName,
         @NotBlank(message = "El correo es obligatorio")
         @Email(message = "El correo debe tener un formato válido")
-        @Size(max = 255, message = "El correo debe tener como máximo 255 caracteres") String email,
+        @Size(max = 100, message = "El correo debe tener como máximo 100 caracteres") String email,
         @NotBlank(message = "La contraseña es obligatoria")
         @Pattern(regexp = "(?s)(?=.*\\p{Lu})(?=.*\\p{Nd}).{8,}",
                 message = "La contraseña debe contener al menos 8 caracteres, una mayúscula y un número")
@@ -34,6 +36,13 @@ public record RegisterRequest(
         firstName = firstName == null ? null : firstName.strip();
         lastName = lastName == null ? null : lastName.strip();
         email = email == null ? null : email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    @JsonIgnore
+    @AssertTrue(message = "El nombre completo debe tener como máximo 150 caracteres")
+    public boolean isFullNameWithinLimit() {
+        // Missing names are handled by their own required-field constraints.
+        return firstName == null || lastName == null || (firstName + " " + lastName).length() <= 150;
     }
 
     /** Only enum names are accepted, never numeric ordinals. */

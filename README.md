@@ -12,7 +12,7 @@ El objetivo de este repositorio es centralizar los servicios web necesarios para
 - **Spring Boot 3**.
 - **PostgreSQL 15+**.
 - **Maven** mediante Maven Wrapper (`./mvnw`).
-- **Spring Security** con JWT.
+- **Spring Security** con sesión HTTP; JWT futuro, sin activar.
 - **SpringDoc OpenAPI** para documentación Swagger.
 
 ---
@@ -60,8 +60,8 @@ Database: kodikalab_db
 Cada integrante debe configurar Git con su nombre y correo institucional:
 
 ```bash
-git config --global user.name "Nombre Apellido"
-git config --global user.email "correo@upc.edu.pe"
+git config --global user.name "Usuario de prueba"
+git config --global user.email "test@gmail.com"
 ```
 
 Verificar configuración:
@@ -128,20 +128,16 @@ El proyecto usa enfoque **code-first guiado por el ERD del SDD** con JPA/Hiberna
 Esto significa que el diseño funcional y relacional esperado está documentado en:
 
 ```txt
-docs/sdd/assets/diagrama_entidad_relacion.erd
+docs/sdd/assets/oficial.erd
 ```
 
-Las entidades Java implementan técnicamente ese diseño y Hibernate puede crear o actualizar las tablas automáticamente al iniciar la aplicación.
+Las entidades Java implementan la parte del diseño ya desarrollada; actualmente solo existe `usuario`. Hibernate puede crear o actualizar esa tabla al iniciar la aplicación. El scaffolding legacy se retiró; las demás tablas oficiales aún no están implementadas.
 
 Por eso, para desarrollo local, solo es obligatorio crear la base de datos vacía. No es obligatorio ejecutar manualmente un script SQL antes de iniciar el backend.
 
-El archivo:
+Actualmente no hay un snapshot SQL vigente en `docs/sdd/assets/`; el artefacto oficial es `oficial.erd`. Un nuevo snapshot se generará después de revisar sus metadatos y validar las entidades.
 
-```txt
-docs/sdd/assets/init_schema.sql
-```
-
-queda como snapshot/export de referencia del esquema, útil para revisión, documentación o generación de diagramas, pero no es el paso principal de arranque local.
+`auth`/`users` ya implementan la cuenta `usuario`: ID entero, nombre completo de hasta 150, correo de hasta 100 y enums de rol/estado en español persistidos directamente con `@Enumerated(EnumType.STRING)`, sin conversores. Los perfiles y los demás módulos conservan su alcance pendiente. Usar `ddl-auto=update` no migra automáticamente tablas, columnas, roles ni datos existentes; ver `docs/sdd/11-erd-oficial-alignment.md`.
 
 > Importante: el proyecto usa `spring.jpa.hibernate.ddl-auto=update` en desarrollo. Si se modifican entidades JPA, primero debe revisarse el ERD del SDD y luego reflejar el cambio en código y documentación cuando corresponda.
 
@@ -426,7 +422,7 @@ com.kodika.kodikalab
 
 KodikaLab se organiza como un **monolito modular simple**: una sola aplicación Spring Boot y una sola base de datos PostgreSQL, pero con paquetes separados por dominio.
 
-La estructura inicial por capas puede existir durante el scaffolding, pero las nuevas funcionalidades deben tender a esta estructura:
+El scaffolding inicial por capas sin lógica se retiró tras revisar funcionalidad y referencias. Actualmente existen `auth`, `users`, `security`, `config` y `common`; el resto de módulos de la siguiente estructura es diseño objetivo, no carpetas ni endpoints implementados:
 
 ```txt
 src/main/java/com/kodika/kodikalab
@@ -447,10 +443,10 @@ src/main/java/com/kodika/kodikalab
 Módulos principales:
 
 | Módulo | Responsabilidad |
-|---|---|
+| --- | --- |
 | `auth` | Registro, login, autenticación y JWT futuro. |
-| `users` | Cuenta de usuario, rol, estado y disponibilidad. |
-| `profiles` | Perfil competitivo y cuentas externas. |
+| `users` | Cuenta base `usuario`, correo, hash, rol y estado. |
+| `profiles` | Perfiles `coach`/`practicante` y handles del ERD. |
 | `teams` | Equipos, coach, membresías, solicitudes y horarios. |
 | `problems` | Catálogo de problemas, temas y recursos académicos. |
 | `assignments` | Asignaciones, destinatarios, detalles y resoluciones/envíos. |

@@ -3,6 +3,7 @@ package com.kodika.kodikalab.users;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -20,17 +21,16 @@ public class UserService {
     }
 
     @Transactional
-    public void createUser(String firstName, String lastName, String email, String passwordHash, Role role) {
+    public void createUser(String fullName, String email, String passwordHash, Role role) {
         if (userRepository.existsByEmailIgnoreCase(email)) {
             throw new ConflictException(EMAIL_ALREADY_REGISTERED);
         }
         User user = new User();
-        user.setFirstName(firstName);
-        user.setLastName(lastName);
+        user.setFullName(fullName);
         user.setEmail(email);
         user.setPasswordHash(passwordHash);
         user.setRole(role);
-        user.setStatus(UserStatus.ACTIVE);
+        user.setStatus(UserStatus.ACTIVO);
         user.setCreatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         try {
             userRepository.saveAndFlush(user);
@@ -43,11 +43,16 @@ public class UserService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmailIgnoreCase(email);
+    }
+
     private boolean isEmailConflict(Throwable exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof ConstraintViolationException violation) {
                 String name = violation.getConstraintName();
-                if ("uq_users_email".equals(name) || "users_email_key".equals(name)) {
+                if ("uq_usuario_correo".equals(name) || "usuario_correo_key".equals(name)) {
                     return true;
                 }
             }

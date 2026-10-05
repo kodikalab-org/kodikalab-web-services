@@ -8,7 +8,8 @@ Antes de modificar este proyecto, revisar:
 - `docs/sdd/04-database-model.md`
 - `docs/sdd/05-architecture.md`
 - `docs/sdd/08-ai-working-context.md`
-- `docs/sdd/assets/diagrama_entidad_relacion.erd`
+- `docs/sdd/assets/oficial.erd`
+- `docs/sdd/11-erd-oficial-alignment.md`
 
 ## Reglas para asistentes IA
 
@@ -25,7 +26,7 @@ Antes de modificar este proyecto, revisar:
 
 KodikaLab es una sola aplicación Spring Boot con una sola base de datos PostgreSQL, organizada internamente por módulos de dominio.
 
-La estructura inicial por capas puede existir durante el scaffolding, pero las nuevas funcionalidades deben tender a paquetes por dominio:
+El scaffolding raíz sin funcionalidad fue retirado tras revisión y autorización. Conservar los módulos funcionales actuales (`auth`, `users`, `security`, `config`, `common`), incluido `auth/dto`. Crear los módulos siguientes solo al implementar su historia; no restaurar endpoints/clases vacíos:
 
 ```txt
 com.kodika.kodikalab
@@ -46,10 +47,10 @@ com.kodika.kodikalab
 ## Módulos principales
 
 | Módulo | Responsabilidad |
-|---|---|
+| --- | --- |
 | `auth` | Registro, login, autenticación y JWT futuro. |
-| `users` | Cuenta de usuario, rol, estado y disponibilidad. |
-| `profiles` | Perfil competitivo y cuentas externas. |
+| `users` | Cuenta base `usuario`, correo, hash, rol y estado. |
+| `profiles` | Perfiles `coach`/`practicante`, datos académicos/competitivos y handles del ERD. |
 | `teams` | Equipos, coach, membresías, solicitudes de ingreso y horarios. |
 | `problems` | Catálogo de problemas, temas y recursos académicos. |
 | `assignments` | Asignaciones, destinatarios, detalles y resoluciones/envíos. |
@@ -79,10 +80,12 @@ El proyecto usa enfoque **code-first guiado por el ERD del SDD**.
 Referencias:
 
 ```txt
-docs/sdd/assets/diagrama_entidad_relacion.erd
-docs/sdd/assets/init_schema.sql
+docs/sdd/assets/oficial.erd
 docs/sdd/04-database-model.md
+docs/sdd/11-erd-oficial-alignment.md
 ```
+
+Los nombres físicos se respetan como figuran en el ERD, aunque estén en español; las clases, rutas y claves JSON conservan sus nombres ingleses, pero los valores de enums de cuenta están en español (`PRACTICANTE`/`COACH`, `ACTIVO`/`SUSPENDIDO`) en Java, HTTP y SQL. Persistirlos directamente con `@Enumerated(EnumType.STRING)`, sin converters. No hay un snapshot SQL vigente en assets. `auth`/`users` ya están adaptados a `usuario`; otros módulos y datos existentes siguen sin migrar. Usar solo datos ficticios (`Usuario Prueba`, `test@gmail.com`) en documentación y ejemplos.
 
 Antes de modificar entidades JPA o relaciones:
 

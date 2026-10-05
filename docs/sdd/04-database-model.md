@@ -1,162 +1,157 @@
 # 04 - Database Model
 
-## Estrategia oficial
+## Fuente oficial y estado de alineación
 
-KodikaLab usará un enfoque **code-first guiado por el ERD del SDD**.
+El modelo vigente es **`docs/sdd/assets/oficial.erd`**, formato erd-editor 3.0.0, PostgreSQL, base `kodikalab_db`.
 
-Esto significa:
+El archivo reemplaza al diseño anterior. Actualmente **no hay un snapshot SQL vigente** en `docs/sdd/assets/`; no se deben usar scripts retirados ni asumir que Hibernate ya reproduce el nuevo ERD.
 
-- El ERD define el diseño funcional y relacional esperado.
-- Las entidades JPA implementan técnicamente ese diseño en Java.
-- El script SQL funciona como snapshot de referencia del esquema.
-- Si hay diferencia entre código y ERD, debe revisarse y corregirse conscientemente, no ignorarse.
+`auth`/`users` ya están adaptados a `usuario`, nombre completo, dos roles y dos estados en español persistidos directamente con `@Enumerated(EnumType.STRING)`, sin conversores. Las pruebas y Postman usan el nuevo modelo. Las entidades legacy sin uso fueron retiradas y la única entidad JPA activa es `users.User`. **No se han migrado ni borrado datos existentes; las tablas de otros módulos siguen pendientes de implementar.**
 
-Artefactos de referencia:
+Se mantiene el enfoque **code-first guiado por el ERD**:
 
-```txt
-docs/sdd/assets/diagrama_entidad_relacion.erd
-docs/sdd/assets/init_schema.sql
+```text
+oficial.erd → entidades JPA alineadas → PostgreSQL de pruebas → snapshot SQL validado
 ```
 
-## Fuente de verdad durante implementación
+El ERD define el diseño; JPA lo implementa. Una diferencia entre ambos exige revisión explícita.
 
-Durante la implementación, la fuente técnica inmediata está en las entidades JPA, pero estas deben alinearse con el ERD.
+## Convención de nombres
 
-Flujo esperado:
+- Paquetes, clases, atributos Java, rutas y claves JSON: se conservan en inglés.
+- **Valores de enums de cuenta: español tanto en Java como en HTTP y SQL**, según el ERD (`PRACTICANTE`/`COACH`, `ACTIVO`/`SUSPENDIDO`).
+- **Tablas y columnas físicas: nombres exactos del ERD**, actualmente mayoritariamente en español y snake_case.
+- No traducir automáticamente `usuario` a `users` ni imponer la antigua regla de tablas inglesas/plurales.
+- Mantener `@Table` y `@Column` explícitos.
+- Persistir los enums directamente con `@Enumerated(EnumType.STRING)`, no como ordinales. Sus constantes coinciden con el ERD: no se necesitan converters ni traducciones.
+- `Categoria` contiene nombres y relaciones inconsistentes; no normalizarla ni generar su DDL sin aclaración del equipo.
 
-```txt
-ERD del SDD -> Entidades JPA -> PostgreSQL -> script SQL / documentación actualizada
-```
+## Cuenta base — `usuario`
 
-Si una historia requiere cambiar el modelo:
+Responsable de persistencia: módulo `users`. Registro y login: módulo `auth`, mediante el servicio público de `users`.
 
-1. Revisar el ERD.
-2. Ajustar la entidad JPA correspondiente.
-3. Actualizar el ERD si el cambio modifica el diseño.
-4. Actualizar el script SQL si corresponde.
-5. Compilar y validar la aplicación.
+| Columna oficial | Tipo | Restricción / valor por defecto | Atributo Java objetivo |
+| --- | --- | --- | --- |
+| `id` | `SERIAL` (entero de 32 bits) | PK, generado | `id: Integer`, identidad |
+| `nombre_completo` | `VARCHAR(150)` | Obligatorio | `fullName` |
+| `correo` | `VARCHAR(100)` | Obligatorio, único | `email` |
+| `password_hash` | `VARCHAR(255)` | Obligatorio | `passwordHash` |
+| `rol` | `VARCHAR(20)` | Obligatorio; `COACH` / `PRACTICANTE` | `role: Role`, `@Enumerated(EnumType.STRING)` |
+| `estado_cuenta` | `VARCHAR(20)` | Obligatorio; `ACTIVO` / `SUSPENDIDO`; default `ACTIVO` | `status: UserStatus`, `@Enumerated(EnumType.STRING)` |
+| `fecha_registro` | `TIMESTAMP WITH TIME ZONE` | Obligatorio; default `CURRENT_TIMESTAMP` | `createdAt: OffsetDateTime` |
 
-## Relación con el monolito modular
+### Cambios implementados respecto del modelo anterior
 
-El modelo de datos también guía la separación de módulos del monolito modular.
+| Modelo anterior | Implementado en auth/users |
+| --- | --- |
+| `users`, ID `Long` / `BIGINT` | `usuario`, ID entero / `SERIAL` |
+| `first_name` y `last_name`, 80 caracteres cada uno | Un solo `nombre_completo`, máximo 150 |
+| `email`, máximo 255 | `correo`, máximo 100 |
+| `role` y `status`, máximo 30 | `rol` y `estado_cuenta`, máximo 20 |
+| `created_at` | `fecha_registro` |
+| `PRACTITIONER`, `COACH`, `ADMIN` | Persistir únicamente `PRACTICANTE`, `COACH` |
+| `ACTIVE`, `INACTIVE`, `BLOCKED` | Persistir únicamente `ACTIVO`, `SUSPENDIDO` |
 
-Cada grupo de tablas tiene un módulo dueño principal:
+`Role` define `PRACTICANTE` y `COACH`; `UserStatus` define `ACTIVO` y `SUSPENDIDO`. Java, JSON y SQL utilizan los mismos valores, sin conversores. El antiguo valor HTTP `PRACTITIONER` ya no se admite; los clientes deben enviar `PRACTICANTE`. `ADMIN`, `INACTIVE` y `BLOCKED` tampoco pertenecen al modelo vigente.
 
-| Grupo de tablas | Módulo dueño |
-|---|---|
-| `users`, `user_availabilities` | `users` |
-| `competitive_profiles`, `external_accounts` | `profiles` |
-| `teams`, `team_memberships`, `join_requests`, `team_schedules` | `teams` |
-| `problems`, `topics`, `academic_resources`, tablas puente de recursos y temas | `problems` |
-| `assignments`, `assignment_details`, `assignment_recipients`, `submissions` | `assignments` |
-| `competitions`, `competition_results` | `competitions` |
-| `ai_conversations`, `ai_messages`, `agent_actions` | `ai` |
+El ERD no define un dominio institucional autorizado ni una política para transformar cuentas antiguas `ADMIN`; no inventar ninguna de esas reglas.
 
-Las relaciones entre tablas pueden cruzar módulos porque sigue siendo una sola aplicación y una sola base de datos.
+## Perfiles de rol — `coach` y `practicante`
 
-## Configuración de Hibernate
+Se documentan como perfiles del módulo `profiles`, separados de la cuenta base `users.User`. No son una nueva tabla de roles ni una segunda entidad de autenticación.
 
-Para desarrollo local se usa:
+Ambos usan **PK compartida**: `usuario_id INT`, también FK a `usuario.id`. Una futura asociación JPA puede usar composición `@OneToOne` / `@MapsId`; no agregar un identificador autogenerado adicional ni una columna discriminadora que el ERD no contiene.
 
-```yaml
-spring.jpa.hibernate.ddl-auto: update
-```
+### `coach`
 
-Con esta configuración, Hibernate puede crear o actualizar tablas, columnas, claves foráneas e índices derivados de las entidades JPA.
+| Columna | Tipo | Restricción / default |
+| --- | --- | --- |
+| `usuario_id` | `INT` | PK y FK a `usuario.id` |
+| `especialidad_principal` | `VARCHAR(120)` | Obligatorio |
+| `organizacion_club` | `VARCHAR(150)` | Opcional |
+| `anios_experiencia` | `INT` | Obligatorio; default `0` |
+| `presentacion` | `VARCHAR(500)` | Opcional |
 
-## Rol del ERD
+### `practicante`
 
-El ERD no es decorativo. Es la referencia funcional del diseño de datos.
+| Columna | Tipo | Restricción / default |
+| --- | --- | --- |
+| `usuario_id` | `INT` | PK y FK a `usuario.id` |
+| `codigo_estudiante` | `VARCHAR(20)` | Obligatorio, único |
+| `carrera` | `VARCHAR(100)` | Obligatorio |
+| `ciclo_academico` | `INT` | Obligatorio; default `1` |
+| `nivel_competitivo` | `VARCHAR(30)` | Obligatorio; default `PRINCIPIANTE` |
+| `codeforces_handle` | `VARCHAR(50)` | Opcional |
+| `codeforces_rating` | `INT` | Opcional; default `0` |
+| `atcoder_handle` | `VARCHAR(50)` | Opcional |
+| `vjudge_handle` | `VARCHAR(50)` | Opcional |
 
-Debe usarse para:
+Niveles documentados: `PRINCIPIANTE`, `INTERMEDIO`, `AVANZADO`. Los handles están directamente en `practicante`; el ERD vigente no contiene las tablas genéricas de perfiles competitivos/cuentas externas del modelo anterior.
 
-- Entender las entidades principales.
-- Identificar relaciones entre módulos.
-- Decidir dónde pertenece una entidad dentro del monolito modular.
-- Revisar que las entidades JPA no se alejen del modelo esperado.
+El registro de cuenta base no recibe especialidad, código de estudiante ni carrera. **No crear perfiles con datos ficticios para cumplir columnas obligatorias.** Su creación y la obligatoriedad del perfil en el flujo de incorporación deben definirse en el contrato de US-03 o en un paso explícito de completado de perfil. Esta etapa se limita a preparar `auth`/`users`.
 
-## Rol del script SQL
+## Inventario del dominio y propiedad
 
-El script ubicado en:
+Los nombres siguientes salen de las colecciones del ERD; no implican entidades JPA implementadas. Las antiguas entidades de scaffolding se retiraron.
 
-```txt
-docs/sdd/assets/init_schema.sql
-```
+| Tabla oficial | Módulo dueño objetivo | Relaciones / observaciones |
+| --- | --- | --- |
+| `usuario` | `users` | Cuenta base |
+| `coach` | `profiles` | PK/FK a `usuario` |
+| `practicante` | `profiles` | PK/FK a `usuario`; handles y datos académicos |
+| `grupo_estudio` | `teams` | `coach_id` referencia `coach.usuario_id`, no directamente una cuenta genérica |
+| `practicante_grupo` | `teams` | Membresía entre grupo y practicante |
+| `solicitud_grupo` | `teams` | Postulación entre grupo y practicante; entidad presente con metadatos pendientes |
+| `competencia` | `competitions` | Vinculada a un grupo |
+| `competencia_problema` | `competitions` | Problema dentro de una competencia; orden, puntaje y asignación |
+| `resolucion_problema` | `competitions` | Resolución de un problema de competencia por una membresía; relaciones pendientes de revisión |
+| `problema` | `problems` | Catálogo con plataforma, URL y límites de ejecución |
+| `tema` | `problems` | Nombre único |
+| `problema_tema` | `problems` | PK compuesta problema/tema |
+| `material` | `problems` | `problema_id` nullable: también permite biblioteca libre |
+| `Categoria` | Pendiente | Relación con grupos/competencias y nombres ambiguos; no inventar dueño ni normalización física |
 
-se conserva como snapshot/export de referencia del esquema, útil para revisión, documentación o reconstrucción manual si fuera necesario.
+`analytics` deriva métricas de estas tablas. `assignments` conserva su capacidad funcional, pero el ERD no define las antiguas tablas genéricas de asignaciones; su integración debe revisarse sobre competencias/problemas. `ai` permanece como capacidad funcional sin tablas propias documentadas en esta versión.
 
-No es obligatorio ejecutarlo para levantar el backend local mientras `ddl-auto=update` esté activo.
+No trasladar ni implementar estos otros módulos al adaptar `auth`/`users`.
 
-## Convención de idioma y nombres
+## Cambios de equipos y competencias que afectan al contexto
 
-- Código Java: inglés.
-- Entidades: inglés, singular y PascalCase.
-- Tablas: inglés, plural y snake_case.
-- Columnas: inglés y snake_case.
-- Documentación funcional, informes y diagramas visuales: español.
+- `grupo_estudio` contiene `cupo_maximo INT`, default `15`, y `horario_sesiones VARCHAR(150)` opcional. No hay una tabla de horarios independiente en este ERD.
+- Tiene `codigo_invitacion VARCHAR(20)` obligatorio/único, estado `ACTIVO` / `ARCHIVADO` y fecha de creación.
+- `practicante_grupo` relaciona `grupo_id` con `practicante_id`; hay unicidad del par y estados de membresía `ACTIVO` / `RETIRADO` / `EXPULSADO`.
+- `solicitud_grupo` usa `PENDIENTE` / `ACEPTADA` / `RECHAZADA` / `CANCELADA`.
+- `competencia_problema` tiene unicidad competencia/problema y competencia/orden de letra.
+- Las resoluciones referencian una membresía y un problema de competencia. No usar automáticamente las tablas de resultados/asignaciones del diseño anterior como si siguieran vigentes.
 
-Ejemplos:
+Estas son definiciones documentales, no cambios implementados en código de equipos/competencias.
 
-| Java | Base de datos |
-|---|---|
-| `User` | `users` |
-| `Team` | `teams` |
-| `TeamMembership` | `team_memberships` |
-| `Problem` | `problems` |
-| `Submission` | `submissions` |
+## Inconsistencias internas del archivo oficial a revisar
 
-## Reglas para modificar el modelo
+El JSON es legible, pero hay diferencias entre sus colecciones y listas de documentos:
 
-- Revisar primero el ERD del SDD.
-- Modificar la entidad JPA correspondiente.
-- Mantener `@Table(name = "...")` explícito en entidades.
-- Mantener `@Column(name = "...")` cuando el nombre Java y el nombre SQL difieran.
-- Mantener relaciones JPA explícitas cuando se implementen asociaciones reales.
-- Si se cambia una entidad, actualizar documentación, ERD y script SQL cuando corresponda.
-- Evitar nombres reservados de PostgreSQL como `user`; usar `users`.
+1. `t_solicitud_grupo` existe en `tableEntities`, pero no en `doc.tableIds`.
+2. `rel_grp_sg`, `rel_pra_sg`, `rel_pg_rsp` y `wiapNamjGgbljY0_ujikC` existen, pero no figuran en `doc.relationshipIds`.
+3. `ix_sg_busqueda`, `ix_fk_c_rsp_pg` e `ix_fk_c_sg_practicante` no figuran en `doc.indexIds`.
+4. `c_rsp_pg` está fuera de los `columnIds` de `resolucion_problema`, aunque una relación/índice todavía lo referencia. Hay otra columna de membresía incluida con tipo `SERIAL`; revisar duplicación y si debe ser una FK `INT` no autogenerada.
+5. La relación desde `competencia` hacia `Categoria` referencia `uTEAp_JY9tT3j_ANZEjrA`, columna que no está en los `columnIds` de esa tabla. `Categoria.idGrupo` también está tipada `SERIAL` pese a su relación con un grupo.
 
-## US-01 — Registro y propiedad de usuarios
+No corregir el ERD silenciosamente ni generar un SQL global de referencia hasta resolver estas ambigüedades. Los campos base de `usuario` sí están definidos con sus tipos y restricciones.
 
-La entidad activa es `com.kodika.kodikalab.users.User`, alineada con las columnas y longitudes del ERD y del snapshot `assets/init_schema.sql`. No se agregan tablas ni columnas nuevas en esta historia.
+## Migración segura del modelo anterior
 
-- `users` es dueño de `User`, `Role`, `UserStatus` y `UserRepository`.
-- El servicio público `users.UserService` crea cuentas; `auth` no usa su repositorio directamente.
-- El correo se normaliza a minúsculas sin espacios externos y tiene una restricción única en PostgreSQL. La consulta previa ignora mayúsculas para detectar también cuentas legacy.
-- `password_hash` contiene BCrypt, nunca la contraseña original.
-- `role` y `status` se almacenan como texto; `tarea.md` exige crear la cuenta en `ACTIVE`.
-- `created_at` se asigna con zona UTC.
-- `entity.User` y `repository.UserRepository` se conservan como scaffolding inactivo, no como una segunda entidad/bean de persistencia.
+Cambiar `@Table` y usar `ddl-auto=update` **no migra** filas de `users` a `usuario`, no combina nombres ni convierte roles/estados.
 
-Si la base ya contiene datos, revisar nulos, correos duplicados (también diferencias de mayúsculas), longitudes y valores de rol/estado antes de aplicar restricciones. `ddl-auto=update` no sustituye una migración ni garantiza corregir datos incompatibles. No se borran ni normalizan cuentas existentes automáticamente.
+Antes de adaptar una base con datos:
 
-El ERD usa etiquetas funcionales en español (`PRACTICANTE` corresponde a `PRACTITIONER` en Java). La verificación futura del coach no se implementa en US-01; esta tarea exige `ACTIVE` para las cuentas creadas.
+1. Respaldar y revisar dependencias, IDs y claves foráneas de todos los módulos.
+2. Verificar que IDs `BIGINT` existentes caben en un entero de 32 bits; no truncarlos.
+3. Revisar nombres completos superiores a 150 caracteres, correos superiores a 100 y duplicados tras normalización.
+4. Definir qué hacer con `ADMIN`; no convertirlo automáticamente a coach/practicante.
+5. Acordar la equivalencia de `INACTIVE`/`BLOCKED` con el nuevo concepto `SUSPENDIDO`; no reactivar cuentas al migrar.
+6. Conservar los hashes BCrypt existentes, sin rehashearlos ni sustituirlos por contraseñas ficticias.
+7. Definir cómo migrar perfiles, especialidades/datos académicos y relaciones. No deducirlos de un rol sin los datos requeridos.
+8. Validar registro/login y restricciones en PostgreSQL aislado antes de aplicar una migración aprobada.
+9. Invalidar sesiones anteriores al cambiar el modelo de roles.
 
-## US-04 — Grupos y horarios
-
-La implementación de T2/T3 se concentra en `com.kodika.kodikalab.teams`:
-
-- `Team` conserva la tabla `teams` y su relación con `users` mediante `coach_id`.
-- `max_members` / `maxMembers`: entero obligatorio positivo, representa la capacidad del grupo. No representa el número actual de miembros.
-- La combinación `(coach_id, name)` es única, conforme al índice del ERD.
-- `TeamSchedule` implementa `team_schedules`, con relación obligatoria a `Team` mediante `team_id`.
-- `week_day` almacena los nombres ingleses de `DayOfWeek`; las horas se modelan con `LocalTime`.
-- Se conserva la unicidad `(team_id, week_day, start_time, end_time)` y se exige `end_time > start_time`.
-- Grupo y horarios se guardan en una sola transacción; los horarios se persisten por cascada.
-
-### Bases de desarrollo con datos existentes
-
-El snapshot `assets/init_schema.sql` describe el esquema esperado; no es una migración incremental. `ddl-auto=update` no garantiza añadir todas las restricciones ni resolver filas existentes incompatibles.
-
-Si `teams` ya contiene registros, antes de iniciar con el nuevo modelo se debe agregar `max_members` inicialmente nullable, asignar una capacidad positiva **acordada para cada grupo existente** y luego exigir `NOT NULL` y el `CHECK` positivo. No se asigna un valor ficticio por defecto ni se borran datos automáticamente.
-
-También deben revisarse nombres duplicados por coach, coaches huérfanos y horarios inválidos antes de aplicar las claves foráneas, unicidad y restricciones correspondientes. Esta rama no modifica la base local automáticamente mediante scripts propios.
-
-## Nota para entrega final
-
-Antes de una entrega formal, el equipo puede cambiar temporalmente a:
-
-```yaml
-spring.jpa.hibernate.ddl-auto: validate
-```
-
-para verificar que el esquema generado y las entidades estén alineados sin que Hibernate modifique la base de datos.
+No se ejecutó ninguno de estos pasos sobre la base local. La alineación de `auth`/`users` se validó en PostgreSQL temporal aislado y no equivale a haber implementado las demás tablas oficiales ni migrado datos antiguos.

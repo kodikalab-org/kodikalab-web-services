@@ -2,78 +2,41 @@
 
 ## Decisión arquitectónica
 
-KodikaLab se desarrollará como un **monolito modular simple** sobre Spring Boot.
+KodikaLab mantiene un **monolito modular simple**: una aplicación Spring Boot, un proyecto Maven y una base PostgreSQL, con paquetes internos por dominio. No son microservicios ni se requiere una arquitectura hexagonal completa para cada módulo.
 
-Esto significa:
+Fuente de diseño vigente:
 
-- Una sola aplicación backend desplegable.
-- Un solo proyecto Maven.
-- Una sola base de datos PostgreSQL.
-- Código organizado por módulos de negocio.
-- Separación interna clara para que cada módulo sea mantenible.
-- Modelo de datos compartido dentro del mismo monolito, documentado en el ERD del SDD.
-
-Esta decisión **no convierte el proyecto en microservicios**. Los módulos son paquetes internos dentro de la misma aplicación.
-
-## Fuente de verdad del diseño
-
-La modularización debe respetar el diseño de dominio y datos documentado en:
-
-```txt
-docs/sdd/assets/diagrama_entidad_relacion.erd
-docs/sdd/assets/init_schema.sql
+```text
+docs/sdd/assets/oficial.erd
 docs/sdd/04-database-model.md
 ```
 
-El ERD muestra los agregados principales del sistema y ayuda a definir los módulos. Por eso, la separación modular debe salir del dominio real y no solo de nombres de carpetas.
+La adaptación de `auth`/`users` implementa `usuario`. El scaffolding de otros módulos fue retirado tras su revisión: no hay implementaciones ni entidades JPA adicionales; los demás módulos siguen como diseño objetivo.
 
-## Módulos oficiales
+## Módulos y propiedad del modelo oficial
 
-| Módulo | Tablas / conceptos principales | Responsabilidad |
-|---|---|---|
-| `auth` | `users` | Registro, login, autenticación y emisión futura de JWT. |
-| `users` | `users`, `user_availabilities` | Cuenta de usuario, rol, estado y disponibilidad personal. |
-| `profiles` | `competitive_profiles`, `external_accounts` | Perfil competitivo y cuentas externas como Codeforces o LeetCode. |
-| `teams` | `teams`, `team_memberships`, `join_requests`, `team_schedules` | Equipos, coach, membresías, solicitudes de ingreso y horarios. |
-| `problems` | `problems`, `topics`, `academic_resources`, tablas puente de problemas/temas/recursos | Catálogo de problemas, temas y recursos académicos. |
-| `assignments` | `assignments`, `assignment_details`, `assignment_recipients`, `submissions` | Asignación de problemas, destinatarios y resoluciones/envíos. |
-| `competitions` | `competitions`, `competition_results` | Competencias y resultados de equipos. |
-| `analytics` | Lecturas derivadas de equipos, asignaciones, resoluciones y competencias | Progreso, rankings, debilidades y métricas. No debe ser dueño principal de entidades transaccionales. |
-| `ai` | `ai_conversations`, `ai_messages`, `agent_actions` | Conversaciones IA, mensajes y acciones del agente. |
-| `security` | Configuración y componentes de seguridad | Filtros, permisos, JWT y protección de endpoints. |
-| `config` | Configuración Spring transversal | Beans y configuración general. |
-| `common` | Componentes compartidos | Excepciones, respuestas comunes, utilidades y tipos transversales. |
+| Módulo | Tablas / conceptos del ERD | Responsabilidad |
+| --- | --- | --- |
+| `auth` | Usa la cuenta `usuario`, sin ser dueño de su persistencia | Registro, login, respuesta de identidad y autenticación futura |
+| `users` | `usuario` | Cuenta base, correo, hash, rol, estado y fecha de registro |
+| `profiles` | `coach`, `practicante` | Perfiles de rol, datos académicos/competitivos y handles definidos por el ERD |
+| `teams` | `grupo_estudio`, `practicante_grupo`, `solicitud_grupo` | Coach responsable, grupos, cupos, horario descriptivo, membresías y solicitudes |
+| `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
+| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
+| `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
+| `analytics` | Lecturas derivadas de grupos, competencias y resoluciones | Progreso, rankings y métricas; no dueño de entidades transaccionales ajenas |
+| `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
+| `security` | Sesión, contexto de seguridad, permisos | Componentes transversales; JWT sigue pendiente |
+| `config` | Beans Spring | Configuración general, sin lógica de negocio |
+| `common` | Excepciones y tipos transversales | Componentes compartidos, sin dependencia de módulos de negocio |
 
-## Nota sobre nombres de módulos
+`Categoria` necesita aclarar nombres, claves y relaciones antes de asignar un módulo dueño. Las incidencias de metadatos del ERD están registradas en `04-database-model.md`.
 
-Los paquetes Java deben nombrarse en inglés y en minúsculas.
+## Nombres y estructura
 
-Ejemplos:
+Las clases, paquetes, rutas y claves JSON conservan sus nombres ingleses. **Los valores de enums de cuenta están en español en Java, HTTP y SQL** y se persisten con `@Enumerated(EnumType.STRING)`, sin conversores. Los identificadores físicos se mapean **exactamente como aparecen en el ERD**. Por ejemplo, `users.User` corresponde a `usuario`, no a una tabla inventada `users`.
 
-```txt
-com.kodika.kodikalab.teams
-com.kodika.kodikalab.problems
-com.kodika.kodikalab.assignments
-```
-
-Los nombres funcionales en documentación pueden mantenerse en español.
-
-## Estructura esperada de paquetes
-
-El scaffolding inicial puede existir por capas:
-
-```txt
-controller/
-service/
-service.impl/
-repository/
-entity/
-dto/
-```
-
-Pero la dirección oficial del proyecto es evolucionar a módulos de dominio:
-
-```txt
+```text
 com.kodika.kodikalab
 ├── auth
 ├── users
@@ -84,145 +47,87 @@ com.kodika.kodikalab
 ├── competitions
 ├── analytics
 ├── ai
-├── config
 ├── security
+├── config
 └── common
 ```
 
-## Estructura interna recomendada por módulo
+Para los módulos pequeños basta reunir clases relacionadas y un paquete `dto`. No crear capas adicionales por costumbre.
 
-Para módulos pequeños:
+Estructura implementada de auth/users:
 
-```txt
+```text
 users/
-├── User.java
-├── Role.java
-├── UserRepository.java
-├── UserService.java
+├── User.java                 # @Table(name = "usuario")
+├── Role.java                 # PRACTICANTE / COACH
+├── UserStatus.java           # ACTIVO / SUSPENDIDO
+├── UserRepository.java       # Tipo de ID coherente con SERIAL/INT
+└── UserService.java          # Frontera pública de persistencia
+
+auth/
+├── AuthController.java
+├── AuthService.java
+├── AuthServiceImpl.java
+├── AuthExceptionHandler.java
 └── dto/
+    ├── RegisterRequest.java
+    ├── LoginRequest.java
+    └── AuthResponse.java
 ```
 
-Para módulos con varios casos de uso:
+Los perfiles `Coach` / `Practitioner` pertenecen al ámbito `profiles`, con PK compartida `usuario_id`. La creación de perfiles con sus datos obligatorios requiere su propio contrato; no se agrega automáticamente a la adaptación de cuentas base.
 
-```txt
-teams/
-├── TeamsController.java
-├── TeamService.java
-├── TeamServiceImpl.java
-├── Team.java
-├── TeamMembership.java
-├── JoinRequest.java
-├── TeamSchedule.java
-├── TeamRepository.java
-├── TeamMembershipRepository.java
-├── JoinRequestRepository.java
-├── TeamScheduleRepository.java
-└── dto/
-```
+Para módulos que crezcan se permite refinar capas internas, sin obligar a migrar todo el proyecto.
 
-Para módulos que crezcan demasiado, se permite refinar internamente:
+## Reglas de dependencia
 
-```txt
-teams/
-├── api/
-├── application/
-├── domain/
-├── infrastructure/
-└── dto/
-```
+- Controllers delegan en servicios y no acceden a repositories.
+- Cada módulo controla sus repositories y sus entidades.
+- `auth` obtiene cuentas mediante el servicio público `users.UserService`, no mediante `UserRepository`.
+- Un módulo usa servicios públicos o abstracciones claras de otro; no atraviesa sus repositories internos.
+- DTOs permanecen en el módulo que los usa.
+- Entidades no dependen de controllers, servicios ni DTOs.
+- `common` no depende de módulos de negocio.
+- `security` y `config` implementan preocupaciones técnicas, no reglas de negocio.
 
-Esta separación estricta no es obligatoria al inicio. La prioridad es que los archivos de una misma capacidad de negocio estén juntos.
+Registro/login no requieren un `AuthRepository`: no existe una entidad persistente propia de autenticación en el ERD. La sesión HTTP actual vive en memoria mediante Spring Security.
 
-## Propiedad de entidades por módulo
+## Relaciones justificadas por el ERD
 
-Cada entidad JPA debe tener un módulo dueño principal.
+En el monolito, las asociaciones JPA pueden cruzar módulos si respetan las relaciones oficiales:
 
-Ejemplos:
+- `Coach` y `Practitioner` referencian `User` con PK/FK compartida.
+- `StudyGroup` referencia a `Coach`, no directamente a cualquier `User`.
+- `GroupMembership` referencia a `StudyGroup` y `Practitioner`.
+- `Competition` pertenece a un `StudyGroup`.
+- `CompetitionProblem` relaciona `Competition` y `Problem`.
+- `ProblemResolution` relaciona un problema de competencia y una membresía, sujeto a resolver las inconsistencias de metadatos del ERD.
+- `Material` puede asociarse a un `Problem` o no tenerlo para representar biblioteca libre.
 
-| Entidad Java esperada | Tabla | Módulo dueño |
-|---|---|---|
-| `User` | `users` | `users` |
-| `UserAvailability` | `user_availabilities` | `users` |
-| `CompetitiveProfile` | `competitive_profiles` | `profiles` |
-| `ExternalAccount` | `external_accounts` | `profiles` |
-| `Team` | `teams` | `teams` |
-| `TeamMembership` | `team_memberships` | `teams` |
-| `JoinRequest` | `join_requests` | `teams` |
-| `TeamSchedule` | `team_schedules` | `teams` |
-| `Problem` | `problems` | `problems` |
-| `Topic` | `topics` | `problems` |
-| `AcademicResource` | `academic_resources` | `problems` |
-| `Assignment` | `assignments` | `assignments` |
-| `AssignmentDetail` | `assignment_details` | `assignments` |
-| `Submission` | `submissions` | `assignments` |
-| `Competition` | `competitions` | `competitions` |
-| `CompetitionResult` | `competition_results` | `competitions` |
-| `AiConversation` | `ai_conversations` | `ai` |
-| `AiMessage` | `ai_messages` | `ai` |
-| `AgentAction` | `agent_actions` | `ai` |
-
-## Reglas de dependencia entre módulos
-
-- Un controller solo debe delegar en servicios.
-- Un controller no debe acceder directamente a repositories.
-- Un servicio puede usar repositories de su propio módulo.
-- Evitar que un módulo use repositories internos de otro módulo.
-- Si un módulo necesita datos de otro, debe hacerlo mediante un servicio público del otro módulo o una abstracción clara.
-- Las entidades JPA no deben depender de controllers, DTOs o services.
-- Los DTOs se ubican preferentemente dentro del módulo que los usa.
-- `common` no debe depender de módulos de negocio.
-- `config` y `security` deben mantenerse transversales y sin lógica de negocio.
-
-## Relaciones entre entidades de distintos módulos
-
-Como es un monolito con una sola base de datos, las entidades pueden tener relaciones JPA entre módulos cuando el ERD lo justifique.
-
-Ejemplos:
-
-- `Team` puede referenciar a `User` como coach.
-- `TeamMembership` puede referenciar a `User` y `Team`.
-- `Assignment` puede referenciar a `Team` y a `User` como creador.
-- `Submission` puede referenciar a `TeamMembership` y `AssignmentDetail`.
-
-La regla importante es no convertir esas relaciones en acceso desordenado a repositories de otros módulos.
+No deducir una asociación nueva solo de un nombre de columna ni introducir columnas discriminadoras/IDs adicionales no presentes en el diseño.
 
 ## API y módulos
 
-Los endpoints definidos en `03-api-contracts.md` deben mapearse al módulo correspondiente:
+Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físico de una tabla no impone renombrar el endpoint.
 
-| Ruta | Módulo |
-|---|---|
-| `/auth/**` | `auth` |
-| `/users/**` | `users` / `profiles` según el caso |
-| `/teams/**` | `teams` |
-| `/problems/**` | `problems` / `assignments` según el caso |
-| `/analytics/**` | `analytics` |
-| `/assistant/**` | `ai` |
+| Ruta | Módulo / estado |
+| --- | --- |
+| `/auth/**` | `auth`; registro/login persisten en `usuario` según el ERD nuevo |
+| `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
+| `/teams/**` | Propuesta pendiente de `teams`; no publicada |
+| `/problems/**` | Propuesta pendiente de `problems` / asignación; no publicada |
+| `/analytics/**` | Propuesta pendiente de `analytics`; no publicada |
+| `/assistant/**` | Propuesta pendiente de `ai`; no publicada |
 
-## Context path
+Las rutas pendientes se conservan únicamente como contratos propuestos. Sus controllers de scaffolding se eliminaron y ya no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.
 
-El proyecto usa:
+## Migración por alcance
 
-```yaml
-server.servlet.context-path: /api
-```
+1. Actualizar primero SDD con el archivo oficial y marcar diferencias frente al código.
+2. Adaptar únicamente `auth`/`users`, con pruebas y Postman correspondientes.
+3. No modificar código de equipos, competencias, catálogo o perfiles sin la tarea correspondiente.
+4. El scaffolding legacy sin lógica fue retirado por autorización explícita; no restaurarlo para simular funcionalidades. Revisar dependencias y avisar antes de nuevas eliminaciones.
+5. No ejecutar migraciones sobre datos reales ni confiar en `ddl-auto=update` para renombrar tablas o convertir valores.
+6. Validar en PostgreSQL aislado y ejecutar `./mvnw clean compile` tras cambios Java.
 
-Por lo tanto, un controller con:
-
-```java
-@RequestMapping("/teams")
-```
-
-queda expuesto como:
-
-```txt
-/api/teams
-```
-
-## Criterio de migración
-
-- No es necesario mover todo el proyecto en un solo cambio.
-- Las nuevas historias deben preferir estructura por dominio.
-- Cuando se toque una funcionalidad existente, se puede aprovechar para moverla a su módulo.
-- La migración debe mantener compilación verde con `./mvnw clean compile`.
-- Cualquier cambio de módulo que afecte entidades debe contrastarse con el ERD y `04-database-model.md`.
+La persistencia implementada se limita a `usuario`; las demás tablas oficiales todavía no tienen entidades JPA. Quitar clases no elimina tablas ni migra datos existentes. La limpieza está documentada en `12-source-cleanup.md`.
