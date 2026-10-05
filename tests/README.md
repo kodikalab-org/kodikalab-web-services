@@ -1,115 +1,107 @@
-# Validación de US-01 — Registro modular
+# Validación de auth/users — ERD oficial
 
-## Postman
+Las cuentas se persisten en `usuario`. Java/HTTP/SQL usa `PRACTICANTE`/`COACH` y estados `ACTIVO`/`SUSPENDIDO`, con persistencia directa `@Enumerated(EnumType.STRING)` sin converters. No hay registro `ADMIN`.
 
-Importar estos archivos:
+Para login consultar [US02-login.md](US02-login.md).
 
-- `US01-register.postman_collection.json`
-- `local.postman_environment.json`
+## Postman — US-01
 
-Seleccionar el entorno **KodikaLab - Local US01**. La variable `baseUrl` vale:
+Importar `US01-register.postman_collection.json` y `local.postman_environment.json`. Seleccionar el entorno local (`baseUrl = http://localhost:8080/api`) y arrancar el backend con Java 21 y una **base exclusiva de pruebas**.
 
-```text
-http://localhost:8080/api
+Ejecutar las **26 solicitudes en orden**. El primer caso genera correos únicos; los duplicados dependen de él. La colección comprueba:
+
+- Registro de los dos roles permitidos; rechazo de `PRACTITIONER`, `ADMIN`, rol desconocido, nulo y numérico.
+- Correo duplicado y normalización de mayúsculas/espacios.
+- Campos obligatorios, formato del correo y JSON mal formado.
+- Fortaleza de contraseña y límite BCrypt de 72 bytes ASCII/UTF-8.
+- Nombre completo de 150 admitido / 151 rechazado y correo de 100 admitido / 101 rechazado.
+- Mensajes públicos y ausencia de contraseñas, hashes o JWT.
+
+**Efecto sobre datos:** crea cuatro cuentas de prueba por corrida; no elimina ni modifica otras. Los correos son ejemplos `test.us01.*@gmail.com` o un subdominio de prueba usado para el límite de 100. No enviar correos reales ni ejecutar en producción.
+
+Regeneración reproducible de ambas colecciones (Node.js, sin dependencias):
+
+```bash
+node tests/generate-auth-collections.mjs
 ```
 
-Arrancar el backend con Java 21 y una base de desarrollo/pruebas configurada. Esta colección no configura PostgreSQL ni necesita JWT.
-
-Ejecutar la colección completa **en orden** mediante Collection Runner. El caso `01` genera correos únicos por corrida. Los casos `02` y `03` dependen de la cuenta creada en `01`; para repetirlos individualmente, ejecutar primero `01`.
-
-La colección contiene 20 solicitudes con aserciones de código HTTP, mensajes, roles, normalización y ausencia de contraseñas/tokens en las respuestas:
-
-- Registro correcto de `PRACTITIONER`, `COACH` y `ADMIN`, conforme al enum solicitado.
-- Correo duplicado, incluyendo mayúsculas y espacios externos.
-- Contraseña débil, sin mayúscula o sin número.
-- Correo mal formado, campos ausentes, nombre en blanco, rol inválido/nulo y JSON mal formado.
-- Contraseña que excede el límite técnico de BCrypt (72 bytes UTF-8), con ASCII y caracteres multibyte.
-
-**Efecto sobre datos:** cada corrida completa crea tres usuarios de prueba. No elimina usuarios ni modifica otras entidades. Los correos empiezan por `us01.` y terminan en `@upc.edu.pe`. Usar una base de pruebas; no ejecutar en producción.
-
-### Newman (opcional)
-
-Desde la raíz del repositorio:
+Newman opcional:
 
 ```bash
 npx --yes newman run tests/US01-register.postman_collection.json \
   -e tests/local.postman_environment.json
 ```
 
-Para otro puerto, usar `--env-var baseUrl=http://localhost:PUERTO/api`.
+Para otro puerto: `--env-var baseUrl=http://localhost:PUERTO/api`.
 
-### Request de referencia
+## Request de referencia
 
-```http
-POST http://localhost:8080/api/auth/register
-Content-Type: application/json
-```
+`POST /api/auth/register`:
 
 ```json
 {
-  "firstName": "Matias",
-  "lastName": "Del Castillo",
-  "email": "matias@upc.edu.pe",
+  "firstName": "Usuario",
+  "lastName": "Prueba",
+  "email": "test@gmail.com",
   "password": "Password123",
-  "role": "PRACTITIONER"
+  "role": "PRACTICANTE"
 }
 ```
 
-Respuesta: `201 Created`.
+Respuesta `201 Created`:
 
 ```json
 {
   "message": "Registro exitoso",
-  "email": "matias@upc.edu.pe",
-  "role": "PRACTITIONER"
+  "email": "test@gmail.com",
+  "role": "PRACTICANTE"
 }
 ```
 
-Errores: `400 Bad Request` para entradas inválidas; `409 Conflict` para correo registrado. El cuerpo contiene `message` y `errors` (mapa por campo, vacío en conflictos). Nunca devuelve valores rechazados de contraseña.
+Errores: `400` para entradas inválidas; `409` para correo registrado. El cuerpo contiene `message` y `errors`, sin valores rechazados ni detalles SQL. Registro no inicia sesión.
 
-No hay GET ni login implementado en esta historia. La ruta legacy de login conserva su scaffolding anterior.
+## Comprobar persistencia
 
-## Comprobar persistencia manualmente
-
-Postman valida la API; no puede confirmar directamente el hash almacenado. En la base usada para las pruebas ejecutar esta consulta de solo lectura:
+Consulta de solo lectura en la base de pruebas:
 
 ```sql
-SELECT id, first_name, last_name, email, role, status, created_at,
+SELECT id, nombre_completo, correo, rol, estado_cuenta, fecha_registro,
        password_hash LIKE '$2%' AS bcrypt_hash
-FROM users
-WHERE email LIKE 'us01.%@upc.edu.pe'
+FROM usuario
+WHERE correo LIKE 'test.us01.%'
 ORDER BY id DESC;
 ```
 
-Debe haber tres filas nuevas por corrida, con `ACTIVE` y `bcrypt_hash = true`. No mostrar hashes completos ni contraseñas en evidencias públicas. La suite de integración también verifica el hash mediante `PasswordEncoder.matches`.
+Cuatro filas nuevas por corrida, `ACTIVO`, rol `PRACTICANTE`/`COACH` y `bcrypt_hash = true`. No mostrar hashes completos ni contraseñas en evidencias públicas. La integración Java también comprueba `PasswordEncoder.matches`.
 
 ## Pruebas Java sin PostgreSQL
 
 ```bash
 ./mvnw clean compile
-./mvnw -Dtest=AuthServiceTests,AuthControllerTests,UserServiceTests test
+./mvnw -Dtest=AuthServiceTests,AuthControllerTests,UserServiceTests,ErdEnumsTests,LoginServiceTests,LoginControllerTests,LoginSessionServiceTests test
 ```
 
 ## Integración HTTP + PostgreSQL
 
-`RegistrationIntegrationTests` requiere habilitación explícita. Usar una **base exclusiva de pruebas**, con credenciales proporcionadas por el entorno:
+`RegistrationIntegrationTests` es opt-in. Proporcionar una **base exclusiva de pruebas**, nunca credenciales de desarrollo:
 
 ```bash
-export REGISTRATION_TEST_DB_URL='jdbc:postgresql://127.0.0.1:55435/kodikalab_register_test'
+export REGISTRATION_TEST_DB_URL='jdbc:postgresql://127.0.0.1:55439/kodikalab_erd_test'
 export REGISTRATION_TEST_DB_USER=postgres
-# Proporcionar REGISTRATION_TEST_DB_PASSWORD si es necesaria.
+# Configurar REGISTRATION_TEST_DB_PASSWORD si se requiere.
 ./mvnw -Dtest=RegistrationIntegrationTests test
 ```
 
-La prueba crea un schema aleatorio `registration_test_<uuid>`, limita el DDL y el search path a ese schema, ejecuta HTTP en un puerto aleatorio y elimina el schema al terminar. Sin la variable JDBC, se omite explícitamente. Una interrupción forzada puede dejar un schema temporal que requiera limpieza manual.
+La URL es un ejemplo: requiere un servidor activo. La suite crea un schema aleatorio `registration_test_<uuid>`, limita DDL/search path a él, usa HTTP en puerto aleatorio y elimina el schema al terminar. Sin la variable JDBC se omite. Una interrupción puede requerir limpieza manual del schema.
 
-Verifica registro, hash, estado/rol, duplicados, rechazo sin persistencia, solicitudes concurrentes y coexistencia del scaffolding sin entidades/rutas duplicadas.
+Verifica esquema físico, límites exactos, defaults, BCrypt, rechazo de `ADMIN`, duplicados/concurrencia y registro único de entidad/rutas de autenticación.
 
-Para ejecutar `./mvnw test` completo, también apuntar `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` y `DB_PASSWORD` a la base exclusiva de pruebas: `KodikalabApplicationTests` usa esa configuración y `ddl-auto=update`. No apuntar la suite completa a una base compartida ni modificar `.env` para las pruebas automatizadas.
+Para `./mvnw test` completo, configurar además `LOGIN_TEST_DB_*` y `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` contra la base exclusiva: `KodikalabApplicationTests` y `RuntimeBoundaryTests` usan `DB_*` con `ddl-auto=update`. No modificar `.env` para estas pruebas.
 
-## Decisiones de alcance
+## Alcance y datos existentes
 
-- No se activa JWT ni se cambia `/api`.
-- Se aceptan los tres roles del enum porque así lo define `tarea.md`; la autorización para roles privilegiados debe definirse antes de producción.
-- Se valida formato de correo. La tarea no define una lista de dominios institucionales autorizados, por lo que no se inventa una restricción exclusiva a `upc.edu.pe`.
-- Se conservan todos los archivos legacy. Solo se desactivan su mapping de registro y su entidad/repositorio de usuario duplicados; login permanece sin implementar.
+- Sin JWT ni cambios a `/api`; los endpoints de desarrollo siguen públicos.
+- No se inventan dominios institucionales autorizados ni perfiles incompletos.
+- Scaffolding legacy sin lógica retirado; se conserva `auth/dto` y toda la funcionalidad de registro/login.
+- `RuntimeBoundaryTests` verifica una sola entidad/repository de cuenta, solo rutas de negocio implementadas y `404` para las antiguas rutas ficticias. Actualizar esos límites al implementar un nuevo módulo real.
+- Cambiar el mapeo JPA no migra cuentas ni otros módulos. Ver `docs/sdd/11-erd-oficial-alignment.md`.
