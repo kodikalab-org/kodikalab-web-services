@@ -2,6 +2,13 @@ server:
   port: 8080
   servlet:
     context-path: /api
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+        # Enable on HTTPS deployments; false only for local HTTP development.
+        secure: ${SESSION_COOKIE_SECURE:false}
 
 spring:
   application:
