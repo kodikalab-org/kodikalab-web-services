@@ -1,10 +1,10 @@
 package com.kodika.kodikalab.users;
 
 import com.kodika.kodikalab.common.exception.ConflictException;
+import com.kodika.kodikalab.common.exception.ConstraintViolations;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
-import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +36,7 @@ public class UserService {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
             // The database constraint is authoritative even for concurrent registrations.
-            if (isEmailConflict(exception)) {
+            if (ConstraintViolations.isUniqueViolationOf(exception, "uq_usuario_correo", "usuario_correo_key")) {
                 throw new ConflictException(EMAIL_ALREADY_REGISTERED);
             }
             throw exception;
@@ -46,17 +46,5 @@ public class UserService {
     @Transactional(readOnly = true)
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmailIgnoreCase(email);
-    }
-
-    private boolean isEmailConflict(Throwable exception) {
-        for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ConstraintViolationException violation) {
-                String name = violation.getConstraintName();
-                if ("uq_usuario_correo".equals(name) || "usuario_correo_key".equals(name)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 }
