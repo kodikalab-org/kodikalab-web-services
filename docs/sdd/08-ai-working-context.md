@@ -17,7 +17,7 @@
 
 Fuente vigente: `docs/sdd/assets/oficial.erd`. No hay un snapshot SQL vigente en assets. Los archivos retirados no se restauran automáticamente.
 
-`auth`/`users`, fixtures y Postman están alineados al ERD oficial para la cuenta base. Los demás módulos siguen como diseño pendiente; su scaffolding sin lógica fue retirado. Los datos existentes no se han migrado ni eliminado. Mantener esta distinción al extender el proyecto.
+`auth`/`users`, fixtures y Postman están alineados al ERD oficial para la cuenta base. `profiles` implementa los perfiles `practicante` y `coach` (US-03) en `GET/PUT /api/users/me`, que actúan según el rol de la sesión; colecciones `tests/US03-profile.postman_collection.json` y `tests/US03-coach.postman_collection.json`. Los demás módulos siguen como diseño pendiente; su scaffolding sin lógica fue retirado. Los datos existentes no se han migrado ni eliminado. Mantener esta distinción al extender el proyecto.
 
 El ERD tiene inconsistencias de listas/metadatos en solicitudes, resoluciones y categoría; ver `04-database-model.md`. No editar el archivo oficial para ocultarlas ni generar su SQL completo sin revisarlas.
 

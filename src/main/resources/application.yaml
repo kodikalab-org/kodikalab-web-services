@@ -50,3 +50,9 @@ jwt:
   secret: >-
     ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
   expiration: 86400000 # 24 horas en milisegundos
+
+kodikalab:
+  integrations:
+    codeforces:
+      base-url: ${CODEFORCES_API_BASE_URL:https://codeforces.com/api}
+      timeout-ms: ${CODEFORCES_API_TIMEOUT_MS:3000}

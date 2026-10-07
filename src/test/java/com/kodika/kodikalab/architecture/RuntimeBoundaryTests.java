@@ -1,5 +1,7 @@
 package com.kodika.kodikalab.architecture;
 
+import com.kodika.kodikalab.profiles.coach.CoachProfile;
+import com.kodika.kodikalab.profiles.practitioner.PractitionerProfile;
 import com.kodika.kodikalab.users.User;
 import jakarta.persistence.EntityManagerFactory;
 import org.junit.jupiter.api.Test;
@@ -27,11 +29,14 @@ class RuntimeBoundaryTests {
     @Autowired MockMvc mvc;
 
     @Test
-    void onlyImplementedAccountPersistenceIsRegistered() {
+    void onlyImplementedPersistenceIsRegistered() {
         assertThat(entityManagerFactory.getMetamodel().getEntities().stream()
                 .map(entity -> entity.getJavaType().getName()).toList())
-                .containsExactly(User.class.getName());
-        assertThat(context.getBeansOfType(JpaRepository.class).keySet()).containsExactly("userRepository");
+                .containsExactlyInAnyOrder(User.class.getName(), PractitionerProfile.class.getName(),
+                        CoachProfile.class.getName());
+        assertThat(context.getBeansOfType(JpaRepository.class).keySet())
+                .containsExactlyInAnyOrder("userRepository", "practitionerProfileRepository",
+                        "coachProfileRepository");
         assertThat(context.containsBean("legacyAuthController")).isFalse();
         assertThat(context.containsBean("legacyAuthService")).isFalse();
     }
@@ -42,12 +47,12 @@ class RuntimeBoundaryTests {
                 .filter(entry -> entry.getValue().getBeanType().getPackageName()
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
-                .containsExactlyInAnyOrder("/auth/register", "/auth/login");
+                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me");
     }
 
     @Test
     void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess() throws Exception {
-        for (String path : new String[]{"/users/me", "/teams/1/members", "/problems/assigned",
+        for (String path : new String[]{"/teams/1/members", "/problems/assigned",
                 "/analytics/teams/1/topics"}) {
             mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isNotFound());
         }
