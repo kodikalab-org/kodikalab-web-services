@@ -100,17 +100,121 @@ Los demás endpoints siguen públicos (`permitAll()`) durante el desarrollo. Dev
 
 La sesión y el formato de respuesta se conservan. La colección `tests/US02-login.postman_collection.json`, su fixture SQL y `tests/US02-login.md` usan el modelo oficial; un `401` con un correo ausente no prueba una cuenta suspendida existente. Diseño: `10-us02-login.md`. Secuencia de alineación: `11-erd-oficial-alignment.md`.
 
+## Users/Profile
+
+`GET /api/users/me` y `PUT /api/users/me` operan sobre el perfil del usuario autenticado y **dependen del rol de la sesión**: `PRACTICANTE` gestiona la tabla `practicante` y `COACH` gestiona la tabla `coach`. Requieren sesión HTTP iniciada por `POST /api/auth/login`. El cliente no envía `usuarioId` ni rol; ambos se resuelven desde la sesión. Un body con los campos del otro rol se rechaza con `400` (faltan los campos obligatorios del rol propio) y nunca escribe en la tabla del otro rol.
+
+### US-03 — Perfil competitivo del practicante
+
+`GET /api/users/me` devuelve el perfil `practicante` del usuario autenticado con rol `PRACTICANTE`.
+
+`PUT /api/users/me` crea o actualiza el perfil `practicante` asociado al `usuario.id` autenticado.
+
+Request:
+
+```json
+{
+  "codigoEstudiante": "20240001",
+  "carrera": "Ingeniería de Software",
+  "cicloAcademico": 5,
+  "nivelCompetitivo": "INTERMEDIO",
+  "codeforcesHandle": "tourist",
+  "atcoderHandle": "tourist_atcoder",
+  "vjudgeHandle": "usuario_vjudge"
+}
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Perfil actualizado correctamente",
+  "profile": {
+    "email": "test@gmail.com",
+    "role": "PRACTICANTE",
+    "codigoEstudiante": "20240001",
+    "carrera": "Ingeniería de Software",
+    "cicloAcademico": 5,
+    "nivelCompetitivo": "INTERMEDIO",
+    "codeforcesHandle": "tourist",
+    "codeforcesRating": 0,
+    "atcoderHandle": "tourist_atcoder",
+    "vjudgeHandle": "usuario_vjudge"
+  }
+}
+```
+
+Contrato alineado al ERD:
+
+- Tabla física `practicante`; PK/FK compartida `usuario_id -> usuario.id`.
+- `codigoEstudiante` es obligatorio, máximo 20 caracteres y único (comparación exacta, igual que la restricción `uq_practicante_codigo_estudiante`).
+- `carrera` es obligatoria, máximo 100 caracteres.
+- `cicloAcademico` es obligatorio y mayor o igual a 1.
+- `nivelCompetitivo` acepta únicamente `PRINCIPIANTE`, `INTERMEDIO` o `AVANZADO`.
+- Los handles de plataformas son opcionales, máximo 50 caracteres y formato seguro `[A-Za-z0-9._-]`.
+- Las plataformas persistidas son las del ERD: Codeforces, AtCoder y VJudge. **LeetCode no está implementado** porque no existe en `oficial.erd`.
+- `codeforcesRating` no se acepta como dato confiable desde el cliente; el backend lo obtiene desde la API pública de Codeforces cuando `codeforcesHandle` se valida correctamente.
+- Si Codeforces no confirma el usuario (`FAILED`, `404`, timeout o error no confirmable), el sistema actualiza los demás datos válidos pero no persiste el nuevo `codeforcesHandle` ni `codeforcesRating`; conserva valores previos de Codeforces si existían y, si no, deja ambos en `null`. En ese caso la respuesta es `200` con `message` = "Perfil actualizado correctamente, pero Codeforces no confirmó el identificador informado; se conservaron los datos previos de Codeforces". La consulta a Codeforces se realiza antes de abrir la transacción de base de datos.
+- No se persisten estados de vinculación externa (`PENDIENTE`, `VERIFICADO`, etc.) porque el ERD no define columnas para ello.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`:
+
+- `400`: datos inválidos o JSON inválido; `errors` puede contener mensajes por campo.
+- `401`: no existe sesión autenticada válida.
+- `404`: el perfil todavía no existe al consultar `GET /users/me`.
+- `409`: `codigoEstudiante` ya está vinculado a otro practicante.
+
+### US-03 — Perfil del coach
+
+`GET /api/users/me` devuelve el perfil `coach` del usuario autenticado con rol `COACH`.
+
+`PUT /api/users/me` crea o actualiza el perfil `coach` asociado al `usuario.id` autenticado. Es prerrequisito de US-04: `grupo_estudio.coach_id` referencia `coach.usuario_id`.
+
+Request:
+
+```json
+{
+  "especialidadPrincipal": "Grafos y Programación Dinámica",
+  "organizacionClub": "Club de Programación Competitiva",
+  "aniosExperiencia": 4,
+  "presentacion": "Entrenador de maratones ICPC."
+}
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Perfil actualizado correctamente",
+  "profile": {
+    "email": "test@gmail.com",
+    "role": "COACH",
+    "especialidadPrincipal": "Grafos y Programación Dinámica",
+    "organizacionClub": "Club de Programación Competitiva",
+    "aniosExperiencia": 4,
+    "presentacion": "Entrenador de maratones ICPC."
+  }
+}
+```
+
+Contrato alineado al ERD:
+
+- Tabla física `coach`; PK/FK compartida `usuario_id -> usuario.id`.
+- `especialidadPrincipal` es obligatoria, texto libre de máximo 120 caracteres (el ERD no define un dominio cerrado).
+- `organizacionClub` es opcional, máximo 150 caracteres; vacío se guarda como `null`.
+- `aniosExperiencia` es obligatorio, entre 0 y 60.
+- `presentacion` es opcional, máximo 500 caracteres; vacío se guarda como `null`.
+- No se persisten estados de verificación del coach ni especialidades como catálogo, porque el ERD no los define.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`:
+
+- `400`: datos inválidos, JSON inválido o body de practicante; `errors` puede contener mensajes por campo.
+- `401`: no existe sesión autenticada válida.
+- `404`: el perfil de coach todavía no existe al consultar `GET /users/me`.
+
 ## Rutas pendientes: no implementadas ni publicadas
 
 Las siguientes rutas son propuestas para historias futuras. Los controllers vacíos del scaffolding fueron retirados: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
-
-## Users/Profile
-
-```txt
-GET  /users/me
-PUT  /users/me
-POST /users/me/handles
-```
 
 ## Teams
 

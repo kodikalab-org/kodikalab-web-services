@@ -60,7 +60,9 @@ El ERD no define un dominio institucional autorizado ni una política para trans
 
 Se documentan como perfiles del módulo `profiles`, separados de la cuenta base `users.User`. No son una nueva tabla de roles ni una segunda entidad de autenticación.
 
-Ambos usan **PK compartida**: `usuario_id INT`, también FK a `usuario.id`. Una futura asociación JPA puede usar composición `@OneToOne` / `@MapsId`; no agregar un identificador autogenerado adicional ni una columna discriminadora que el ERD no contiene.
+Ambos usan **PK compartida**: `usuario_id INT`, también FK a `usuario.id`. Las entidades JPA implementadas (`PractitionerProfile` → `practicante`, `CoachProfile` → `coach`) usan composición `@OneToOne` / `@MapsId`; no agregar un identificador autogenerado adicional ni una columna discriminadora que el ERD no contiene.
+
+Ambas tablas se crean en desarrollo mediante `ddl-auto: update`. **En ambientes con datos reales se requiere una migración aprobada**; `ddl-auto` no sustituye esa migración.
 
 ### `coach`
 
@@ -71,6 +73,8 @@ Ambos usan **PK compartida**: `usuario_id INT`, también FK a `usuario.id`. Una 
 | `organizacion_club` | `VARCHAR(150)` | Opcional |
 | `anios_experiencia` | `INT` | Obligatorio; default `0` |
 | `presentacion` | `VARCHAR(500)` | Opcional |
+
+Implementado en US-03 mediante `GET/PUT /api/users/me` con sesión `COACH`. `especialidad_principal` es texto libre (el ERD no define catálogo); `anios_experiencia` se valida entre 0 y 60; `organizacion_club` y `presentacion` vacíos se guardan como `null`. Es prerrequisito de US-04: `grupo_estudio.coach_id` referencia `coach.usuario_id`.
 
 ### `practicante`
 
@@ -86,9 +90,11 @@ Ambos usan **PK compartida**: `usuario_id INT`, también FK a `usuario.id`. Una 
 | `atcoder_handle` | `VARCHAR(50)` | Opcional |
 | `vjudge_handle` | `VARCHAR(50)` | Opcional |
 
-Niveles documentados: `PRINCIPIANTE`, `INTERMEDIO`, `AVANZADO`. Los handles están directamente en `practicante`; el ERD vigente no contiene las tablas genéricas de perfiles competitivos/cuentas externas del modelo anterior.
+Niveles documentados e implementados: `PRINCIPIANTE`, `INTERMEDIO`, `AVANZADO`. Los handles están directamente en `practicante`; el ERD vigente no contiene las tablas genéricas de perfiles competitivos/cuentas externas del modelo anterior.
 
-El registro de cuenta base no recibe especialidad, código de estudiante ni carrera. **No crear perfiles con datos ficticios para cumplir columnas obligatorias.** Su creación y la obligatoriedad del perfil en el flujo de incorporación deben definirse en el contrato de US-03 o en un paso explícito de completado de perfil. Esta etapa se limita a preparar `auth`/`users`.
+US-03 implementa la creación/actualización de `practicante` para la cuenta autenticada con rol `PRACTICANTE`, mediante `GET /api/users/me` y `PUT /api/users/me`. Se persisten Codeforces, AtCoder y VJudge porque son las columnas del ERD; **LeetCode no se persiste** mientras no exista en `oficial.erd`. `codeforces_rating` se obtiene desde la API pública de Codeforces; si Codeforces no confirma el handle, no se persiste el nuevo handle/rating y ambos quedan `null` cuando no había valores previos.
+
+El registro de cuenta base no recibe especialidad, código de estudiante ni carrera. **No crear perfiles con datos ficticios para cumplir columnas obligatorias.** El perfil se crea cuando el practicante completa la configuración de perfil.
 
 ## Inventario del dominio y propiedad
 

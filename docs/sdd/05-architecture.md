@@ -77,6 +77,31 @@ auth/
 
 Los perfiles `Coach` / `Practitioner` pertenecen al ámbito `profiles`, con PK compartida `usuario_id`. La creación de perfiles con sus datos obligatorios requiere su propio contrato; no se agrega automáticamente a la adaptación de cuentas base.
 
+Estructura implementada de profiles (US-03). Es **un solo módulo**: los subpaquetes `practitioner` y `coach` ordenan su interior, pero comparten el endpoint `/users/me` y sus piezas transversales en la raíz del módulo. No son módulos independientes ni deben depender entre sí.
+
+```text
+profiles/
+├── ProfileController.java            # GET/PUT /users/me, despacha según el rol de la sesión
+├── CurrentUserResolver.java          # Usuario de la sesión (401 si no hay)
+├── ProfileRequestReader.java         # Convierte y valida el body según el rol
+├── ProfileExceptionHandler.java
+├── ProfileValidationException.java
+├── practitioner/
+│   ├── PractitionerProfile.java      # @Table(name = "practicante")
+│   ├── PractitionerLevel.java
+│   ├── PractitionerProfileRepository.java
+│   ├── PractitionerProfileService.java
+│   ├── PractitionerProfileServiceImpl.java
+│   ├── dto/
+│   └── integration/                  # Cliente de la API pública de Codeforces
+└── coach/
+    ├── CoachProfile.java             # @Table(name = "coach")
+    ├── CoachProfileRepository.java
+    ├── CoachProfileService.java
+    ├── CoachProfileServiceImpl.java
+    └── dto/
+```
+
 Para módulos que crezcan se permite refinar capas internas, sin obligar a migrar todo el proyecto.
 
 ## Reglas de dependencia

@@ -98,6 +98,53 @@ Verifica esquema físico, límites exactos, defaults, BCrypt, rechazo de `ADMIN`
 
 Para `./mvnw test` completo, configurar además `LOGIN_TEST_DB_*` y `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` contra la base exclusiva: `KodikalabApplicationTests` y `RuntimeBoundaryTests` usan `DB_*` con `ddl-auto=update`. No modificar `.env` para estas pruebas.
 
+## US-03 — Perfil de practicante y coach
+
+`GET/PUT /api/users/me` gestiona `practicante` o `coach` según el rol de la sesión. Contrato: `docs/sdd/03-api-contracts.md`.
+
+### Postman
+
+Con el backend arrancado y el cookie jar habilitado, ejecutar en orden:
+
+```bash
+npx --yes newman run tests/US03-profile.postman_collection.json -e tests/local.postman_environment.json
+npx --yes newman run tests/US03-coach.postman_collection.json -e tests/local.postman_environment.json
+```
+
+- `US03-profile` (16 solicitudes): crear/consultar/actualizar practicante, handle inválido conserva datos, LeetCode ignorado, COACH con body de practicante rechazado, Codeforces inexistente no se persiste, código de estudiante duplicado `409`. El caso 04 consulta la **API real de Codeforces** (`tourist`): sin internet el mensaje cambia a la advertencia de Codeforces no confirmado y las aserciones del handle fallan.
+- `US03-coach` (10 solicitudes): crear/consultar/actualizar coach, error conserva datos previos, opcionales en blanco → `null`, body de practicante rechazado.
+
+**Efecto sobre datos:** `US03-profile` crea por corrida dos practicantes (con sus filas en `practicante`) y un coach sin perfil; `US03-coach` crea un coach con su fila en `coach`. Todos con correos `test.us03.*@gmail.com`; no se eliminan ni modifican otros datos. Consulta de solo lectura:
+
+```sql
+SELECT u.correo, u.rol, p.codigo_estudiante, p.codeforces_handle, p.codeforces_rating
+FROM usuario u JOIN practicante p ON p.usuario_id = u.id
+WHERE u.correo LIKE 'test.us03.%' ORDER BY u.id DESC;
+
+SELECT u.correo, c.especialidad_principal, c.organizacion_club, c.anios_experiencia
+FROM usuario u JOIN coach c ON c.usuario_id = u.id
+WHERE u.correo LIKE 'test.us03.coach.%' ORDER BY u.id DESC;
+```
+
+### Pruebas Java
+
+Sin PostgreSQL ni internet (Codeforces se simula con un servidor HTTP local):
+
+```bash
+./mvnw -Dtest='Profile*Tests,CurrentUserResolverTests,*ProfileServiceTests,CodeforcesApiClientTests,ConstraintViolationsTests' test
+```
+
+`ProfileIntegrationTests` es opt-in, con el mismo patrón que login/registro: schema aleatorio `profile_test_<uuid>` en una **base exclusiva de pruebas** (por ejemplo `kodikalab_test`), HTTP en puerto aleatorio, cookie de sesión real y stub de Codeforces. Elimina el schema al terminar.
+
+```bash
+export PROFILE_TEST_DB_URL='jdbc:postgresql://localhost:5432/kodikalab_test'
+export PROFILE_TEST_DB_USER=postgres
+# Configurar PROFILE_TEST_DB_PASSWORD si se requiere.
+./mvnw -Dtest=ProfileIntegrationTests test
+```
+
+Verifica los flujos completos de ambos roles, que un error no reemplace datos previos, el escenario alternativo de Codeforces, `409` por código duplicado (también con solicitudes concurrentes), que el body no elija usuario ni rol, que cada rol escriba solo su tabla, `401` sin sesión y el esquema físico de `practicante`/`coach` contra el ERD.
+
 ## Alcance y datos existentes
 
 - Sin JWT ni cambios a `/api`; los endpoints de desarrollo siguen públicos.
