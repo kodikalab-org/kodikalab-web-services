@@ -212,6 +212,32 @@ Errores con cuerpo `{ "message": "...", "errors": {} }`:
 - `401`: no existe sesión autenticada válida.
 - `404`: el perfil de coach todavía no existe al consultar `GET /users/me`.
 
+## Analytics — US-11
+
+`GET /api/analytics/teams/{teamId}/standings` consulta resoluciones persistidas del equipo. Requiere sesión HTTP y cuenta `ACTIVO`: se autoriza al coach responsable o al practicante con membresía `ACTIVO`. La identidad se obtiene desde la sesión; el cliente no elige el usuario solicitante.
+
+Respuesta `200 OK`:
+
+```json
+{
+  "teamId": 1,
+  "status": "CALCULATED",
+  "orderingCriterion": "DISTINCT_ACCEPTED_PROBLEMS_DESC",
+  "tieCriterion": "SHARED_POSITION_1_1_3",
+  "members": [
+    { "membershipId": 1, "userId": 10, "fullName": "Usuario Prueba", "acceptedProblems": 2, "position": 1 }
+  ]
+}
+```
+
+Cada problema de catálogo aceptado cuenta una vez por membresía y equipo, incluso entre competencias. Solo se muestran integrantes activos, con orden descendente y empates `1, 1, 3`; el ID de membresía estabiliza el orden de presentación. Sin resoluciones, `status` es `NO_ACTIVITY` y `members` es `[]`. Con intentos válidos sin aceptaciones, se muestran puntuaciones cero compartidas.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin sesión, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por datos inconsistentes (campos o índices en `errors`), `503` por fallo de persistencia/transacción y `500` por error inesperado. Nunca se devuelven posiciones parciales del cálculo fallido.
+
+En `409` o `503` se añade opcionalmente `lastValidRanking: { "calculatedAt": "...", "ranking": { ... } }`, con el último resultado completo guardado en PostgreSQL para ese equipo. Se conserva el código de error: ese ranking corresponde a la fecha indicada y no se presenta como un cálculo actualizado. Solo se recupera después de verificar nuevamente los permisos actuales. Si no existe, no se puede leer o no se puede verificar la autorización, se omite. Una caída total de PostgreSQL impide recuperarlo durante la caída; el registro permanece almacenado. Cada cálculo válido reemplaza una sola fila por equipo, sin historial.
+
+Detalle de reglas y verificación: [US-11](13-us11-ranking-interno.md).
+
 ## Rutas pendientes: no implementadas ni publicadas
 
 Las siguientes rutas son propuestas para historias futuras. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
@@ -238,7 +264,6 @@ GET  /problems/{id}/resources
 
 ```txt
 GET  /analytics/teams/{teamId}/topics
-GET  /analytics/teams/{teamId}/standings
 GET  /analytics/teams/{teamId}/weaknesses
 POST /analytics/teams/{teamId}/competitions
 GET  /analytics/users/me/independent-progress

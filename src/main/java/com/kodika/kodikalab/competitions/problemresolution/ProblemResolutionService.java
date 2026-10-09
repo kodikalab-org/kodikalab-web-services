@@ -1,8 +1,8 @@
 package com.kodika.kodikalab.competitions.problemresolution;
 
-/**
- * Plantilla del servicio de resoluciones de problemas de competencia (resolucion_problema).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData;
+import java.util.List;
+
 public interface ProblemResolutionService {
+    List<TeamResolutionData> findResolutionsByTeamId(Integer teamId);
 }

@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.architecture;
 
+import com.kodika.kodikalab.analytics.TeamRankingSnapshot;
 import com.kodika.kodikalab.competitions.category.Category;
 import com.kodika.kodikalab.competitions.competition.Competition;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblem;
@@ -49,13 +50,14 @@ class RuntimeBoundaryTests {
                         CoachProfile.class.getName(), StudyGroup.class.getName(), GroupMembership.class.getName(),
                         Competition.class.getName(), CompetitionProblem.class.getName(),
                         ProblemResolution.class.getName(), Category.class.getName(), Problem.class.getName(),
-                        Topic.class.getName(), ProblemTopic.class.getName(), Material.class.getName());
+                        Topic.class.getName(), ProblemTopic.class.getName(), Material.class.getName(),
+                        TeamRankingSnapshot.class.getName());
         assertThat(context.getBeansOfType(JpaRepository.class).keySet())
                 .containsExactlyInAnyOrder("userRepository", "practitionerProfileRepository",
                         "coachProfileRepository", "studyGroupRepository", "groupMembershipRepository",
                         "competitionRepository", "competitionProblemRepository", "problemResolutionRepository",
                         "categoryRepository", "problemRepository", "topicRepository", "problemTopicRepository",
-                        "materialRepository");
+                        "materialRepository", "teamRankingSnapshotRepository");
         assertThat(context.containsBean("legacyAuthController")).isFalse();
         assertThat(context.containsBean("legacyAuthService")).isFalse();
     }
@@ -66,7 +68,8 @@ class RuntimeBoundaryTests {
                 .filter(entry -> entry.getValue().getBeanType().getPackageName()
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
-                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me");
+                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
+                        "/analytics/teams/{teamId}/standings");
     }
 
     @Test

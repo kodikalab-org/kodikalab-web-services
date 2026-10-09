@@ -158,9 +158,30 @@ export ERD_TEST_DB_USER=postgres
 ./mvnw -Dtest=ErdSchemaIntegrationTests test
 ```
 
+## US-11 — Ranking interno
+
+Endpoint: `GET /api/analytics/teams/{teamId}/standings`, con sesión del coach responsable o de un integrante activo. Contrato y resultados de verificación: [US-11](../docs/sdd/13-us11-ranking-interno.md).
+
+Pruebas sin PostgreSQL (cálculo, autorización, adaptación de datos y HTTP):
+
+```powershell
+.\mvnw.cmd '-Dtest=RankingServiceTests,TeamRankingServiceTests,AnalyticsControllerTests,StoredTeamRankingServiceTests,RankingSnapshotServiceTests' test
+```
+
+`RankingIntegrationTests` requiere una base exclusiva de pruebas y permisos para crear/eliminar schemas:
+
+```powershell
+$env:RANKING_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:RANKING_TEST_DB_USER = 'postgres'
+# Configurar RANKING_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=RankingIntegrationTests' test
+```
+
+La suite crea `ranking_test_<uuid>`, carga fixtures únicamente en ese schema y utiliza login HTTP real antes de consultar el ranking. Verifica consolidación entre competencias, empates, ceros, ausencia de actividad, aislamiento por equipo, membresías inactivas, referencias cruzadas y permisos. También comprueba la recuperación del resultado guardado, su reemplazo tras corregir datos, una sola fila por equipo, rechazo de escrituras anteriores y que un miembro revocado no vea el resultado guardado. Elimina su schema al terminar; una interrupción puede requerir limpieza manual. Sin `RANKING_TEST_DB_URL`, se omite. No ha sido ejecutada contra PostgreSQL en esta entrega.
+
 ## Alcance y datos existentes
 
-- Sin JWT ni cambios a `/api`; los endpoints de desarrollo siguen públicos.
+- Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.
 - No se inventan dominios institucionales autorizados ni perfiles incompletos.
 - Scaffolding legacy sin lógica retirado; se conserva `auth/dto` y toda la funcionalidad de registro/login.
 - `RuntimeBoundaryTests` verifica una sola entidad/repository de cuenta, solo rutas de negocio implementadas y `404` para las antiguas rutas ficticias. Actualizar esos límites al implementar un nuevo módulo real.

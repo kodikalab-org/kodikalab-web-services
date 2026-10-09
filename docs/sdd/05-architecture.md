@@ -11,7 +11,7 @@ docs/sdd/assets/oficial.erd
 docs/sdd/04-database-model.md
 ```
 
-`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD como plantilla sin lógica (ver "Estructura de los módulos plantilla"). `assignments`, `analytics` y `ai` siguen como diseño objetivo.
+`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD (ver "Estructura de los módulos plantilla"); US-11 agrega consultas públicas en sus servicios. `analytics` implementa el ranking y conserva su último resultado válido en la extensión aprobada `ranking_equipo_actual`. `assignments` y `ai` siguen como diseño objetivo.
 
 ## Módulos y propiedad del modelo oficial
 
@@ -24,7 +24,7 @@ docs/sdd/04-database-model.md
 | `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
 | `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
 | `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
-| `analytics` | Lecturas derivadas de grupos, competencias y resoluciones | Progreso, rankings y métricas; no dueño de entidades transaccionales ajenas |
+| `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking y su último resultado válido; no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
 | `security` | Sesión, contexto de seguridad, permisos | Componentes transversales; JWT sigue pendiente |
 | `config` | Beans Spring | Configuración general, sin lógica de negocio |
@@ -201,7 +201,7 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
 | `/teams/**` | Propuesta pendiente de `teams`; no publicada |
 | `/problems/**` | Propuesta pendiente de `problems` / asignación; no publicada |
-| `/analytics/**` | Propuesta pendiente de `analytics`; no publicada |
+| `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |
 
 Las rutas pendientes se conservan únicamente como contratos propuestos. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints, así que no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.
