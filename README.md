@@ -131,7 +131,7 @@ Esto significa que el diseño funcional y relacional esperado está documentado 
 docs/sdd/assets/oficial.erd
 ```
 
-Las entidades Java implementan la parte del diseño ya desarrollada; actualmente solo existe `usuario`. Hibernate puede crear o actualizar esa tabla al iniciar la aplicación. El scaffolding legacy se retiró; las demás tablas oficiales aún no están implementadas.
+Todas las tablas visibles de `docs/sdd/assets/oficial.erd` tienen entidad JPA, y Hibernate las crea o actualiza al iniciar la aplicación (`ddl-auto: update`). `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); `teams`, `problems` y `competitions` son plantillas sin lógica para las siguientes historias.
 
 Por eso, para desarrollo local, solo es obligatorio crear la base de datos vacía. No es obligatorio ejecutar manualmente un script SQL antes de iniciar el backend.
 
@@ -422,7 +422,7 @@ com.kodika.kodikalab
 
 KodikaLab se organiza como un **monolito modular simple**: una sola aplicación Spring Boot y una sola base de datos PostgreSQL, pero con paquetes separados por dominio.
 
-El scaffolding inicial por capas sin lógica se retiró tras revisar funcionalidad y referencias. Actualmente existen `auth`, `users`, `security`, `config` y `common`; el resto de módulos de la siguiente estructura es diseño objetivo, no carpetas ni endpoints implementados:
+El scaffolding inicial por capas sin lógica se retiró tras revisar funcionalidad y referencias. Actualmente existen `auth`, `users`, `profiles`, `security`, `config` y `common` con lógica, y `teams`, `problems` y `competitions` como plantilla del ERD (entidades, repositorios, servicios y controllers sin endpoints). `assignments`, `analytics` y `ai` son diseño objetivo:
 
 ```txt
 src/main/java/com/kodika/kodikalab

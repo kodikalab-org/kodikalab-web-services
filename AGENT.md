@@ -26,7 +26,7 @@ Antes de modificar este proyecto, revisar:
 
 KodikaLab es una sola aplicación Spring Boot con una sola base de datos PostgreSQL, organizada internamente por módulos de dominio.
 
-El scaffolding raíz sin funcionalidad fue retirado tras revisión y autorización. Conservar los módulos funcionales actuales (`auth`, `users`, `security`, `config`, `common`), incluido `auth/dto`. Crear los módulos siguientes solo al implementar su historia; no restaurar endpoints/clases vacíos:
+El scaffolding raíz sin funcionalidad fue retirado tras revisión y autorización. Conservar los módulos funcionales actuales (`auth`, `users`, `security`, `config`, `common`), incluido `auth/dto`. Los módulos `teams`, `problems` y `competitions` existen como **plantilla del ERD** (decisión del dueño del proyecto): entidades JPA, enums, repositorios, servicios y controllers sin lógica ni endpoints. Cada historia agrega sus métodos y endpoints con su contrato; no agregar respuestas ficticias ni endpoints sin historia. Los módulos sin tablas en el ERD (`assignments`, `analytics`, `ai`) se crean solo al implementar su historia:
 
 ```txt
 com.kodika.kodikalab

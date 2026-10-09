@@ -214,7 +214,7 @@ Errores con cuerpo `{ "message": "...", "errors": {} }`:
 
 ## Rutas pendientes: no implementadas ni publicadas
 
-Las siguientes rutas son propuestas para historias futuras. Los controllers vacíos del scaffolding fueron retirados: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
+Las siguientes rutas son propuestas para historias futuras. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
 
 ## Teams
 

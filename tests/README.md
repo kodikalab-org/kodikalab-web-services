@@ -145,6 +145,19 @@ export PROFILE_TEST_DB_USER=postgres
 
 Verifica los flujos completos de ambos roles, que un error no reemplace datos previos, el escenario alternativo de Codeforces, `409` por código duplicado (también con solicitudes concurrentes), que el body no elija usuario ni rol, que cada rol escriba solo su tabla, `401` sin sesión y el esquema físico de `practicante`/`coach` contra el ERD.
 
+## Esquema del ERD
+
+`ErdSchemaIntegrationTests` (opt-in) genera el esquema completo desde las entidades JPA en un schema aleatorio
+`erd_test_<uuid>` y lo compara con las tablas visibles de `oficial.erd`: columnas, tipos, longitudes, nulos,
+defaults, PKs, FKs y unicidades. Elimina el schema al terminar.
+
+```bash
+export ERD_TEST_DB_URL='jdbc:postgresql://localhost:5432/kodikalab_test'
+export ERD_TEST_DB_USER=postgres
+# Configurar ERD_TEST_DB_PASSWORD si se requiere.
+./mvnw -Dtest=ErdSchemaIntegrationTests test
+```
+
 ## Alcance y datos existentes
 
 - Sin JWT ni cambios a `/api`; los endpoints de desarrollo siguen públicos.
