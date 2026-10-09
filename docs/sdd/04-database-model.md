@@ -130,6 +130,44 @@ No trasladar ni implementar estos otros módulos al adaptar `auth`/`users`.
 
 Estas son definiciones documentales, no cambios implementados en código de equipos/competencias.
 
+## Extensión propuesta para US-05 y US-06 — solicitud_grupo
+
+US-05 y US-06 implementan el proceso de solicitud, aceptación
+y rechazo de ingreso a grupos de estudio.
+
+Para este flujo se incorporó la entidad GroupJoinRequest,
+persistida en la tabla solicitud_grupo.
+
+Esta tabla todavía no pertenece al modelo visible del archivo
+oficial.erd y requiere revisión y aprobación para incorporarse
+definitivamente al ERD del proyecto.
+
+### Estructura implementada
+
+| Columna | Tipo | Descripción |
+| --- | --- | --- |
+| id | INTEGER | Identificador de solicitud, PK |
+| grupo_id | INTEGER | FK a grupo_estudio |
+| practicante_id | INTEGER | FK a practicante |
+| estado | VARCHAR(20) | PENDIENTE, ACEPTADA o RECHAZADA |
+| fecha_solicitud | TIMESTAMPTZ | Fecha de registro |
+| fecha_respuesta | TIMESTAMPTZ | Fecha de aceptación o rechazo; nullable |
+
+### Reglas implementadas
+
+- Solo un PRACTICANTE puede solicitar ingreso.
+- No se permiten solicitudes pendientes duplicadas para el mismo grupo y practicante.
+- Un integrante ACTIVO no puede volver a solicitar ingreso al mismo grupo.
+- Solo el COACH responsable puede aceptar o rechazar solicitudes.
+- Una solicitud respondida no puede procesarse nuevamente.
+- Al aceptar, se crea o reactiva una membresía ACTIVO.
+- Al rechazar, no se crea ninguna membresía.
+- Al aceptar, se comprueba que exista capacidad disponible.
+
+La implementación utiliza JPA con ddl-auto: update en el entorno
+local. Su incorporación definitiva al esquema oficial necesita
+actualizar el ERD y validar las restricciones correspondientes.
+
 ## Diferencias del drawio frente a `oficial.erd`
 
 `oficial.erd` es el ERD oficial. La página "Base de Datos" del drawio coincide con él en tablas, columnas,

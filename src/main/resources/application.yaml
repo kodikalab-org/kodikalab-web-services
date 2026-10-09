@@ -9,7 +9,10 @@ server:
         same-site: lax
         # Enable on HTTPS deployments; false only for local HTTP development.
         secure: ${SESSION_COOKIE_SECURE:false}
-
+# Configuración de respuestas de error
+  error:
+    include-stacktrace: never
+    include-exception: false
 spring:
   application:
     name: kodikalab

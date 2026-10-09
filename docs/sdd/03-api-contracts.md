@@ -212,16 +212,147 @@ Errores con cuerpo `{ "message": "...", "errors": {} }`:
 - `401`: no existe sesión autenticada válida.
 - `404`: el perfil de coach todavía no existe al consultar `GET /users/me`.
 
+## Teams — US04, US05 y US06 implementadas
+
+Las siguientes operaciones están implementadas y disponibles
+en Swagger. La autenticación se realiza mediante la sesión
+HTTP creada por POST /api/auth/login.
+
+### US04 — Crear grupo de estudio
+
+POST /api/teams
+
+Rol requerido: COACH, con perfil de coach registrado.
+
+Request:
+
+```json
+{
+  "name": "Entrenamiento de Grafos",
+  "description": "Preparación para competencias ICPC",
+  "expectedLevel": "Div3",
+  "maxCapacity": 15,
+  "sessionSchedule": "Lunes y miércoles de 18:00 a 20:00",
+  "visibility": "PUBLICO"
+}
+```
+
+Respuesta exitosa: 201 Created.
+
+```json
+{
+  "message": "Grupo creado correctamente",
+  "groupId": 1,
+  "name": "Entrenamiento de Grafos",
+  "invitationCode": "CODIGO_GENERADO"
+}
+```
+
+Reglas:
+- Solamente un COACH puede crear grupos.
+- El coach debe tener su perfil registrado.
+- El grupo se crea con estado ACTIVO.
+- Se genera automáticamente un código de invitación.
+- La capacidad máxima debe estar entre 1 y 1000.
+
+### US05 — Solicitar ingreso a un grupo
+
+POST /api/teams/{id}/join
+
+Rol requerido: PRACTICANTE, con perfil registrado.
+
+Parámetro:
+- id: identificador del grupo.
+
+No requiere cuerpo JSON.
+
+Respuesta exitosa: 201 Created.
+
+```json
+{
+  "message": "Solicitud de ingreso registrada correctamente",
+  "requestId": 1,
+  "groupId": 1,
+  "status": "PENDIENTE"
+}
+```
+
+Reglas:
+- El grupo debe existir y estar ACTIVO.
+- Solo un PRACTICANTE puede solicitar ingreso.
+- No se permite solicitar ingreso si ya es miembro ACTIVO.
+- No se permiten solicitudes PENDIENTE duplicadas.
+- Una solicitud RECHAZADA no impide realizar una nueva solicitud.
+
+### US06 — Aceptar o rechazar solicitudes
+
+PATCH /api/teams/{id}/memberships/{memberId}
+
+Rol requerido: COACH responsable del grupo.
+
+Parámetros:
+- id: identificador del grupo.
+- memberId: identificador de la solicitud de ingreso.
+- accept: parámetro booleano de consulta.
+    - true: aceptar.
+    - false: rechazar.
+
+Ejemplo de aceptación:
+
+PATCH /api/teams/1/memberships/1?accept=true
+
+Respuesta exitosa: 200 OK.
+
+```json
+{
+  "message": "Solicitud revisada correctamente",
+  "requestId": 1,
+  "groupId": 1,
+  "status": "ACEPTADA"
+}
+```
+
+Al aceptar:
+- La solicitud pasa a ACEPTADA.
+- Se registra la fecha de respuesta.
+- Se crea o reactiva una membresía ACTIVO.
+- El practicante obtiene el rol de equipo MIEMBRO.
+- Se verifica la capacidad máxima del grupo.
+
+Al rechazar:
+- La solicitud pasa a RECHAZADA.
+- Se registra la fecha de respuesta.
+- No se crea ninguna membresía.
+
+Reglas:
+- Solo el coach responsable puede responder.
+- La solicitud debe estar PENDIENTE.
+- Una solicitud ya respondida no puede procesarse nuevamente.
+
+Nota de contrato:
+Aunque la ruta utiliza el nombre memberId, actualmente
+ese parámetro identifica una solicitud de ingreso, no una
+membresía. Este nombre debe revisarse antes de integrar
+el frontend.
+
+### Respuestas de error verificadas
+
+- 403 Forbidden: usuario sin el rol requerido.
+- 409 Conflict: solicitud pendiente duplicada.
+- 409 Conflict: el practicante ya pertenece al grupo.
+- 409 Conflict: solicitud previamente respondida.
+
+Los errores no incluyen trazas internas de Java.
+
+La tabla solicitud_grupo es una extensión propuesta al ERD
+oficial y está documentada en 04-database-model.md.
+
 ## Rutas pendientes: no implementadas ni publicadas
 
-Las siguientes rutas son propuestas para historias futuras. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
-
+Las siguientes rutas todavía no están implementadas ni publicadas en Swagger. Aunque algunos módulos ya tienen funcionalidades operativas, los endpoints enumerados a continuación permanecen pendientes de desarrollo.
 ## Teams
 
 ```txt
-POST  /teams
-POST  /teams/{id}/join
-PATCH /teams/{id}/memberships/{memberId}
 GET   /teams/{id}/members
 ```
 
