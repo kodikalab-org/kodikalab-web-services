@@ -18,13 +18,13 @@ El ERD define el diseño; JPA lo implementa. Una diferencia entre ambos exige re
 
 ## Convención de nombres
 
-- Paquetes, clases, atributos Java, rutas y claves JSON: se conservan en inglés.
+- Clases: nombres en español del diagrama de clases (renombrado pendiente; ver `05-architecture.md`). Paquetes de módulo, rutas y claves JSON: sin cambios hasta definir el alcance del renombrado.
 - **Valores de enums de cuenta: español tanto en Java como en HTTP y SQL**, según el ERD (`PRACTICANTE`/`COACH`, `ACTIVO`/`SUSPENDIDO`).
 - **Tablas y columnas físicas: nombres exactos del ERD**, actualmente mayoritariamente en español y snake_case.
 - No traducir automáticamente `usuario` a `users` ni imponer la antigua regla de tablas inglesas/plurales.
 - Mantener `@Table` y `@Column` explícitos.
 - Persistir los enums directamente con `@Enumerated(EnumType.STRING)`, no como ordinales. Sus constantes coinciden con el ERD: no se necesitan converters ni traducciones.
-- `Categoria` contiene nombres y relaciones inconsistentes; no normalizarla ni generar su DDL sin aclaración del equipo.
+- `Categoria` engloba únicamente al grupo de estudio. Se mapea como en `oficial.erd` (1:1 con `grupo_estudio`), con los identificadores en minúsculas que PostgreSQL crea para nombres sin comillas (`categoria`, `idcategoria`, `descripcioncategoria`, `nombrecategoria`, `idgrupo`); `idcategoria` es INT sin autoincremento, como en el ERD. No relacionarla con competencias ni problemas.
 
 ## Cuenta base — `usuario`
 
@@ -98,7 +98,7 @@ El registro de cuenta base no recibe especialidad, código de estudiante ni carr
 
 ## Inventario del dominio y propiedad
 
-Los nombres siguientes salen de las colecciones del ERD; no implican entidades JPA implementadas. Las antiguas entidades de scaffolding se retiraron.
+Todas las tablas visibles del ERD tienen entidad JPA. `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); las de `teams`, `problems` y `competitions` son **plantilla sin lógica**. FKs dibujadas como `SERIAL` (`resolucion_problema.practicante_grupo_id`, `Categoria.idGrupo`) se mapean como `INT`, porque una FK no se autogenera. Las antiguas entidades de scaffolding se retiraron; sus tablas (`teams`, `problems`, `submissions`...) pueden seguir en bases locales y no se eliminan sin migración aprobada.
 
 | Tabla oficial | Módulo dueño objetivo | Relaciones / observaciones |
 | --- | --- | --- |
@@ -107,7 +107,6 @@ Los nombres siguientes salen de las colecciones del ERD; no implican entidades J
 | `practicante` | `profiles` | PK/FK a `usuario`; handles y datos académicos |
 | `grupo_estudio` | `teams` | `coach_id` referencia `coach.usuario_id`, no directamente una cuenta genérica |
 | `practicante_grupo` | `teams` | Membresía entre grupo y practicante |
-| `solicitud_grupo` | `teams` | Postulación entre grupo y practicante; entidad presente con metadatos pendientes |
 | `competencia` | `competitions` | Vinculada a un grupo |
 | `competencia_problema` | `competitions` | Problema dentro de una competencia; orden, puntaje y asignación |
 | `resolucion_problema` | `competitions` | Resolución de un problema de competencia por una membresía; relaciones pendientes de revisión |
@@ -115,7 +114,7 @@ Los nombres siguientes salen de las colecciones del ERD; no implican entidades J
 | `tema` | `problems` | Nombre único |
 | `problema_tema` | `problems` | PK compuesta problema/tema |
 | `material` | `problems` | `problema_id` nullable: también permite biblioteca libre |
-| `Categoria` | Pendiente | Relación con grupos/competencias y nombres ambiguos; no inventar dueño ni normalización física |
+| `Categoria` | `competitions` | 1:1 con `grupo_estudio`; engloba únicamente al grupo |
 
 `analytics` deriva métricas de estas tablas. `assignments` conserva su capacidad funcional, pero el ERD no define las antiguas tablas genéricas de asignaciones; su integración debe revisarse sobre competencias/problemas. `ai` permanece como capacidad funcional sin tablas propias documentadas en esta versión.
 
@@ -126,23 +125,50 @@ No trasladar ni implementar estos otros módulos al adaptar `auth`/`users`.
 - `grupo_estudio` contiene `cupo_maximo INT`, default `15`, y `horario_sesiones VARCHAR(150)` opcional. No hay una tabla de horarios independiente en este ERD.
 - Tiene `codigo_invitacion VARCHAR(20)` obligatorio/único, estado `ACTIVO` / `ARCHIVADO` y fecha de creación.
 - `practicante_grupo` relaciona `grupo_id` con `practicante_id`; hay unicidad del par y estados de membresía `ACTIVO` / `RETIRADO` / `EXPULSADO`.
-- `solicitud_grupo` usa `PENDIENTE` / `ACEPTADA` / `RECHAZADA` / `CANCELADA`.
 - `competencia_problema` tiene unicidad competencia/problema y competencia/orden de letra.
 - Las resoluciones referencian una membresía y un problema de competencia. No usar automáticamente las tablas de resultados/asignaciones del diseño anterior como si siguieran vigentes.
 
 Estas son definiciones documentales, no cambios implementados en código de equipos/competencias.
 
-## Inconsistencias internas del archivo oficial a revisar
+## Diferencias del drawio frente a `oficial.erd`
 
-El JSON es legible, pero hay diferencias entre sus colecciones y listas de documentos:
+`oficial.erd` es el ERD oficial. La página "Base de Datos" del drawio coincide con él en tablas, columnas,
+longitudes y valores, salvo en lo siguiente, que debe corregirse **en el drawio**:
 
-1. `t_solicitud_grupo` existe en `tableEntities`, pero no en `doc.tableIds`.
-2. `rel_grp_sg`, `rel_pra_sg`, `rel_pg_rsp` y `wiapNamjGgbljY0_ujikC` existen, pero no figuran en `doc.relationshipIds`.
-3. `ix_sg_busqueda`, `ix_fk_c_rsp_pg` e `ix_fk_c_sg_practicante` no figuran en `doc.indexIds`.
-4. `c_rsp_pg` está fuera de los `columnIds` de `resolucion_problema`, aunque una relación/índice todavía lo referencia. Hay otra columna de membresía incluida con tipo `SERIAL`; revisar duplicación y si debe ser una FK `INT` no autogenerada.
-5. La relación desde `competencia` hacia `Categoria` referencia `uTEAp_JY9tT3j_ANZEjrA`, columna que no está en los `columnIds` de esa tabla. `Categoria.idGrupo` también está tipada `SERIAL` pese a su relación con un grupo.
+| Elemento | Página "Base de Datos" del drawio | `oficial.erd` (oficial) y código |
+| --- | --- | --- |
+| `categoria` | `id SERIAL`, `grupo_id`, `nombre`, `descripcion`; un grupo **define** N categorías | 1:1 con `grupo_estudio`: `idcategoria`, `idgrupo`, `nombrecategoria`, `descripcioncategoria` |
+| `competencia.categoria_id` | FK a `categoria`; una categoría clasifica competencias | **No existe**: la categoría engloba únicamente al grupo |
+| `resolucion_problema.practicante_grupo_id` | `INT` FK | Dibujada `SERIAL`; se mapea `INT`, porque una FK no se autogenera |
+| `solicitud_grupo` | No existe | Restos ocultos en el `.erd`; no forma parte del modelo |
 
-No corregir el ERD silenciosamente ni generar un SQL global de referencia hasta resolver estas ambigüedades. Los campos base de `usuario` sí están definidos con sus tipos y restricciones.
+El drawio no muestra obligatoriedad ni valores por defecto; se toman de `oficial.erd`.
+
+## Diferencias del diagrama de clases frente al ERD
+
+Para datos manda el ERD; estas diferencias deben corregirse en el diagrama de clases ("CODIGO"):
+
+| Clase | Diferencia frente al ERD |
+| --- | --- |
+| `Practicante`, `Coach` | Heredan de `Usuario`; el ERD (y el código) usa tablas separadas 1:1 con `usuario_id` como PK/FK compartida |
+| `Practicante` | Tiene `distrito`, `experienciaMeses`, `disponibilidad`, `objetivo` (no están en el ERD); le faltan `carrera`, handles de Codeforces/AtCoder/VJudge y `codeforcesRating` |
+| `Coach` | `anosExperiencia` (ERD `anios_experiencia`) |
+| `GrupoEstudio` | `nivelObjetivo` (ERD `nivel_esperado`), `cicloAcademico` (no está), `horarioRecurrente` (ERD `horario_sesiones`); le falta `cupoMaximo` |
+| `Categoria` | Atributo `tipo` (no está); **clasifica `Problema`**, mientras el ERD la asocia únicamente al grupo de estudio |
+| `Competencia` | `tipoEvento` (ERD `tipo_acceso`); le faltan `claveAcceso`, `reglaPenalizacion`, `duracionMinutos`, `congelarScoreboardMin` y la categoría |
+| `CompetenciaProblema` | `int orden` (ERD `orden_letra` VARCHAR: A, B, C...), `double puntaje` (ERD INT); le faltan `colorGlobo` y `fechaAsignacion` |
+| `ResultadoCompetencia` | Tabla `resolucion_problema`; `resultado` corresponde a `veredicto` |
+| `Problema` | `urlOriginal` (ERD `url_problema`), `int dificultadRating` (ERD VARCHAR) |
+| `Material` | `tipoMaterial` (ERD `tipo_recurso`), `resumen` (no está); le falta `enlaceUrl` |
+| Tipos | IDs `Long` (ERD `SERIAL`/`INT` → `Integer`) y fechas `LocalDateTime` (ERD `timestamptz` → `OffsetDateTime`) |
+
+## Inconsistencias internas de `oficial.erd`
+
+1. Queda una relación oculta desde `competencia` hacia `Categoria` (columna `uTEAp_JY9tT3j_ANZEjrA`, fuera de los `columnIds`) que no forma parte del modelo: la categoría solo se relaciona con el grupo. `Categoria.idGrupo` está tipada `SERIAL` pese a ser FK y se mapea `INT`.
+2. `c_rsp_pg` está fuera de los `columnIds` de `resolucion_problema`, aunque una relación/índice la referencia; la columna visible está tipada `SERIAL`.
+3. Quedan elementos ocultos de `solicitud_grupo` (tabla, relaciones `rel_grp_sg`/`rel_pra_sg` e índices `ix_sg_busqueda`/`ix_fk_c_sg_practicante`) que ya no forman parte del modelo.
+
+Estos restos ocultos no afectan al modelo vigente. No corregir el archivo silenciosamente: cualquier limpieza del `.erd` se acuerda con el equipo.
 
 ## Migración segura del modelo anterior
 

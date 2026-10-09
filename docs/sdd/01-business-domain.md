@@ -17,20 +17,19 @@ El dominio físico se documenta en `assets/oficial.erd`. Esta actualización del
 | Plataforma externa | Integración representada por handles en `practicante`: Codeforces, AtCoder y VJudge |
 | Grupo de estudio | Equipo de entrenamiento en `grupo_estudio`, dirigido por un perfil coach, con cupo, invitación y horario descriptivo |
 | Membresía | Fila de `practicante_grupo`; vincula un practicante y un grupo y registra estado/rol dentro del equipo |
-| Solicitud de grupo | Postulación en `solicitud_grupo`, distinta de la membresía; sus metadatos del ERD necesitan revisión |
 | Competencia | Evento vinculado a un grupo, con acceso, reglas, duración, estado y fechas |
 | Problema de competencia | Fila de `competencia_problema` que relaciona el catálogo con un evento y define letra/puntaje |
 | Problema | Reto del catálogo `problema`, con plataforma, URL y límites de ejecución |
 | Tema | Clasificador de `tema`; la relación muchos-a-muchos con problemas está en `problema_tema` |
-| Resolución | Envío de una membresía sobre un problema de competencia en `resolucion_problema`; revisar la FK de membresía del ERD |
+| Resultado de competencia | Clase `ResultadoCompetencia`, tabla `resolucion_problema`: envío de una membresía sobre un problema de competencia, con veredicto |
 | Material | Recurso en `material`; puede vincularse a un problema o ser parte de una biblioteca libre |
-| Categoría | Elemento `Categoria` del diagrama cuyo alcance, nombres y relaciones deben aclararse antes de implementarlo |
+| Categoría | `Categoria` engloba únicamente al grupo de estudio: relación 1:1 con `grupo_estudio` según `oficial.erd`; no se relaciona con competencias ni problemas |
 | Progreso / ranking / debilidad | Métricas derivadas; el diagrama no define tablas transaccionales propias para ellas |
 | Asistente IA | Capacidad funcional del producto; esta versión del ERD no especifica su almacenamiento |
 
 ## Enums en español y persistencia directa
 
-Las clases, rutas y claves JSON conservan sus nombres actuales; los valores de los enums coinciden en Java, HTTP y SQL con el ERD:
+Las clases adoptan los nombres en español del diagrama de clases (renombrado pendiente; ver `05-architecture.md`). Los valores de los enums coinciden en Java, HTTP y SQL con el ERD:
 
 - `User` → tabla `usuario` mediante mapeo explícito.
 - `Role`: `PRACTICANTE`, `COACH`.

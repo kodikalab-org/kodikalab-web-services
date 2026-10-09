@@ -11,7 +11,7 @@ docs/sdd/assets/oficial.erd
 docs/sdd/04-database-model.md
 ```
 
-La adaptación de `auth`/`users` implementa `usuario`. El scaffolding de otros módulos fue retirado tras su revisión: no hay implementaciones ni entidades JPA adicionales; los demás módulos siguen como diseño objetivo.
+`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD como plantilla sin lógica (ver "Estructura de los módulos plantilla"). `assignments`, `analytics` y `ai` siguen como diseño objetivo.
 
 ## Módulos y propiedad del modelo oficial
 
@@ -20,9 +20,9 @@ La adaptación de `auth`/`users` implementa `usuario`. El scaffolding de otros m
 | `auth` | Usa la cuenta `usuario`, sin ser dueño de su persistencia | Registro, login, respuesta de identidad y autenticación futura |
 | `users` | `usuario` | Cuenta base, correo, hash, rol, estado y fecha de registro |
 | `profiles` | `coach`, `practicante` | Perfiles de rol, datos académicos/competitivos y handles definidos por el ERD |
-| `teams` | `grupo_estudio`, `practicante_grupo`, `solicitud_grupo` | Coach responsable, grupos, cupos, horario descriptivo, membresías y solicitudes |
+| `teams` | `grupo_estudio`, `practicante_grupo` | Coach responsable, grupos, cupos, horario descriptivo, membresías y solicitudes |
 | `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
-| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
+| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
 | `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
 | `analytics` | Lecturas derivadas de grupos, competencias y resoluciones | Progreso, rankings y métricas; no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
@@ -30,11 +30,35 @@ La adaptación de `auth`/`users` implementa `usuario`. El scaffolding de otros m
 | `config` | Beans Spring | Configuración general, sin lógica de negocio |
 | `common` | Excepciones y tipos transversales | Componentes compartidos, sin dependencia de módulos de negocio |
 
-`Categoria` necesita aclarar nombres, claves y relaciones antes de asignar un módulo dueño. Las incidencias de metadatos del ERD están registradas en `04-database-model.md`.
+`Categoria` se mapea en `competitions` (como en `09-component-diagram.md`) y engloba únicamente al grupo de estudio: 1:1 con `grupo_estudio`, según `oficial.erd`. Las incidencias de metadatos del ERD están registradas en `04-database-model.md`.
 
 ## Nombres y estructura
 
-Las clases, paquetes, rutas y claves JSON conservan sus nombres ingleses. **Los valores de enums de cuenta están en español en Java, HTTP y SQL** y se persisten con `@Enumerated(EnumType.STRING)`, sin conversores. Los identificadores físicos se mapean **exactamente como aparecen en el ERD**. Por ejemplo, `users.User` corresponde a `usuario`, no a una tabla inventada `users`.
+Las clases adoptan los **nombres en español del diagrama de clases** (página "CODIGO" del drawio). **Los valores de enums están en español en Java, HTTP y SQL** y se persisten con `@Enumerated(EnumType.STRING)`, sin conversores.
+
+| Diagrama de clases (objetivo) | Clase Java actual | Tabla |
+| --- | --- | --- |
+| `Usuario` | `users.User` | `usuario` |
+| `Practicante` | `profiles.practitioner.PractitionerProfile` | `practicante` |
+| `Coach` | `profiles.coach.CoachProfile` | `coach` |
+| `GrupoEstudio` | `teams.studygroup.StudyGroup` | `grupo_estudio` |
+| `PracticanteGrupo` | `teams.groupmembership.GroupMembership` | `practicante_grupo` |
+| `Competencia` | `competitions.competition.Competition` | `competencia` |
+| `CompetenciaProblema` | `competitions.competitionproblem.CompetitionProblem` | `competencia_problema` |
+| `ResultadoCompetencia` | `competitions.problemresolution.ProblemResolution` | `resolucion_problema` |
+| `Categoria` | `competitions.category.Category` | `categoria` |
+| `Problema` | `problems.problem.Problem` | `problema` |
+| `Tema` | `problems.topic.Topic` | `tema` |
+| `ProblemaTema` | `problems.problemtopic.ProblemTopic` | `problema_tema` |
+| `Material` | `problems.material.Material` | `material` |
+
+Repositorios, servicios y controllers siguen el mismo nombre (`GrupoEstudioRepository`, `GrupoEstudioService`,
+`GrupoEstudioController`...), como en `09-component-diagram.md`. Los enums se nombran también en español
+(`Rol`, `EstadoCuenta`, `NivelCompetitivo`...) y sus valores no cambian. **El renombrado del código está
+pendiente de ejecutar**; hasta entonces el código conserva los nombres en inglés de la columna central.
+El alcance para paquetes de módulo, rutas HTTP y claves JSON se define antes de ejecutar el renombrado.
+
+Las tablas y columnas físicas siguen el ERD. Los identificadores físicos se mapean **exactamente como aparecen en el ERD**. Por ejemplo, `users.User` corresponde a `usuario`, no a una tabla inventada `users`.
 
 ```text
 com.kodika.kodikalab
@@ -102,6 +126,42 @@ profiles/
     └── dto/
 ```
 
+### Estructura de los módulos plantilla
+
+Generados desde las tablas visibles de `oficial.erd`, con **una carpeta por entidad** dentro de cada módulo
+(mismo patrón que `profiles/coach` y `profiles/practitioner`). Cada carpeta contiene la entidad, sus enums, su
+repositorio y su servicio plantilla; el controller del módulo vive en la raíz. No tienen lógica: los servicios
+solo reciben su repositorio y los controllers no declaran endpoints, por eso sus rutas siguen devolviendo `404`.
+
+```text
+teams/                         /api/teams
+├── StudyGroupController
+├── studygroup/                StudyGroup (grupo_estudio), GroupStatus, GroupVisibility,
+│                              StudyGroupRepository, StudyGroupService, StudyGroupServiceImpl
+└── groupmembership/           GroupMembership (practicante_grupo), MembershipStatus, TeamRole,
+                               GroupMembershipRepository, GroupMembershipService, GroupMembershipServiceImpl
+
+competitions/                  /api/competitions
+├── CompetitionController
+├── competition/               Competition (competencia), CompetitionAccessType, PenaltyRule,
+│                              CompetitionStatus, CompetitionRepository, CompetitionService(Impl)
+├── competitionproblem/        CompetitionProblem (competencia_problema), Repository, Service(Impl)
+├── problemresolution/         ProblemResolution (resolucion_problema), Verdict, Repository, Service(Impl)
+└── category/                  Category (Categoria), Repository, Service(Impl)
+
+problems/                      /api/problems
+├── ProblemController
+├── problem/                   Problem (problema), SourcePlatform, Repository, Service(Impl)
+├── topic/                     Topic (tema), Repository, Service(Impl)
+├── problemtopic/              ProblemTopic + ProblemTopicId (problema_tema), Repository, Service(Impl)
+└── material/                  Material (material), ResourceType, Repository, Service(Impl)
+```
+
+Cada historia declara su operación en el servicio de la entidad, la implementa en `XxxServiceImpl`, agrega el
+endpoint al controller del módulo con su contrato en `03-api-contracts.md`, y crea sus DTOs en `<entidad>/dto`
+y su `@RestControllerAdvice`, siguiendo el patrón de `profiles`. `ErdSchemaIntegrationTests` verifica que el
+esquema generado coincida con el ERD.
+
 Para módulos que crezcan se permite refinar capas internas, sin obligar a migrar todo el proyecto.
 
 ## Reglas de dependencia
@@ -144,15 +204,15 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/analytics/**` | Propuesta pendiente de `analytics`; no publicada |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |
 
-Las rutas pendientes se conservan únicamente como contratos propuestos. Sus controllers de scaffolding se eliminaron y ya no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.
+Las rutas pendientes se conservan únicamente como contratos propuestos. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints, así que no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.
 
 ## Migración por alcance
 
-1. Actualizar primero SDD con el archivo oficial y marcar diferencias frente al código.
-2. Adaptar únicamente `auth`/`users`, con pruebas y Postman correspondientes.
-3. No modificar código de equipos, competencias, catálogo o perfiles sin la tarea correspondiente.
-4. El scaffolding legacy sin lógica fue retirado por autorización explícita; no restaurarlo para simular funcionalidades. Revisar dependencias y avisar antes de nuevas eliminaciones.
+1. Actualizar primero el SDD con los diagramas y marcar diferencias frente al código.
+2. Implementar la lógica de cada módulo solo en su historia, con pruebas y Postman.
+3. No modificar código de equipos, competencias, catálogo o perfiles fuera de la tarea correspondiente.
+4. El scaffolding legacy sin lógica fue retirado por autorización explícita; no restaurarlo para simular funcionalidades. Las plantillas del ERD actual no exponen endpoints hasta su historia. Revisar dependencias y avisar antes de nuevas eliminaciones.
 5. No ejecutar migraciones sobre datos reales ni confiar en `ddl-auto=update` para renombrar tablas o convertir valores.
 6. Validar en PostgreSQL aislado y ejecutar `./mvnw clean compile` tras cambios Java.
 
-La persistencia implementada se limita a `usuario`; las demás tablas oficiales todavía no tienen entidades JPA. Quitar clases no elimina tablas ni migra datos existentes. La limpieza está documentada en `12-source-cleanup.md`.
+Todas las tablas del ERD tienen entidad JPA; solo `usuario`, `coach` y `practicante` tienen lógica. Quitar clases no elimina tablas ni migra datos existentes. La limpieza está documentada en `12-source-cleanup.md`.
