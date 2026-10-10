@@ -11,7 +11,7 @@ docs/sdd/assets/oficial.erd
 docs/sdd/04-database-model.md
 ```
 
-`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD (ver "Estructura de los módulos plantilla"); US-11 agrega consultas públicas en sus servicios. `analytics` implementa el ranking y conserva su último resultado válido en la extensión aprobada `ranking_equipo_actual`. `assignments` y `ai` siguen como diseño objetivo.
+`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD (ver "Estructura de los módulos plantilla"); US-11 agrega consultas públicas en sus servicios. `analytics` implementa el ranking y conserva su último resultado válido en la extensión aprobada `ranking_equipo_actual`. `assignments` implementa la asignación y la vista de problemas asignados (US-07 y US-08) sin tablas propias, coordinando por servicios públicos. `ai` sigue como diseño objetivo.
 
 ## Módulos y propiedad del modelo oficial
 
@@ -23,7 +23,7 @@ docs/sdd/04-database-model.md
 | `teams` | `grupo_estudio`, `practicante_grupo` | Coach responsable, grupos, cupos, horario descriptivo, membresías y solicitudes |
 | `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
 | `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria`, `resultado_oficial_competencia` (extensión aprobada US-13) | Evento del grupo, problemas del evento, resoluciones, scoreboard y resultados oficiales confirmados/pendientes |
-| `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
+| `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD (US-07 y US-08 implementadas) | Asigna problemas del catálogo a las competencias del equipo (`competencia_problema`) y expone los problemas asignados con el estado personal; coordina `competitions`, `problems` y `teams` por sus servicios; no recrear tablas retiradas sin diseño aprobado |
 | `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking, su último resultado válido y cobertura por tema (US-12); no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
 | `security` | Sesión, contexto de seguridad, permisos | Componentes transversales; JWT sigue pendiente |
@@ -211,7 +211,7 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/auth/**` | `auth`; registro/login persisten en `usuario` según el ERD nuevo |
 | `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
 | `/teams/**` | Propuesta pendiente de `teams`; no publicada |
-| `/problems/**` | Propuesta pendiente de `problems` / asignación; no publicada |
+| `/problems`, `/problems/assign`, `/problems/assigned/**` | Catálogo (`problems`) y US-07/US-08 (`assignments`) implementadas; requieren sesión. `/problems/{id}/submit` y `/problems/{id}/resources` siguen pendientes |
 | `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
 | `/analytics/teams/{teamId}/weaknesses` | US-12 implementada; requiere sesión del coach responsable con cuenta activa |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |

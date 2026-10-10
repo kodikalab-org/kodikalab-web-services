@@ -252,6 +252,33 @@ autorización, ausencia de escrituras ante errores, duplicados concurrentes, rol
 regresión conjunta de US-11/US-12/US-13. Sin `INDEPENDENT_PROGRESS_TEST_DB_URL` se omite. Una interrupción
 puede requerir limpieza manual del schema. No ha sido ejecutada contra PostgreSQL en esta entrega.
 
+## US-07 y US-08 — Asignación y vista de problemas asignados
+
+Catálogo de problemas, asignación a competencias y vista del practicante. Contrato y reglas:
+[US-07/US-08](../docs/sdd/17-us07-us08-asignacion-problemas.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=AssignmentServiceTests,AssignedProblemsServiceTests,AssignmentControllerTests,ProblemServiceTests,TopicServiceTests,ProblemControllerTests' test
+```
+
+Integración en una base exclusiva de pruebas, con permisos para crear/eliminar schemas:
+
+```powershell
+$env:ASSIGNMENT_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:ASSIGNMENT_TEST_DB_USER = 'postgres'
+# Configurar ASSIGNMENT_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=AssignmentsIntegrationTests' test
+```
+
+La suite crea `assignment_test_<uuid>`, usa login HTTP real y datos ficticios en ese schema, y lo elimina al terminar.
+Recorre por la API el catálogo, la creación de la competencia, la asignación, la vista del practicante y el estado
+`RESUELTO` tras registrar un intento (US-14); verifica el rechazo atómico, los permisos, que un equipo no ve las
+asignaciones de otro, que filtrar u ordenar no modifica nada, que la clave de acceso no se expone y la concurrencia de
+asignaciones (letras distintas y un mismo problema asignado una sola vez). Sin `ASSIGNMENT_TEST_DB_URL` se omite. Una
+interrupción puede requerir limpieza manual del schema.
+
 ## Alcance y datos existentes
 
 - Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.

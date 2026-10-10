@@ -4,6 +4,7 @@ import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionSummary;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
@@ -16,8 +17,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -132,6 +135,23 @@ public class CompetitionServiceImpl implements CompetitionService {
         competition.setStartsAt(request.startsAt());
         competition.setEndsAt(request.endsAt());
         return response(competitionRepository.save(competition), teamId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CompetitionSummary> findSummaryById(Integer competitionId) {
+        return competitionRepository.findById(competitionId).map(CompetitionServiceImpl::summary);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<CompetitionSummary> findSummaryForUpdate(Integer competitionId) {
+        return competitionRepository.findForUpdate(competitionId).map(CompetitionServiceImpl::summary);
+    }
+
+    private static CompetitionSummary summary(Competition competition) {
+        Integer teamId = competition.getGroup() == null ? null : competition.getGroup().getId();
+        return new CompetitionSummary(competition.getId(), teamId, competition.getStatus());
     }
 
     private User activeCoach() {

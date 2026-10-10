@@ -52,7 +52,7 @@ http://localhost:8080/api/swagger-ui.html
 - `profiles`: perfiles `practicante` y `coach` (US-03) en `GET/PUT /api/users/me`, según el rol de la sesión.
 - `teams`, `competitions` y `problems`: **plantilla del ERD** con una carpeta por entidad (entidad, enums,
   repositorio y servicio) y un controller por módulo, sin lógica ni endpoints. Ver `05-architecture.md`.
-- `assignments`, `analytics` y `ai`: diseño objetivo, sin código.
+- `assignments` (US-07 y US-08) y `analytics` (US-11 a US-14): implementados sin tablas propias, coordinando por servicios públicos. `ai`: diseño objetivo, sin código.
 
 Todas las tablas del ERD tienen entidad JPA y Hibernate las crea con `ddl-auto: update` en desarrollo. No hay
 migración de datos ni del esquema anterior. La seguridad sigue temporalmente abierta con `permitAll()`, sin JWT.

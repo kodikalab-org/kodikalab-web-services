@@ -76,16 +76,21 @@ class RuntimeBoundaryTests {
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
                         "/analytics/teams/{teamId}/progress/me",
                         "/teams", "/teams", "/teams/{id}/join", "/teams/{id}/memberships",
-                        "/teams/{id}/memberships/{memberId}");
+                        "/teams/{id}/memberships/{memberId}",
+                        "/problems", "/problems", "/problems/assign", "/problems/assigned",
+                        "/problems/assigned/{competitionProblemId}");
     }
 
     @Test
     void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess() throws Exception {
         // GET /teams lista los grupos disponibles (US-04/US-05).
         mvc.perform(get("/api/teams").contextPath("/api")).andExpect(status().isOk());
-        for (String path : new String[]{"/teams/1/members", "/problems", "/problems/assigned",
-                "/analytics/teams/1/topics"}) {
+        for (String path : new String[]{"/teams/1/members", "/analytics/teams/1/topics"}) {
             mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isNotFound());
+        }
+        // El catálogo y los problemas asignados (US-07/US-08) existen y exigen sesión: sin ella, 401 y no 404.
+        for (String path : new String[]{"/problems", "/problems/assigned", "/problems/assigned/1"}) {
+            mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isUnauthorized());
         }
         // Existe POST /competitions (US-13 T1); no hay listado público, por eso GET responde 405 y no 200.
         mvc.perform(get("/api/competitions").contextPath("/api")).andExpect(status().isMethodNotAllowed());

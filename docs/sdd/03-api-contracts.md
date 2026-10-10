@@ -654,9 +654,125 @@ Errores `{ "message": "...", "errors": {} }`: `400` campos/contexto/asignación 
 `409` duplicado o datos inconsistentes; `503` información/transacción no disponible; `500` error inesperado.
 Detalles y limitaciones: [US-14](16-us14-avance-independiente.md).
 
+## Problems — catálogo
+
+`POST /api/problems` registra un problema en el catálogo (`problema`) y devuelve `201`. Solo un coach con cuenta
+`ACTIVO` y sesión. Los temas se crean si no existen; se comparan sin distinguir mayúsculas.
+
+```json
+{
+  "title": "Theatre Square",
+  "url": "https://codeforces.com/problemset/problem/1/A",
+  "sourcePlatform": "CODEFORCES",
+  "sourceCode": "CF-1A",
+  "difficultyRating": "1000",
+  "timeLimitMs": 1000,
+  "memoryLimitMb": 256,
+  "topics": ["Matemática", "Implementación"]
+}
+```
+
+Obligatorios: `title` (hasta 150) y `url` (http/https sin credenciales, hasta 300). Opcionales: `sourcePlatform`
+(`CODEFORCES` por defecto, `ATCODER`, `CSES`), `sourceCode` (hasta 50), `difficultyRating` (texto, hasta 30),
+`timeLimitMs` (1000 por defecto) y `memoryLimitMb` (256 por defecto), ambos de al menos 1, y `topics` (hasta 20
+nombres de hasta 80). La respuesta devuelve `id`, esos campos y `topics: [{ "id", "name" }]`.
+
+`GET /api/problems` busca en el catálogo (cualquier cuenta activa). Parámetros opcionales: `q` (título o código de
+origen, sin distinguir mayúsculas; `%` y `_` se buscan como texto), `topicId`, `difficulty` (igualdad exacta),
+`platform`, `page` (desde 0) y `size` (1 a 100, por defecto 20). Orden por título y luego `id`.
+
+```json
+{ "items": [ { "id": 7, "title": "...", "topics": [ { "id": 3, "name": "Matemática" } ] } ],
+  "page": 0, "size": 20, "totalItems": 1, "totalPages": 1 }
+```
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos o criterios inválidos (`errors` por campo) o tipo
+incorrecto en el JSON, `401` sin sesión, `403` cuenta no coach (al registrar) o suspendida, `409` la `url` o el
+`sourceCode` de la plataforma ya existen (`errors` indica cuál) y `503`. Detalle: [US-07/US-08](17-us07-us08-asignacion-problemas.md).
+
+## US-07 — Asignar problemas a una competencia
+
+`POST /api/problems/assign` asigna uno o más problemas del catálogo a una competencia y devuelve `201`. Solo el coach
+responsable del equipo de la competencia, con cuenta `ACTIVO` y sesión. La asignación es para todo el equipo.
+
+```json
+{
+  "competitionId": 5,
+  "problems": [
+    { "problemId": 12, "letter": "A", "score": 100, "balloonColor": "#00FF00" },
+    { "problemId": 13 }
+  ]
+}
+```
+
+`competitionId` y de 1 a 50 `problems` son obligatorios. Por problema, `problemId` es obligatorio; `letter` (1 a 5 letras A-Z)
+se asigna sola si falta: la primera libre de `A`, `B`, ..., `Z`, `AA`...; `score` (al menos 1) vale 1 por defecto y
+`balloonColor` (`#RRGGBB`) vale `#FF0000`. Respuesta:
+
+```json
+{
+  "competitionId": 5,
+  "teamId": 1,
+  "assigned": [
+    { "competitionProblemId": 40, "problemId": 12, "title": "Theatre Square", "letter": "A", "score": 100,
+      "balloonColor": "#00FF00", "assignedAt": "2026-10-20T14:00:00Z" }
+  ]
+}
+```
+
+Es todo o nada. Errores con cuerpo `{ "message": "...", "errors": {} }` y rutas de campo como
+`problems[1].problemId`: `400` datos inválidos o problema inexistente en el catálogo, `401` sin sesión, `403` no es
+un coach activo o no es el responsable del equipo, `404` competencia inexistente, `409` la competencia ya
+`FINALIZADA`, un problema ya asignado o una letra ya usada (las asignaciones existentes se mantienen) y `503`. El
+escenario de asignar solo a parte del equipo no está soportado por el ERD; las notificaciones tampoco están
+implementadas.
+
+## US-08 — Problemas asignados
+
+`GET /api/problems/assigned?teamId=1` lista los problemas asignados al equipo. Lo consulta un practicante con
+membresía `ACTIVO` en el equipo (con su estado personal) o el coach responsable (sin estado personal). Filtros y orden
+opcionales: `q` (título o código), `difficulty`, `competitionId`, `competitionStatus` (`PROGRAMADA`, `EN_CURSO`,
+`FINALIZADA`), `status` (`SIN_INTENTOS`, `EN_PROGRESO`, `PENDIENTE`, `RESUELTO`; solo practicantes), `sort` (`letter`,
+`title`, `difficulty`, `assignedAt`, `status`) y `order` (`asc`/`desc`). Solo lee.
+
+```json
+{
+  "teamId": 1,
+  "total": 1,
+  "items": [
+    {
+      "competitionProblemId": 40, "letter": "A", "score": 100, "balloonColor": "#00FF00",
+      "assignedAt": "2026-10-20T14:00:00Z",
+      "competition": { "id": 5, "name": "Simulacro 1", "status": "PROGRAMADA", "startsAt": "...", "endsAt": "...",
+                       "durationMinutes": 300, "penaltyRule": "ICPC_20_MIN", "scoreboardFreezeMinutes": 60,
+                       "accessType": "PUBLICO_GRUPO" },
+      "problem": { "id": 12, "title": "Theatre Square", "url": "https://codeforces.com/...", "sourcePlatform": "CODEFORCES",
+                   "sourceCode": "CF-1A", "difficultyRating": "1000", "timeLimitMs": 1000, "memoryLimitMb": 256,
+                   "topics": ["Matemática"] },
+      "status": "RESUELTO", "attemptCount": 2,
+      "lastAttempt": { "resolutionId": 9, "verdict": "ACCEPTED", "language": "Java", "submittedAt": "...",
+                       "evidenceUrl": "https://..." }
+    }
+  ]
+}
+```
+
+El estado se deriva de los intentos del practicante: `RESUELTO` (algún `ACCEPTED`), `PENDIENTE` (hay un intento por
+verificar), `EN_PROGRESO` (solo intentos fallidos) o `SIN_INTENTOS`. Nunca se devuelve la clave de acceso de la
+competencia. Sin `sort` el orden es competencia más reciente primero y por letra; las asignaciones sin dificultad
+quedan al final al ordenar por ella.
+
+`GET /api/problems/assigned/{competitionProblemId}` devuelve `{ "assignment": { ...igual que un elemento... },
+"attempts": [ ... ] }` con el historial de intentos propios, el más reciente primero (vacío para el coach).
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` `teamId` ausente o criterios inválidos, `401` sin sesión,
+`403` cuenta suspendida, practicante que no pertenece al equipo (o con membresía retirada) o coach que no es el
+responsable, `404` equipo o asignación inexistente y `503` si no se pudo recuperar la información (el mensaje invita
+a reintentar). Detalle y decisiones: [US-07/US-08](17-us07-us08-asignacion-problemas.md).
+
 ## Rutas pendientes: no implementadas ni publicadas
 
-Las siguientes rutas son propuestas para historias futuras: **no aparecen en Swagger y actualmente devuelven `404`**. Los controllers plantilla de `problems` no declaran endpoints. `teams` publica únicamente las rutas de US-04 a US-06 descritas arriba y `competitions`, las de US-13 descritas arriba.
+Las siguientes rutas son propuestas para historias futuras: **no aparecen en Swagger y actualmente devuelven `404`**. `problems` publica únicamente el catálogo y las rutas de US-07 y US-08 descritas arriba (`/problems/assign` y `/problems/assigned`). `teams` publica únicamente las rutas de US-04 a US-06 descritas arriba y `competitions`, las de US-13 descritas arriba.
 
 ## Teams
 
@@ -667,8 +783,6 @@ GET   /teams/{id}/members
 ## Problems
 
 ```txt
-POST /problems/assign
-GET  /problems/assigned
 POST /problems/{id}/submit
 GET  /problems/{id}/resources
 ```
