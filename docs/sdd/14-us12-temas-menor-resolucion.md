@@ -10,7 +10,7 @@ La métrica aprobada es la cobertura de resolución del equipo por tema:
 100 × problemas distintos aceptados del tema / problemas distintos asignados del tema
 ```
 
-Se utilizan competencias con estado `FINALIZADA`: existe en `CompetitionStatus` junto con `PROGRAMADA` y `EN_CURSO` y representa el estado concluido del modelo actual. Se respeta ese estado persistido; no se infiere un cambio de estado a partir de la fecha. El universo no tiene un filtro temporal adicional. Incluye membresías actualmente `ACTIVO`, incluso si el integrante se incorporó después de alguna competencia histórica, conforme a la población aprobada.
+Se utilizan competencias con estado `FINALIZADA`: existe en `CompetitionStatus` junto con `PROGRAMADA` y `EN_CURSO` y representa el estado concluido del modelo actual. Se respeta ese estado persistido; no se infiere un cambio de estado a partir de la fecha. El coach responsable la finaliza con `PATCH /api/competitions/{id}/status`. El universo no tiene un filtro temporal adicional. Incluye membresías actualmente `ACTIVO`, incluso si el integrante se incorporó después de alguna competencia histórica, conforme a la población aprobada.
 
 Una aceptación `ACCEPTED` de cualquier integrante incluido cuenta como problema resuelto para el equipo. La clave de deduplicación es el problema del catálogo, no la asignación ni el intento. Un problema repetido en varias competencias finalizadas cuenta una vez. Un problema con varios temas participa una vez en cada tema. Los totales de problemas por tema no deben sumarse como un total de problemas únicos del equipo.
 
