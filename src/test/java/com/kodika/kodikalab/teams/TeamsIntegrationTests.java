@@ -95,8 +95,6 @@ class TeamsIntegrationTests {
 
         registry.add("spring.jpa.show-sql", () -> "false");
 
-        registry.add("server.servlet.session.cookie.secure",
-                () -> "false");
     }
 
     @AfterAll
@@ -181,7 +179,7 @@ class TeamsIntegrationTests {
     }
 
     @Test
-    void requestWithoutSessionCannotCreateGroup() {
+    void requestWithoutTokenCannotCreateGroup() {
         var response = http.exchange(
                 "/teams",
                 HttpMethod.POST,
@@ -838,12 +836,11 @@ class TeamsIntegrationTests {
         assertThat(response.getStatusCode().value())
                 .isEqualTo(200);
 
-        String cookie = response.getHeaders()
-                .getFirst(HttpHeaders.SET_COOKIE);
+        Object token = response.getBody().get("token");
 
-        assertThat(cookie).isNotNull();
+        assertThat(token).isInstanceOf(String.class);
 
-        return cookie.split(";", 2)[0];
+        return (String) token;
     }
 
     private HttpHeaders headers(String session) {
@@ -852,7 +849,7 @@ class TeamsIntegrationTests {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         if (session != null) {
-            headers.set(HttpHeaders.COOKIE, session);
+            headers.setBearerAuth(session);
         }
 
         return headers;

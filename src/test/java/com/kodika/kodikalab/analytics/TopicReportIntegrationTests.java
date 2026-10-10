@@ -15,7 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
+import com.kodika.kodikalab.support.Bearer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -108,7 +108,7 @@ class TopicReportIntegrationTests {
         resolution(membershipId, thirdAssigned, "WRONG_ANSWER");
         resolution(membershipId, assign(teamId, problem(), "EN_CURSO"), "ACCEPTED");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pendingResolutions").value(1))
                 .andExpect(jsonPath("$.topics.length()").value(2))
@@ -125,7 +125,7 @@ class TopicReportIntegrationTests {
         classify(firstProblem, treeTopic);
         resolution(membershipId, firstAssigned, "ACCEPTED");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.topics[0].lowestCoverage").value(true))
                 .andExpect(jsonPath("$.topics[1].lowestCoverage").value(true))
@@ -140,7 +140,7 @@ class TopicReportIntegrationTests {
         resolution(membershipId, firstAssigned, "ACCEPTED");
         resolution(otherMembership, assign(otherTeam, secondProblem, "FINALIZADA"), "ACCEPTED");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.topics[1].solvedProblems").value(1));
     }
@@ -151,10 +151,10 @@ class TopicReportIntegrationTests {
         membership(otherTeam);
         resolution(membershipId, firstAssigned, "ACCEPTED");
         resolution(membershipId, assign(otherTeam, firstProblem, "FINALIZADA"), "ACCEPTED");
-        MockHttpSession session = login(coach);
+        String session = login(coach);
 
         for (int id : new int[]{teamId, otherTeam}) {
-            mvc.perform(get(path(id)).contextPath("/api").session(session))
+            mvc.perform(get(path(id)).contextPath("/api").with(Bearer.of(session)))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.errors").isNotEmpty())
                     .andExpect(jsonPath("$.topics").doesNotExist());
@@ -165,24 +165,24 @@ class TopicReportIntegrationTests {
     void missingTopicBlocksConclusionsAndCoachCanRetryAfterCorrection() throws Exception {
         resolution(membershipId, firstAssigned, "ACCEPTED");
         jdbc.update("DELETE FROM problema_tema WHERE problema_id = ?", secondProblem);
-        MockHttpSession session = login(coach);
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        String session = login(coach);
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors.topics").exists())
                 .andExpect(jsonPath("$.topics").doesNotExist());
         classify(secondProblem, graphTopic);
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session)).andExpect(status().isOk());
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session))).andExpect(status().isOk());
     }
 
     @Test
     void noCompletedActivityOrOnlyPendingAttemptsDoesNotProduceConclusions() throws Exception {
-        MockHttpSession session = login(coach);
+        String session = login(coach);
         resolution(membershipId, firstAssigned, "PENDIENTE");
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors.resolutions").exists());
         jdbc.update("UPDATE competencia SET estado = 'PROGRAMADA' WHERE grupo_id = ?", teamId);
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors.assignments").exists());
     }
@@ -191,7 +191,7 @@ class TopicReportIntegrationTests {
     @ValueSource(strings = {"COACH", "PRACTICANTE"})
     void unrelatedCoachAndMemberCannotAccessReport(String role) throws Exception {
         Account requester = role.equals("COACH") ? account(role) : practitioner;
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(requester))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(requester)))
                         .param("userId", String.valueOf(coach.id())))
                 .andExpect(status().isForbidden());
     }
@@ -264,13 +264,13 @@ class TopicReportIntegrationTests {
                 """, memberId, assignedId, verdict);
     }
 
-    private MockHttpSession login(Account account) throws Exception {
+    private String login(Account account) throws Exception {
         var result = mvc.perform(post("/api/auth/login").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + account.email() + "\",\"password\":\"Password123\"}"))
                 .andExpect(status().isOk()).andReturn();
-        MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(session).isNotNull();
-        return session;
+        String token = Bearer.tokenFrom(result.getResponse().getContentAsString());
+        assertThat(token).isNotBlank();
+        return token;
     }
 
     private String path(int groupId) {

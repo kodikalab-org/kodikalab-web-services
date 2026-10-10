@@ -15,10 +15,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /** Rutas de asignación de problemas (US-07) y de problemas asignados (US-08), bajo {@code /api/problems}. */
 @RestController
 @RequestMapping("/problems")
+@Tag(name = "Asignaciones", description = "Asignación de problemas a competencias y vista de problemas asignados (US-07, US-08).")
 public class AssignmentController {
     private final AssignmentService assignmentService;
     private final AssignedProblemsService assignedProblemsService;

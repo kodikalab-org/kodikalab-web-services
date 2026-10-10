@@ -19,7 +19,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
+import com.kodika.kodikalab.support.Bearer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -118,7 +118,7 @@ class RankingIntegrationTests {
         resolution(secondMembership, competitionProblemId, "ACCEPTED");
         resolution(inactiveMembership, competitionProblemId, "ACCEPTED");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(first)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(first))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.members.length()").value(3))
                 .andExpect(jsonPath("$.members[0].userId").value(first.id()))
@@ -133,7 +133,7 @@ class RankingIntegrationTests {
         resolution(firstMembership, competitionProblemId, "ACCEPTED");
         resolution(secondMembership, competitionProblemId, "ACCEPTED");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.members[0].membershipId").value(firstMembership))
                 .andExpect(jsonPath("$.members[0].position").value(1))
@@ -145,7 +145,7 @@ class RankingIntegrationTests {
     void activityWithoutAcceptancesGivesSharedZeroScores() throws Exception {
         resolution(firstMembership, competitionProblemId, "WRONG_ANSWER");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CALCULATED"))
                 .andExpect(jsonPath("$.members[0].acceptedProblems").value(0))
@@ -154,7 +154,7 @@ class RankingIntegrationTests {
 
     @Test
     void assignedProblemWithoutResolutionsHasNoActivity() throws Exception {
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NO_ACTIVITY"))
                 .andExpect(jsonPath("$.members").isEmpty());
@@ -166,12 +166,12 @@ class RankingIntegrationTests {
         int otherMembership = membership(otherTeam, first.id(), "ACTIVO");
         resolution(firstMembership, competitionProblemId, "ACCEPTED");
         resolution(otherMembership, assignedProblem(otherTeam, problemId), "WRONG_ANSWER");
-        MockHttpSession session = login(first);
+        String session = login(first);
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.members[0].acceptedProblems").value(1));
-        mvc.perform(get(path(otherTeam)).contextPath("/api").session(session))
+        mvc.perform(get(path(otherTeam)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.members[0].acceptedProblems").value(0));
     }
@@ -181,10 +181,10 @@ class RankingIntegrationTests {
         int otherTeam = team(coach.id());
         resolution(firstMembership, competitionProblemId, "ACCEPTED");
         resolution(firstMembership, assignedProblem(otherTeam, problemId), "ACCEPTED");
-        MockHttpSession session = login(coach);
+        String session = login(coach);
 
         for (int id : new int[]{teamId, otherTeam}) {
-            mvc.perform(get(path(id)).contextPath("/api").session(session))
+            mvc.perform(get(path(id)).contextPath("/api").with(Bearer.of(session)))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.errors").isNotEmpty())
                     .andExpect(jsonPath("$.members").doesNotExist());
@@ -206,7 +206,7 @@ class RankingIntegrationTests {
         membership(teamId, account("PRACTICANTE").id(), "RECHAZADO");
         resolution(firstMembership, competitionProblemId, "ACCEPTED");
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CALCULATED"))
                 .andExpect(jsonPath("$.members.length()").value(3))
@@ -222,14 +222,14 @@ class RankingIntegrationTests {
 
     @Test
     void inactiveMemberIsForbidden() throws Exception {
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(inactive)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(inactive))))
                 .andExpect(status().isForbidden());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"PRACTICANTE", "COACH"})
     void unrelatedAccountIsForbiddenEvenWhenSupplyingMemberId(String role) throws Exception {
-        mvc.perform(get(path(teamId)).contextPath("/api").session(login(account(role)))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(login(account(role))))
                         .param("userId", String.valueOf(first.id())))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.members").doesNotExist());
@@ -237,15 +237,15 @@ class RankingIntegrationTests {
 
     @Test
     void missingTeamIsNotFound() throws Exception {
-        mvc.perform(get(path(Integer.MAX_VALUE)).contextPath("/api").session(login(coach)))
+        mvc.perform(get(path(Integer.MAX_VALUE)).contextPath("/api").with(Bearer.of(login(coach))))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void preservesPersistedRankingOnInconsistencyAndReplacesItAfterRecovery() throws Exception {
         resolution(firstMembership, competitionProblemId, "ACCEPTED");
-        MockHttpSession session = login(coach);
-        String valid = mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        String session = login(coach);
+        String valid = mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         String stored = snapshotRepository.findById(teamId).orElseThrow().getResult();
         assertThat(mapper.readTree(stored)).isEqualTo(mapper.readTree(valid));
@@ -254,7 +254,7 @@ class RankingIntegrationTests {
         int otherTeam = team(coach.id());
         int foreignProblem = assignedProblem(otherTeam, problemId);
         resolution(firstMembership, foreignProblem, "ACCEPTED");
-        String failed = mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        String failed = mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.errors").isNotEmpty())
                 .andExpect(jsonPath("$.members").doesNotExist())
@@ -265,7 +265,7 @@ class RankingIntegrationTests {
 
         jdbc.update("DELETE FROM resolucion_problema WHERE competencia_problema_id = ?", foreignProblem);
         resolution(firstMembership, assignedProblem(teamId, problem()), "ACCEPTED");
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.members[0].acceptedProblems").value(2));
         var recovered = snapshotService.findByTeamId(teamId).orElseThrow();
@@ -292,11 +292,11 @@ class RankingIntegrationTests {
 
     @Test
     void revokedMemberCannotReadPreviouslyStoredRanking() throws Exception {
-        MockHttpSession session = login(first);
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session)).andExpect(status().isOk());
+        String session = login(first);
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session))).andExpect(status().isOk());
         jdbc.update("UPDATE practicante_grupo SET estado = 'RETIRADO' WHERE id = ?", firstMembership);
 
-        mvc.perform(get(path(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(path(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.lastValidRanking").doesNotExist());
         assertThat(snapshotRepository.findById(teamId)).isPresent();
@@ -358,14 +358,14 @@ class RankingIntegrationTests {
                 """, membershipId, assignedProblemId, verdict);
     }
 
-    private MockHttpSession login(Account account) throws Exception {
+    private String login(Account account) throws Exception {
         var result = mvc.perform(post("/api/auth/login").contextPath("/api")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + account.email() + "\",\"password\":\"" + PASSWORD + "\"}"))
                 .andExpect(status().isOk()).andReturn();
-        MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(session).isNotNull();
-        return session;
+        String token = Bearer.tokenFrom(result.getResponse().getContentAsString());
+        assertThat(token).isNotBlank();
+        return token;
     }
 
     private String path(int id) {

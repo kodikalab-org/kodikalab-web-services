@@ -43,7 +43,7 @@ public class StartupLogger implements ApplicationRunner {
                   API local          : http://localhost:{}{}
                   API red local      : http://{}:{}{}
                   Swagger UI         : http://localhost:{}{}/swagger-ui.html
-                  Seguridad          : DESARROLLO - endpoints permitidos
+                  Seguridad          : JWT (Authorization: Bearer)
                 ============================================================
                 """,
                 applicationName,

@@ -24,9 +24,11 @@ import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.CreateStudyGroupResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.PendingMembershipResponse;
 import com.kodika.kodikalab.common.exception.BadRequestException;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/teams")
+@Tag(name = "Equipos", description = "Grupos de entrenamiento, solicitudes de ingreso y membresías (US-04 a US-06).")
 public class StudyGroupController {
 
     private final StudyGroupService studyGroupService;

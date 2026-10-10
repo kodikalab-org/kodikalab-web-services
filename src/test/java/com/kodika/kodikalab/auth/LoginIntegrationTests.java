@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.auth;
 
+import com.kodika.kodikalab.security.JwtService;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserRepository;
@@ -38,7 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import static org.assertj.core.api.Assertions.*;
 
-/** HTTP, cookies, Spring Security and PostgreSQL in an isolated schema; never uses the development database. */
+/** HTTP, token JWT, Spring Security y PostgreSQL en un schema aislado; nunca usa la base de desarrollo. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @EnabledIfEnvironmentVariable(named = "LOGIN_TEST_DB_URL", matches = ".+")
 @Import(LoginIntegrationTests.ProbeConfiguration.class)
@@ -49,6 +50,7 @@ class LoginIntegrationTests {
     @Autowired TestRestTemplate http;
     @Autowired UserRepository repository;
     @Autowired PasswordEncoder encoder;
+    @Autowired JwtService jwt;
 
     private static Connection connect() throws SQLException {
         String url = System.getenv("LOGIN_TEST_DB_URL");
@@ -74,7 +76,6 @@ class LoginIntegrationTests {
         registry.add("spring.jpa.properties.hibernate.default_schema", () -> SCHEMA);
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET search_path TO " + SCHEMA);
         registry.add("spring.jpa.show-sql", () -> "false");
-        registry.add("server.servlet.session.cookie.secure", () -> "false");
     }
 
     @AfterAll
@@ -97,58 +98,68 @@ class LoginIntegrationTests {
         return repository.saveAndFlush(user);
     }
 
-    private ResponseEntity<Map<String, Object>> login(String email, String password, String cookie) {
-        return post(Map.of("email", email, "password", password), cookie);
+    private ResponseEntity<Map<String, Object>> login(String email, String password, String authorization) {
+        return post(Map.of("email", email, "password", password), authorization);
     }
 
-    private ResponseEntity<Map<String, Object>> post(Map<String, String> body, String cookie) {
+    private ResponseEntity<Map<String, Object>> post(Map<String, String> body, String authorization) {
         HttpHeaders headers = new HttpHeaders();
-        if (cookie != null) headers.set(HttpHeaders.COOKIE, cookie);
+        if (authorization != null) headers.setBearerAuth(authorization);
         // TestRestTemplate already adds the /api context path.
         return http.exchange("/auth/login", HttpMethod.POST, new HttpEntity<>(body, headers),
                 new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 
-    private Map<String, Object> probe(String cookie) {
+    private ResponseEntity<Map<String, Object>> probeResponse(String token) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.COOKIE, cookie);
-        var response = http.exchange("/test/session", HttpMethod.GET, new HttpEntity<>(headers),
+        if (token != null) headers.setBearerAuth(token);
+        return http.exchange("/test/identity", HttpMethod.GET, new HttpEntity<>(headers),
                 new ParameterizedTypeReference<Map<String, Object>>() {});
+    }
+
+    private Map<String, Object> probe(String token) {
+        var response = probeResponse(token);
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         return response.getBody();
     }
 
-    private String cookie(ResponseEntity<?> response) {
-        String value = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
-        assertThat(value).isNotNull();
-        return value.split(";", 2)[0];
+    private String token(ResponseEntity<Map<String, Object>> response) {
+        Object value = response.getBody().get("token");
+        assertThat(value).isInstanceOf(String.class);
+        return (String) value;
     }
 
     @ParameterizedTest
     @EnumSource(Role.class)
-    void authenticatesEachStoredRoleAndPersistsSessionAcrossRequests(Role role) {
+    void authenticatesEachStoredRoleAndTheTokenIdentifiesTheAccount(Role role) {
         User user = account(role, UserStatus.ACTIVO);
         var response = login("  " + user.getEmail().toUpperCase() + "  ", "Password123", null);
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).containsEntry("message", "Inicio de sesión exitoso")
                 .containsEntry("email", user.getEmail()).containsEntry("role", role.name())
-                .doesNotContainKeys("password", "passwordHash", "password_hash", "token");
-        String header = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
-        assertThat(header).contains("JSESSIONID=", "HttpOnly", "SameSite=Lax");
-        assertThat(probe(cookie(response))).containsEntry("email", user.getEmail())
+                .containsEntry("tokenType", "Bearer").containsEntry("expiresIn", 86400)
+                .doesNotContainKeys("password", "passwordHash", "password_hash");
+        assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
+        String token = token(response);
+        assertThat(jwt.parse(token)).get().satisfies(claims -> {
+            assertThat(claims.email()).isEqualTo(user.getEmail());
+            assertThat(claims.userId()).isEqualTo(user.getId());
+            assertThat(claims.role()).isEqualTo(role.name());
+        });
+        assertThat(probe(token)).containsEntry("email", user.getEmail())
                 .containsEntry("authenticated", true).containsEntry("authorities", List.of("ROLE_" + role.name()));
         assertThat(repository.findById(user.getId()).orElseThrow().getPasswordHash()).isEqualTo(user.getPasswordHash());
         assertSqlValues(user, role.name(), UserStatus.ACTIVO.name());
     }
 
     @Test
-    void unknownEmailAndWrongPasswordHaveSameGenericErrorAndNoNewSession() {
+    void unknownEmailAndWrongPasswordHaveSameGenericErrorAndNoToken() {
         User user = account(Role.PRACTICANTE, UserStatus.ACTIVO);
         var wrong = login(user.getEmail(), "Wrong123", null);
         var unknown = login("test.missing." + UUID.randomUUID() + "@gmail.com", "Wrong123", null);
         assertThat(wrong.getStatusCode().value()).isEqualTo(401);
         assertThat(unknown.getStatusCode().value()).isEqualTo(401);
-        assertThat(wrong.getBody()).containsEntry("message", "Credenciales inválidas");
+        assertThat(wrong.getBody()).containsEntry("message", "Credenciales inválidas").doesNotContainKey("token");
         assertThat(unknown.getBody()).isEqualTo(wrong.getBody());
         assertThat(wrong.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
         assertThat(unknown.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
@@ -156,34 +167,34 @@ class LoginIntegrationTests {
 
     @ParameterizedTest
     @EnumSource(value = UserStatus.class, names = {"SUSPENDIDO"})
-    void disabledAccountCannotCreateSession(UserStatus status) {
+    void disabledAccountCannotLogin(UserStatus status) {
         User user = account(Role.COACH, status);
         var response = login(user.getEmail(), "Password123", null);
         assertThat(response.getStatusCode().value()).isEqualTo(401);
-        assertThat(response.getBody()).containsEntry("message", "Credenciales inválidas");
+        assertThat(response.getBody()).containsEntry("message", "Credenciales inválidas").doesNotContainKey("token");
         assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
         assertThat(repository.findById(user.getId()).orElseThrow().getStatus()).isEqualTo(status);
         assertSqlValues(user, "COACH", "SUSPENDIDO");
     }
 
     @Test
-    void successfulReauthenticationRotatesSessionIdAndInvalidatesOldId() {
+    void everyLoginIssuesAnIndependentValidToken() {
         User user = account(Role.COACH, UserStatus.ACTIVO);
-        String previous = cookie(login(user.getEmail(), "Password123", null));
-        String current = cookie(login(user.getEmail(), "Password123", previous));
+        String previous = token(login(user.getEmail(), "Password123", null));
+        String current = token(login(user.getEmail(), "Password123", previous));
         assertThat(current).isNotEqualTo(previous);
         assertThat(probe(current)).containsEntry("authenticated", true).containsEntry("email", user.getEmail());
-        assertThat(probe(previous)).containsEntry("authenticated", false);
+        assertThat(probe(previous)).containsEntry("authenticated", true).containsEntry("email", user.getEmail());
     }
 
     @Test
-    void malformedEmailAndMissingPasswordReturn400WithoutSession() {
+    void malformedEmailAndMissingPasswordReturn400WithoutToken() {
         var invalidEmail = login("not-an-email", "Password123", null);
         var missingPassword = post(Map.of("email", "test@gmail.com"), null);
         assertThat(invalidEmail.getStatusCode().value()).isEqualTo(400);
         assertThat(missingPassword.getStatusCode().value()).isEqualTo(400);
-        assertThat(invalidEmail.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
-        assertThat(missingPassword.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
+        assertThat(invalidEmail.getBody()).doesNotContainKey("token");
+        assertThat(missingPassword.getBody()).doesNotContainKey("token");
     }
 
     @Test
@@ -193,7 +204,7 @@ class LoginIntegrationTests {
         repository.saveAndFlush(user);
         var response = login(user.getEmail(), "A1" + "a".repeat(71), null);
         assertThat(response.getStatusCode().value()).isEqualTo(401);
-        assertThat(response.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
+        assertThat(response.getBody()).doesNotContainKey("token");
     }
 
     @Test
@@ -202,7 +213,7 @@ class LoginIntegrationTests {
         var response = post(Map.of("email", user.getEmail(), "password", "Password123", "role", "ADMIN"), null);
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         assertThat(response.getBody()).containsEntry("role", "PRACTICANTE");
-        assertThat(probe(cookie(response))).containsEntry("authorities", List.of("ROLE_PRACTICANTE"));
+        assertThat(probe(token(response))).containsEntry("authorities", List.of("ROLE_PRACTICANTE"));
     }
 
     @Test
@@ -221,13 +232,18 @@ class LoginIntegrationTests {
     }
 
     @Test
-    void failedLoginDoesNotReplacePreviouslyAuthenticatedIdentity() {
+    void failedLoginDoesNotInvalidateAnExistingToken() {
         User user = account(Role.COACH, UserStatus.ACTIVO);
-        String existing = cookie(login(user.getEmail(), "Password123", null));
+        String existing = token(login(user.getEmail(), "Password123", null));
         var failed = login(user.getEmail(), "Wrong123", existing);
         assertThat(failed.getStatusCode().value()).isEqualTo(401);
-        assertThat(failed.getHeaders().get(HttpHeaders.SET_COOKIE)).isNull();
+        assertThat(failed.getBody()).doesNotContainKey("token");
         assertThat(probe(existing)).containsEntry("email", user.getEmail()).containsEntry("authenticated", true);
+    }
+
+    @Test
+    void probeWithoutTokenIsRejectedBySecurity() {
+        assertThat(probeResponse(null).getStatusCode().value()).isEqualTo(401);
     }
 
     private void assertSqlValues(User user, String role, String status) {
@@ -248,17 +264,17 @@ class LoginIntegrationTests {
     @TestConfiguration(proxyBeanMethods = false)
     static class ProbeConfiguration {
         @Bean
-        ProbeController sessionProbeController() {
+        ProbeController identityProbeController() {
             return new ProbeController();
         }
     }
 
-    /** Test-only endpoint to verify Spring Security reloads the saved context, never part of the production JAR. */
+    /** Test-only endpoint to verify the filter builds the Spring Security context, never part of the production JAR. */
     @TestComponent
     @RestController
     static class ProbeController {
-        @GetMapping("/test/session")
-        Map<String, Object> session(Authentication authentication) {
+        @GetMapping("/test/identity")
+        Map<String, Object> identity(Authentication authentication) {
             if (authentication == null) return Map.of("authenticated", false);
             return Map.of("authenticated", authentication.isAuthenticated(), "email", authentication.getName(),
                     "authorities", authentication.getAuthorities().stream().map(authority -> authority.getAuthority()).toList());

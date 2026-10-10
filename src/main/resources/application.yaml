@@ -2,13 +2,6 @@ server:
   port: 8080
   servlet:
     context-path: /api
-    session:
-      timeout: 30m
-      cookie:
-        http-only: true
-        same-site: lax
-        # Enable on HTTPS deployments; false only for local HTTP development.
-        secure: ${SESSION_COOKIE_SECURE:false}
 # Configuración de respuestas de error
   error:
     include-stacktrace: never
@@ -48,13 +41,17 @@ spring:
           starttls:
             enable: true
 
-# 4. Parámetros para seguridad
+# 4. Parámetros para seguridad (JWT sin estado, cabecera Authorization: Bearer)
 jwt:
-  secret: >-
-    ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
-  expiration: 86400000 # 24 horas en milisegundos
+  # Sin valor por defecto: defina JWT_SECRET (mínimo 32 caracteres, p. ej. 'openssl rand -hex 32').
+  secret: ${JWT_SECRET:}
+  # Vigencia del token en milisegundos (por defecto 24 horas).
+  expiration: ${JWT_EXPIRATION:86400000}
 
 kodikalab:
+  cors:
+    # Orígenes del frontend autorizados a llamar a la API (separados por comas).
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200,http://localhost:5173}
   integrations:
     codeforces:
       base-url: ${CODEFORCES_API_BASE_URL:https://codeforces.com/api}

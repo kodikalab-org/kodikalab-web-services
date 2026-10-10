@@ -6,7 +6,6 @@ import com.kodika.kodikalab.auth.dto.AuthResponse;
 import com.kodika.kodikalab.auth.dto.RegisterRequest;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.users.UserService;
-import com.kodika.kodikalab.security.LoginSessionService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +36,7 @@ class AuthControllerTests {
         service = mock(AuthService.class);
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mvc = MockMvcBuilders.standaloneSetup(new AuthController(service, mock(LoginSessionService.class)))
+        mvc = MockMvcBuilders.standaloneSetup(new AuthController(service))
                 .setControllerAdvice(new AuthExceptionHandler()).setValidator(validator).build();
     }
 

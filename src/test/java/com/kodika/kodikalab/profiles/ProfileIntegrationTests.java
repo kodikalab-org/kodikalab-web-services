@@ -45,7 +45,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * US-03 de punta a punta: HTTP, cookie de sesión, Spring Security y PostgreSQL en un schema aislado.
+ * US-03 de punta a punta: HTTP, token Bearer, Spring Security y PostgreSQL en un schema aislado.
  * Codeforces se reemplaza por un stub para no depender de internet. Nunca usa la base de desarrollo.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -84,7 +84,6 @@ class ProfileIntegrationTests {
         registry.add("spring.jpa.properties.hibernate.default_schema", () -> SCHEMA);
         registry.add("spring.datasource.hikari.connection-init-sql", () -> "SET search_path TO " + SCHEMA);
         registry.add("spring.jpa.show-sql", () -> "false");
-        registry.add("server.servlet.session.cookie.secure", () -> "false");
     }
 
     @AfterAll
@@ -338,13 +337,13 @@ class ProfileIntegrationTests {
     }
 
     @Test
-    void requestsWithoutSessionReturn401() {
+    void requestsWithoutTokenReturn401() {
         var read = get(null);
         var write = put(null, coachBody("Grafos", 4));
 
         assertThat(read.getStatusCode().value()).isEqualTo(401);
         assertThat(write.getStatusCode().value()).isEqualTo(401);
-        assertThat(read.getBody()).containsEntry("message", "Debe iniciar sesión para gestionar su perfil");
+        assertThat(String.valueOf(read.getBody().get("message"))).startsWith("Debe iniciar sesión");
     }
 
     @Test
@@ -396,9 +395,9 @@ class ProfileIntegrationTests {
                 new HttpEntity<>(Map.of("email", user.getEmail(), "password", PASSWORD), jsonHeaders(null)),
                 new ParameterizedTypeReference<Map<String, Object>>() {});
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        String cookie = response.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
-        assertThat(cookie).isNotNull();
-        return cookie.split(";", 2)[0];
+        Object token = response.getBody().get("token");
+        assertThat(token).isInstanceOf(String.class);
+        return (String) token;
     }
 
     private ResponseEntity<Map<String, Object>> get(String session) {
@@ -414,7 +413,7 @@ class ProfileIntegrationTests {
     private HttpHeaders jsonHeaders(String session) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        if (session != null) headers.set(HttpHeaders.COOKIE, session);
+        if (session != null) headers.setBearerAuth(session);
         return headers;
     }
 

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * Controller de problems en {@code /api/problems}: catálogo de problemas (registro y búsqueda). Las rutas de
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/problems")
+@Tag(name = "Problemas", description = "Catálogo de problemas y búsqueda (US-07).")
 public class ProblemController {
     private final ProblemService problemService;
     private final TopicService topicService;
