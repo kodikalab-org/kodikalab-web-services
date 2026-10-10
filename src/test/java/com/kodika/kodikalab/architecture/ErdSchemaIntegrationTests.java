@@ -109,6 +109,15 @@ class ErdSchemaIntegrationTests {
         ERD.put("categoria", List.of(
                 col("idcategoria", INT, null, NOT_NULL), col("descripcioncategoria", VARCHAR, 100, NULL),
                 col("nombrecategoria", VARCHAR, 10, NULL), col("idgrupo", INT, null, NOT_NULL)));
+        ERD.put("ranking_equipo_actual", List.of(
+                col("grupo_id", INT, null, NOT_NULL),
+                col("calculado_en", TIMESTAMPTZ, null, NOT_NULL),
+                col("resultado", "jsonb", null, NOT_NULL)));
+        ERD.put("resultado_oficial_competencia", List.of(
+                col("id", INT, null, NOT_NULL), col("competencia_id", INT, null, NOT_NULL),
+                col("posicion_final", INT, null, NULL), col("problemas_resueltos", INT, null, NULL),
+                col("estado", VARCHAR, 20, NOT_NULL), col("registrado_en", TIMESTAMPTZ, null, NOT_NULL),
+                col("confirmado_en", TIMESTAMPTZ, null, NULL)));
     }
 
     /** Relaciones visibles del ERD: tabla.columna -> tabla_referenciada.columna. */
@@ -126,7 +135,9 @@ class ErdSchemaIntegrationTests {
             "material.problema_id -> problema.id",
             "problema_tema.problema_id -> problema.id",
             "problema_tema.tema_id -> tema.id",
-            "categoria.idgrupo -> grupo_estudio.id");
+            "categoria.idgrupo -> grupo_estudio.id",
+            "ranking_equipo_actual.grupo_id -> grupo_estudio.id",
+            "resultado_oficial_competencia.competencia_id -> competencia.id");
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(System.getenv("ERD_TEST_DB_URL"),
@@ -208,8 +219,9 @@ class ErdSchemaIntegrationTests {
         assertThat(primaryKey("practicante")).containsExactly("usuario_id");
         assertThat(primaryKey("problema_tema")).containsExactlyInAnyOrder("problema_id", "tema_id");
         assertThat(primaryKey("categoria")).containsExactly("idcategoria");
+        assertThat(primaryKey("ranking_equipo_actual")).containsExactly("grupo_id");
         for (String table : List.of("grupo_estudio", "practicante_grupo", "competencia", "competencia_problema",
-                "problema", "resolucion_problema", "material", "tema")) {
+                "problema", "resolucion_problema", "material", "tema", "resultado_oficial_competencia")) {
             assertThat(primaryKey(table)).as("PK de %s", table).containsExactly("id");
         }
     }
@@ -232,7 +244,8 @@ class ErdSchemaIntegrationTests {
                 "competencia_problema(competencia_id,problema_id)",
                 "competencia_problema(competencia_id,orden_letra)",
                 "tema(nombre)",
-                "categoria(idgrupo)");
+                "categoria(idgrupo)",
+                "resultado_oficial_competencia(competencia_id)");
     }
 
     private List<String> primaryKey(String table) {

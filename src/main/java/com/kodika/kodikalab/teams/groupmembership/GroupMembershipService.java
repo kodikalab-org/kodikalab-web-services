@@ -1,8 +1,11 @@
 package com.kodika.kodikalab.teams.groupmembership;
 
-/**
- * Plantilla del servicio de membresías de practicantes en grupos (practicante_grupo).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import com.kodika.kodikalab.teams.groupmembership.dto.GroupMemberData;
+import java.util.List;
+import java.util.Optional;
+
 public interface GroupMembershipService {
+    List<GroupMemberData> findMembersByTeamId(Integer teamId);
+
+    Optional<GroupMembership> findForUpdate(Integer teamId, Integer userId);
 }

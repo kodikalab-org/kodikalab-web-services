@@ -1,8 +1,8 @@
 package com.kodika.kodikalab.teams.studygroup;
 
-/**
- * Plantilla del servicio de grupos de estudio (grupo_estudio).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupSummary;
+import java.util.Optional;
+
 public interface StudyGroupService {
+    Optional<StudyGroupSummary> findSummaryById(Integer teamId);
 }
