@@ -2,12 +2,17 @@
   "info": {
     "name": "KodikaLab - US03 Perfil practicante ERD oficial",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Colección para validar US-03 según docs/sdd/assets/oficial.erd. Ejecutar en orden con cookie jar habilitado. Prevalece ERD: Codeforces, AtCoder y VJudge; LeetCode no se persiste. No realiza commits ni cambios de código."
+    "description": "Colección para validar US-03 según docs/sdd/assets/oficial.erd. Ejecutar en orden: cada login guarda el token JWT en la variable de colección token y las demás solicitudes lo envían como Bearer. Prevalece ERD: Codeforces, AtCoder y VJudge; LeetCode no se persiste. No realiza commits ni cambios de código."
   },
   "variable": [
     {
       "key": "baseUrl",
       "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
       "type": "string"
     }
   ],
@@ -59,6 +64,9 @@
             "auth",
             "register"
           ]
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -105,6 +113,9 @@
             "auth",
             "login"
           ]
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -117,7 +128,8 @@
               "const body = pm.response.json();",
               "pm.test('Login exitoso', () => pm.expect(body.message).to.eql('Inicio de sesión exitoso'));",
               "pm.test('Rol desde cuenta', () => pm.expect(body.role).to.eql('PRACTICANTE'));",
-              "pm.test('Cookie de sesión recibida', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
@@ -423,6 +435,9 @@
             "auth",
             "register"
           ]
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -466,6 +481,9 @@
             "auth",
             "login"
           ]
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -475,7 +493,9 @@
             "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('Rol COACH autenticado', () => pm.expect(pm.response.json().role).to.eql('COACH'));"
+              "pm.test('Rol COACH autenticado', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
@@ -554,6 +574,9 @@
             "auth",
             "register"
           ]
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -597,6 +620,9 @@
             "auth",
             "login"
           ]
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -606,7 +632,9 @@
             "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('Segundo practicante autenticado', () => pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('otherPractitionerEmail')));"
+              "pm.test('Segundo practicante autenticado', () => pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('otherPractitionerEmail')));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
@@ -701,5 +729,15 @@
         }
       ]
     }
-  ]
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
 }
