@@ -2,7 +2,7 @@
   "info": {
     "name": "KodikaLab - US07 a US14 Flujo completo",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas, dos competencias, la asignación, una resolución y un resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí)."
+    "description": "Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas y una competencia, y la recorre completa: asignación, inicio y cierre por el coach, resoluciones, ranking, reporte de temas y resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí)."
   },
   "variable": [
     {
@@ -42,8 +42,6 @@
           "  pm.collectionVariables.set('studentCodeB', `F${id}B`);",
           "  pm.collectionVariables.set('startsAt', new Date(Date.now() - 3600000).toISOString());",
           "  pm.collectionVariables.set('endsAt', new Date(Date.now() + 7200000).toISOString());",
-          "  pm.collectionVariables.set('pastStartsAt', new Date(Date.now() - 10800000).toISOString());",
-          "  pm.collectionVariables.set('pastEndsAt', new Date(Date.now() - 3600000).toISOString());",
           "}"
         ]
       }
@@ -903,7 +901,7 @@
       ]
     },
     {
-      "name": "18 Crear competencia en curso",
+      "name": "18 Crear competencia (nace PROGRAMADA)",
       "request": {
         "method": "POST",
         "header": [
@@ -934,7 +932,7 @@
         "description": "",
         "body": {
           "mode": "raw",
-          "raw": "{ \"teamId\": {{groupId}}, \"eventName\": \"Simulacro {{runId}}\", \"description\": \"Flujo US-07 a US-14\", \"accessType\": \"PUBLICO_GRUPO\", \"penaltyRule\": \"ICPC_20_MIN\", \"scoreboardFreezeMinutes\": 30, \"status\": \"EN_CURSO\", \"startsAt\": \"{{startsAt}}\", \"endsAt\": \"{{endsAt}}\" }",
+          "raw": "{ \"teamId\": {{groupId}}, \"eventName\": \"Simulacro {{runId}}\", \"description\": \"Flujo US-07 a US-14\", \"accessType\": \"PUBLICO_GRUPO\", \"penaltyRule\": \"ICPC_20_MIN\", \"scoreboardFreezeMinutes\": 30, \"startsAt\": \"{{startsAt}}\", \"endsAt\": \"{{endsAt}}\" }",
           "options": {
             "raw": {
               "language": "json"
@@ -950,7 +948,7 @@
             "exec": [
               "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
               "const body = pm.response.json();",
-              "pm.test('Sin clave de acceso en la respuesta', () => pm.expect(body).not.to.have.property('accessKey'));",
+              "pm.test('PROGRAMADA y sin clave de acceso en la respuesta', () => { pm.expect(body.status).to.eql('PROGRAMADA'); pm.expect(body).not.to.have.property('accessKey'); });",
               "pm.collectionVariables.set(\"competitionId\", body.id);"
             ]
           }
@@ -958,7 +956,53 @@
       ]
     },
     {
-      "name": "19 Asignar los 3 problemas a la competencia (US-07)",
+      "name": "19 El COACH lista las competencias del equipo (sin problemas todavía)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions?teamId={{groupId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Una competencia PROGRAMADA sin problemas', () => { pm.expect(body.total).to.eql(1); pm.expect(body.items[0].status).to.eql('PROGRAMADA'); pm.expect(body.items[0].problemsCount).to.eql(0); pm.expect(body.items[0]).not.to.have.property('accessKey'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Asignar los 3 problemas a la competencia (US-07)",
       "request": {
         "method": "POST",
         "header": [
@@ -1016,7 +1060,7 @@
       ]
     },
     {
-      "name": "20 Asignar un problema ya asignado → 409 (no cambia nada)",
+      "name": "21 Asignar un problema ya asignado → 409 (no cambia nada)",
       "request": {
         "method": "POST",
         "header": [
@@ -1071,7 +1115,53 @@
       ]
     },
     {
-      "name": "21 PRACTICANTE A ve sus problemas asignados",
+      "name": "22 PRACTICANTE A (integrante) lista las competencias del equipo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions?teamId={{groupId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Ve la competencia con sus 3 problemas', () => { pm.expect(body.total).to.eql(1); pm.expect(body.items[0].problemsCount).to.eql(3); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 PRACTICANTE A ve sus problemas asignados",
       "request": {
         "method": "GET",
         "header": [],
@@ -1118,7 +1208,7 @@
       ]
     },
     {
-      "name": "22 Detalle de un problema asignado",
+      "name": "24 Detalle de un problema asignado",
       "request": {
         "method": "GET",
         "header": [],
@@ -1160,7 +1250,7 @@
       ]
     },
     {
-      "name": "23 Filtrar por estado y texto",
+      "name": "25 Filtrar por estado y texto",
       "request": {
         "method": "GET",
         "header": [],
@@ -1215,7 +1305,7 @@
       ]
     },
     {
-      "name": "24 El COACH ve la asignación del equipo (sin avance personal)",
+      "name": "26 El COACH ve la asignación del equipo (sin avance personal)",
       "request": {
         "method": "GET",
         "header": [],
@@ -1262,7 +1352,406 @@
       ]
     },
     {
-      "name": "25 PRACTICANTE A registra su resolución (ACCEPTED)",
+      "name": "27 Antes de iniciar, PRACTICANTE A no puede registrar → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/{{groupId}}/problems/{{cp1}}/resolutions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "{{groupId}}",
+            "problems",
+            "{{cp1}}",
+            "resolutions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"language\": \"Java 21\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Explica que aún no empezó', () => pm.expect(body.message).to.include('aún no ha comenzado'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 PRACTICANTE A no puede iniciar la competencia → 403",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"EN_CURSO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Estado inexistente → 400",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"CERRADA\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Indica el campo', () => pm.expect(body.errors).to.have.property('status'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 No se salta EN_CURSO: PROGRAMADA a FINALIZADA → 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"FINALIZADA\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Nombra los estados', () => { pm.expect(body.message).to.include('PROGRAMADA'); pm.expect(body.message).to.include('FINALIZADA'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 El COACH inicia la competencia → EN_CURSO",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"EN_CURSO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('EN_CURSO y sin clave de acceso', () => { pm.expect(body.status).to.eql('EN_CURSO'); pm.expect(body.id).to.eql(Number(pm.collectionVariables.get('competitionId'))); pm.expect(body).not.to.have.property('accessKey'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Iniciarla otra vez → 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"EN_CURSO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 No se confirma el resultado oficial mientras la competencia está EN_CURSO → 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "official-result"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"finalPosition\": 1, \"solvedProblems\": 1, \"confirm\": true }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Indica la causa', () => pm.expect(body.errors).to.have.property('competition.status'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 PRACTICANTE A registra su resolución (ACCEPTED)",
       "request": {
         "method": "POST",
         "header": [
@@ -1321,7 +1810,7 @@
       ]
     },
     {
-      "name": "26 Registro duplicado → 409",
+      "name": "35 Registro duplicado → 409",
       "request": {
         "method": "POST",
         "header": [
@@ -1380,7 +1869,7 @@
       ]
     },
     {
-      "name": "27 Lenguaje ausente → 400",
+      "name": "36 Lenguaje ausente → 400",
       "request": {
         "method": "POST",
         "header": [
@@ -1440,7 +1929,7 @@
       ]
     },
     {
-      "name": "28 Avance de PRACTICANTE A",
+      "name": "37 Avance de PRACTICANTE A",
       "request": {
         "method": "GET",
         "header": [],
@@ -1484,7 +1973,7 @@
       ]
     },
     {
-      "name": "29 Avance de PRACTICANTE B: independiente, 0",
+      "name": "38 Avance de PRACTICANTE B: independiente, 0",
       "request": {
         "method": "GET",
         "header": [],
@@ -1528,7 +2017,7 @@
       ]
     },
     {
-      "name": "30 El problema pasa a RESUELTO para A",
+      "name": "39 El problema pasa a RESUELTO para A",
       "request": {
         "method": "GET",
         "header": [],
@@ -1570,7 +2059,7 @@
       ]
     },
     {
-      "name": "31 Para B el mismo problema sigue SIN_INTENTOS",
+      "name": "40 Para B el mismo problema sigue SIN_INTENTOS",
       "request": {
         "method": "GET",
         "header": [],
@@ -1612,7 +2101,7 @@
       ]
     },
     {
-      "name": "32 Ranking del equipo (COACH)",
+      "name": "41 Ranking del equipo (COACH)",
       "request": {
         "method": "GET",
         "header": [],
@@ -1655,7 +2144,7 @@
       ]
     },
     {
-      "name": "33 Ranking visto por un integrante",
+      "name": "42 Ranking visto por un integrante",
       "request": {
         "method": "GET",
         "header": [],
@@ -1698,7 +2187,234 @@
       ]
     },
     {
-      "name": "34 Reporte de temas sin competencias FINALIZADA con problemas → 409 (escenario de error de US-12)",
+      "name": "43 El COACH finaliza la competencia → FINALIZADA",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"FINALIZADA\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('FINALIZADA', () => pm.expect(body.status).to.eql('FINALIZADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44 Una competencia FINALIZADA no vuelve a EN_CURSO → 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"EN_CURSO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "45 No se asignan problemas a una competencia FINALIZADA → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assign",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assign"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"competitionId\": {{competitionId}}, \"problems\": [ { \"problemId\": {{problem1}} } ] }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.include('finalizó'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "46 Tras finalizar, PRACTICANTE B todavía puede registrar su avance → 201",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/{{groupId}}/problems/{{cp3}}/resolutions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "{{groupId}}",
+            "problems",
+            "{{cp3}}",
+            "resolutions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"language\": \"C++20\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Aceptada y avance de B', () => { pm.expect(body.resolution.verdict).to.eql('ACCEPTED'); pm.expect(body.progress.acceptedProblems).to.eql(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "47 Reporte de temas con menor resolución (COACH)",
       "request": {
         "method": "GET",
         "header": [],
@@ -1732,17 +2448,18 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
-              "pm.test('Explica la causa', () => pm.expect(body.errors.assignments).to.include('FINALIZADA'));"
+              "pm.test('Tres temas', () => pm.expect(body.topics).to.have.lengthOf(3));",
+              "pm.test('Programación dinámica es el tema con menor resolución', () => { const dp = body.topics.find((t) => t.topicName === 'Programación dinámica'); pm.expect(dp.solvedProblems).to.eql(0); pm.expect(dp.lowestCoverage).to.eql(true); });",
+              "pm.test('Grafos tiene sus 2 problemas resueltos', () => { const graphs = body.topics.find((t) => t.topicName === 'Grafos'); pm.expect(graphs.assignedProblems).to.eql(2); pm.expect(graphs.solvedProblems).to.eql(2); pm.expect(graphs.lowestCoverage).to.eql(false); });"
             ]
           }
         }
       ]
     },
     {
-      "name": "35 Crear competencia FINALIZADA",
+      "name": "48 Registrar resultado pendiente",
       "request": {
         "method": "POST",
         "header": [
@@ -1762,123 +2479,13 @@
           ]
         },
         "url": {
-          "raw": "{{baseUrl}}/competitions",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "competitions"
-          ]
-        },
-        "description": "",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"teamId\": {{groupId}}, \"eventName\": \"Oficial {{runId}}\", \"status\": \"FINALIZADA\", \"startsAt\": \"{{pastStartsAt}}\", \"endsAt\": \"{{pastEndsAt}}\" }",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "const body = pm.response.json();",
-              "pm.collectionVariables.set(\"finishedCompetitionId\", body.id);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "36 No se asignan problemas a una competencia FINALIZADA → 409",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{coachToken}}",
-              "type": "string"
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{baseUrl}}/problems/assign",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "problems",
-            "assign"
-          ]
-        },
-        "description": "",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"competitionId\": {{finishedCompetitionId}}, \"problems\": [ { \"problemId\": {{problem1}} } ] }",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
-              "const body = pm.response.json();",
-              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
-              "pm.test('Mensaje', () => pm.expect(body.message).to.include('finalizó'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "37 Registrar resultado pendiente",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{coachToken}}",
-              "type": "string"
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "competitions",
-            "{{finishedCompetitionId}}",
+            "{{competitionId}}",
             "official-result"
           ]
         },
@@ -1908,7 +2515,7 @@
       ]
     },
     {
-      "name": "38 Resultado duplicado → 409",
+      "name": "49 Resultado duplicado → 409",
       "request": {
         "method": "POST",
         "header": [
@@ -1928,13 +2535,13 @@
           ]
         },
         "url": {
-          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "competitions",
-            "{{finishedCompetitionId}}",
+            "{{competitionId}}",
             "official-result"
           ]
         },
@@ -1964,7 +2571,7 @@
       ]
     },
     {
-      "name": "39 Completar y confirmar el resultado",
+      "name": "50 Completar y confirmar el resultado",
       "request": {
         "method": "PUT",
         "header": [
@@ -1984,13 +2591,13 @@
           ]
         },
         "url": {
-          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "competitions",
-            "{{finishedCompetitionId}}",
+            "{{competitionId}}",
             "official-result"
           ]
         },
@@ -2020,7 +2627,7 @@
       ]
     },
     {
-      "name": "40 Consultar el resultado",
+      "name": "51 Consultar el resultado",
       "request": {
         "method": "GET",
         "header": [],
@@ -2035,13 +2642,13 @@
           ]
         },
         "url": {
-          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
             "competitions",
-            "{{finishedCompetitionId}}",
+            "{{competitionId}}",
             "official-result"
           ]
         },
@@ -2062,7 +2669,7 @@
       ]
     },
     {
-      "name": "41 Historial de participaciones del equipo",
+      "name": "52 Historial de participaciones del equipo",
       "request": {
         "method": "GET",
         "header": [],
@@ -2105,15 +2712,10 @@
       ]
     },
     {
-      "name": "42 No se confirma una competencia que no está FINALIZADA → 400",
+      "name": "53 El listado de competencias muestra la competencia FINALIZADA",
       "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
+        "method": "GET",
+        "header": [],
         "auth": {
           "type": "bearer",
           "bearer": [
@@ -2125,26 +2727,21 @@
           ]
         },
         "url": {
-          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
+          "raw": "{{baseUrl}}/competitions?teamId={{groupId}}",
           "host": [
             "{{baseUrl}}"
           ],
           "path": [
-            "competitions",
-            "{{competitionId}}",
-            "official-result"
+            "competitions"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            }
           ]
         },
-        "description": "",
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"finalPosition\": 1, \"solvedProblems\": 1, \"confirm\": true }",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
+        "description": ""
       },
       "event": [
         {
@@ -2152,16 +2749,16 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+              "pm.test('FINALIZADA con 3 problemas', () => { pm.expect(body.items[0].status).to.eql('FINALIZADA'); pm.expect(body.items[0].problemsCount).to.eql(3); });"
             ]
           }
         }
       ]
     },
     {
-      "name": "43 Sin token no se ve el ranking → 401",
+      "name": "54 Sin token no se ve el ranking → 401",
       "request": {
         "method": "GET",
         "header": [],
@@ -2181,6 +2778,96 @@
           ]
         },
         "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "55 Sin token no se listan las competencias → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions?teamId={{groupId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "56 Sin token no se cambia el estado de una competencia → 401",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "status"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"status\": \"EN_CURSO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
       },
       "event": [
         {

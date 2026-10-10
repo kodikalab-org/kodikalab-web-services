@@ -263,6 +263,8 @@ sec.push(call('Documentación OpenAPI pública y con esquema Bearer', 'GET', '/v
 for (const [name, method, path, body] of [
   ['GET /teams', 'GET', '/teams'], ['GET /users/me', 'GET', '/users/me'], ['GET /problems', 'GET', '/problems'],
   ['POST /teams', 'POST', '/teams', {}], ['GET /analytics/teams/1/standings', 'GET', '/analytics/teams/1/standings'],
+  ['GET /teams/me', 'GET', '/teams/me'], ['GET /competitions?teamId=1', 'GET', '/competitions?teamId=1'],
+  ['PATCH /competitions/1/status', 'PATCH', '/competitions/1/status', { status: 'EN_CURSO' }],
 ]) {
   sec.push(call(`Sin token: ${name} → 401`, method, path, 401, { message: missingToken, body }));
 }
@@ -276,6 +278,7 @@ sec.push(call('Esquema distinto de Bearer se ignora → 401', 'GET', '/teams', 4
 for (const [name, method, path, body] of [
   ['POST /teams', 'POST', '/teams', {}], ['POST /problems', 'POST', '/problems', {}],
   ['POST /problems/assign', 'POST', '/problems/assign', {}], ['POST /competitions', 'POST', '/competitions', {}],
+  ['PATCH /competitions/1/status', 'PATCH', '/competitions/1/status', { status: 'EN_CURSO' }],
   ['GET /teams/1/memberships', 'GET', '/teams/1/memberships?status=PENDIENTE'],
   ['GET /analytics/teams/1/weaknesses', 'GET', '/analytics/teams/1/weaknesses'],
   ['GET /competitions/teams/1/official-results', 'GET', '/competitions/teams/1/official-results'],
@@ -292,6 +295,8 @@ for (const [name, method, path, body] of [
 sec.push(call('COACH: GET /teams → 200', 'GET', '/teams', 200, { token: 'coachToken', tests: ["pm.test('Lista de grupos', () => pm.expect(body).to.be.an('array'));"] }));
 sec.push(call('PRACTICANTE: GET /teams → 200', 'GET', '/teams', 200, { token: 'practitionerToken', tests: ["pm.test('Lista de grupos', () => pm.expect(body).to.be.an('array'));"] }));
 sec.push(call('PRACTICANTE: GET /problems → 200', 'GET', '/problems', 200, { token: 'practitionerToken' }));
+sec.push(call('COACH: GET /teams/me → 200 (sus grupos; vacío para una cuenta nueva)', 'GET', '/teams/me', 200, { token: 'coachToken', tests: ["pm.test('Lista de sus grupos', () => pm.expect(body).to.be.an('array').that.is.empty);"] }));
+sec.push(call('PRACTICANTE: GET /teams/me → 200 (sus membresías; vacío para una cuenta nueva)', 'GET', '/teams/me', 200, { token: 'practitionerToken', tests: ["pm.test('Lista de sus membresías', () => pm.expect(body).to.be.an('array').that.is.empty);"] }));
 sec.push(call('COACH con rol correcto llega al servicio: POST /teams vacío → 400', 'POST', '/teams', 400, { token: 'coachToken', body: {} }));
 collection('SEC-jwt-roles.postman_collection.json', 'KodikaLab - Seguridad JWT y roles',
   'Ejecutar en orden en una base exclusiva de pruebas. Crea un COACH y un PRACTICANTE nuevos, inicia sesión con ambos y comprueba: documentación pública, 401 sin token o con token inválido, 403 por rol y acceso correcto. No requiere fixtures ni datos previos.',
