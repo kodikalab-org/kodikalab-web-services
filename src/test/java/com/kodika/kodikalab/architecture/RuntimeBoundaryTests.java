@@ -82,11 +82,12 @@ class RuntimeBoundaryTests {
                 .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/auth/recovery", "/auth/recovery-code",
                         "/users/me", "/users/me",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
+                        "/competitions", "/competitions/{competitionId}/status",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
                         "/analytics/teams/{teamId}/progress/me",
-                        "/teams", "/teams", "/teams/{id}/join", "/teams/{id}/memberships",
+                        "/teams", "/teams", "/teams/me", "/teams/{id}/join", "/teams/{id}/memberships",
                         "/teams/{id}/memberships/{memberId}",
                         "/problems", "/problems", "/problems/assign", "/problems/assigned",
                         "/problems/assigned/{competitionProblemId}");
@@ -115,8 +116,8 @@ class RuntimeBoundaryTests {
         for (String path : new String[]{"/problems", "/problems/assigned", "/problems/assigned/1"}) {
             mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isUnauthorized());
         }
-        // Existe POST /competitions (US-13 T1); no hay listado público, por eso GET responde 405 y no 200.
-        mvc.perform(get("/api/competitions").contextPath("/api").with(token)).andExpect(status().isMethodNotAllowed());
+        // GET /competitions lista las competencias de un equipo: exige teamId, por eso sin él responde 400 y no 200.
+        mvc.perform(get("/api/competitions").contextPath("/api").with(token)).andExpect(status().isBadRequest());
         mvc.perform(post("/api/assistant/query").contextPath("/api").with(token)
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());

@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 
 // Colección de punta a punta para US-07 a US-14. Todo se crea por la API (usuarios, perfiles, grupo, problemas,
-// competencias, asignación, resoluciones y resultados): no requiere fixtures ni datos previos.
+// competencia, asignación, ciclo de vida, resoluciones y resultados): no requiere fixtures ni datos previos.
 const event = (listen, exec) => ({ listen, script: { type: 'text/javascript', exec } });
 const missingToken = 'Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)';
 
@@ -108,12 +108,18 @@ add('Buscar el catálogo por texto', 'GET', '/problems?q={{runId}}', 200, {
   auth: 'practAToken', tests: ["pm.test('Encuentra los 3 problemas', () => pm.expect(body.totalItems).to.eql(3));"],
 });
 
-// --- US-13 (T1) y US-07: competencia y asignación -------------------------------------------------------------------------
-add('Crear competencia en curso', 'POST', '/competitions', 201, {
+// --- US-13 (T1) y US-07: competencia (nace PROGRAMADA), listado y asignación -------------------------------------------------
+add('Crear competencia (nace PROGRAMADA)', 'POST', '/competitions', 201, {
   auth: 'coachToken',
-  body: '{ "teamId": {{groupId}}, "eventName": "Simulacro {{runId}}", "description": "Flujo US-07 a US-14", "accessType": "PUBLICO_GRUPO", "penaltyRule": "ICPC_20_MIN", "scoreboardFreezeMinutes": 30, "status": "EN_CURSO", "startsAt": "{{startsAt}}", "endsAt": "{{endsAt}}" }',
-  tests: ["pm.test('Sin clave de acceso en la respuesta', () => pm.expect(body).not.to.have.property('accessKey'));"],
+  body: '{ "teamId": {{groupId}}, "eventName": "Simulacro {{runId}}", "description": "Flujo US-07 a US-14", "accessType": "PUBLICO_GRUPO", "penaltyRule": "ICPC_20_MIN", "scoreboardFreezeMinutes": 30, "startsAt": "{{startsAt}}", "endsAt": "{{endsAt}}" }',
+  tests: [
+    "pm.test('PROGRAMADA y sin clave de acceso en la respuesta', () => { pm.expect(body.status).to.eql('PROGRAMADA'); pm.expect(body).not.to.have.property('accessKey'); });",
+  ],
   save: { competitionId: 'body.id' },
+});
+add('El COACH lista las competencias del equipo (sin problemas todavía)', 'GET', '/competitions?teamId={{groupId}}', 200, {
+  auth: 'coachToken',
+  tests: ["pm.test('Una competencia PROGRAMADA sin problemas', () => { pm.expect(body.total).to.eql(1); pm.expect(body.items[0].status).to.eql('PROGRAMADA'); pm.expect(body.items[0].problemsCount).to.eql(0); pm.expect(body.items[0]).not.to.have.property('accessKey'); });"],
 });
 add('Asignar los 3 problemas a la competencia (US-07)', 'POST', '/problems/assign', 201, {
   auth: 'coachToken',
@@ -125,6 +131,10 @@ add('Asignar los 3 problemas a la competencia (US-07)', 'POST', '/problems/assig
 });
 add('Asignar un problema ya asignado → 409 (no cambia nada)', 'POST', '/problems/assign', 409, {
   auth: 'coachToken', body: '{ "competitionId": {{competitionId}}, "problems": [ { "problemId": {{problem1}} } ] }',
+});
+add('PRACTICANTE A (integrante) lista las competencias del equipo', 'GET', '/competitions?teamId={{groupId}}', 200, {
+  auth: 'practAToken',
+  tests: ["pm.test('Ve la competencia con sus 3 problemas', () => { pm.expect(body.total).to.eql(1); pm.expect(body.items[0].problemsCount).to.eql(3); });"],
 });
 
 // --- US-08: problemas asignados ---------------------------------------------------------------------------------------------
@@ -141,6 +151,34 @@ add('Filtrar por estado y texto', 'GET', '/problems/assigned?teamId={{groupId}}&
 });
 add('El COACH ve la asignación del equipo (sin avance personal)', 'GET', '/problems/assigned?teamId={{groupId}}', 200, {
   auth: 'coachToken', tests: ["pm.test('Sin estado personal', () => { pm.expect(body.total).to.eql(3); pm.expect(body.items[0].status).to.eql(null); });"],
+});
+
+// --- Ciclo de vida: la competencia debe iniciarla el coach antes de registrar resoluciones ----------------------------------------
+add('Antes de iniciar, PRACTICANTE A no puede registrar → 409', 'POST', '/competitions/teams/{{groupId}}/problems/{{cp1}}/resolutions', 409, {
+  auth: 'practAToken', body: '{ "language": "Java 21" }',
+  tests: ["pm.test('Explica que aún no empezó', () => pm.expect(body.message).to.include('aún no ha comenzado'));"],
+});
+add('PRACTICANTE A no puede iniciar la competencia → 403', 'PATCH', '/competitions/{{competitionId}}/status', 403, {
+  auth: 'practAToken', body: '{ "status": "EN_CURSO" }',
+});
+add('Estado inexistente → 400', 'PATCH', '/competitions/{{competitionId}}/status', 400, {
+  auth: 'coachToken', body: '{ "status": "CERRADA" }',
+  tests: ["pm.test('Indica el campo', () => pm.expect(body.errors).to.have.property('status'));"],
+});
+add('No se salta EN_CURSO: PROGRAMADA a FINALIZADA → 409', 'PATCH', '/competitions/{{competitionId}}/status', 409, {
+  auth: 'coachToken', body: '{ "status": "FINALIZADA" }',
+  tests: ["pm.test('Nombra los estados', () => { pm.expect(body.message).to.include('PROGRAMADA'); pm.expect(body.message).to.include('FINALIZADA'); });"],
+});
+add('El COACH inicia la competencia → EN_CURSO', 'PATCH', '/competitions/{{competitionId}}/status', 200, {
+  auth: 'coachToken', body: '{ "status": "EN_CURSO" }',
+  tests: ["pm.test('EN_CURSO y sin clave de acceso', () => { pm.expect(body.status).to.eql('EN_CURSO'); pm.expect(body.id).to.eql(Number(pm.collectionVariables.get('competitionId'))); pm.expect(body).not.to.have.property('accessKey'); });"],
+});
+add('Iniciarla otra vez → 409', 'PATCH', '/competitions/{{competitionId}}/status', 409, {
+  auth: 'coachToken', body: '{ "status": "EN_CURSO" }',
+});
+add('No se confirma el resultado oficial mientras la competencia está EN_CURSO → 400', 'POST', '/competitions/{{competitionId}}/official-result', 400, {
+  auth: 'coachToken', body: '{ "finalPosition": 1, "solvedProblems": 1, "confirm": true }',
+  tests: ["pm.test('Indica la causa', () => pm.expect(body.errors).to.have.property('competition.status'));"],
 });
 
 // --- US-09 y US-14: registrar una resolución y avance independiente ------------------------------------------------------------
@@ -177,45 +215,63 @@ add('Ranking visto por un integrante', 'GET', '/analytics/teams/{{groupId}}/stan
   auth: 'practBToken', tests: ["pm.test('Dos integrantes', () => pm.expect(body.members).to.have.lengthOf(2));"],
 });
 
+// --- Cierre: el coach finaliza la competencia ---------------------------------------------------------------------------------------
+add('El COACH finaliza la competencia → FINALIZADA', 'PATCH', '/competitions/{{competitionId}}/status', 200, {
+  auth: 'coachToken', body: '{ "status": "FINALIZADA" }',
+  tests: ["pm.test('FINALIZADA', () => pm.expect(body.status).to.eql('FINALIZADA'));"],
+});
+add('Una competencia FINALIZADA no vuelve a EN_CURSO → 409', 'PATCH', '/competitions/{{competitionId}}/status', 409, {
+  auth: 'coachToken', body: '{ "status": "EN_CURSO" }',
+});
+add('No se asignan problemas a una competencia FINALIZADA → 409', 'POST', '/problems/assign', 409, {
+  auth: 'coachToken', body: '{ "competitionId": {{competitionId}}, "problems": [ { "problemId": {{problem1}} } ] }',
+  tests: ["pm.test('Mensaje', () => pm.expect(body.message).to.include('finalizó'));"],
+});
+add('Tras finalizar, PRACTICANTE B todavía puede registrar su avance → 201', 'POST', '/competitions/teams/{{groupId}}/problems/{{cp3}}/resolutions', 201, {
+  auth: 'practBToken', body: '{ "language": "C++20" }',
+  tests: ["pm.test('Aceptada y avance de B', () => { pm.expect(body.resolution.verdict).to.eql('ACCEPTED'); pm.expect(body.progress.acceptedProblems).to.eql(1); });"],
+});
+
 // --- US-12: temas con menor resolución ----------------------------------------------------------------------------------------
-// El reporte solo cuenta problemas asignados en competencias FINALIZADA y la API no permite asignar a una competencia ya
-// finalizada: por la API pura se recorre el escenario de error. El cálculo completo lo cubre TopicReportIntegrationTests.
-add('Reporte de temas sin competencias FINALIZADA con problemas → 409 (escenario de error de US-12)', 'GET', '/analytics/teams/{{groupId}}/weaknesses', 409, {
+// Con la competencia FINALIZADA por la API, el reporte se calcula con las resoluciones registradas.
+add('Reporte de temas con menor resolución (COACH)', 'GET', '/analytics/teams/{{groupId}}/weaknesses', 200, {
   auth: 'coachToken',
-  tests: ["pm.test('Explica la causa', () => pm.expect(body.errors.assignments).to.include('FINALIZADA'));"],
+  tests: [
+    "pm.test('Tres temas', () => pm.expect(body.topics).to.have.lengthOf(3));",
+    "pm.test('Programación dinámica es el tema con menor resolución', () => { const dp = body.topics.find((t) => t.topicName === 'Programación dinámica'); pm.expect(dp.solvedProblems).to.eql(0); pm.expect(dp.lowestCoverage).to.eql(true); });",
+    "pm.test('Grafos tiene sus 2 problemas resueltos', () => { const graphs = body.topics.find((t) => t.topicName === 'Grafos'); pm.expect(graphs.assignedProblems).to.eql(2); pm.expect(graphs.solvedProblems).to.eql(2); pm.expect(graphs.lowestCoverage).to.eql(false); });",
+  ],
 });
 
 // --- US-13: resultados oficiales ------------------------------------------------------------------------------------------------
-add('Crear competencia FINALIZADA', 'POST', '/competitions', 201, {
-  auth: 'coachToken',
-  body: '{ "teamId": {{groupId}}, "eventName": "Oficial {{runId}}", "status": "FINALIZADA", "startsAt": "{{pastStartsAt}}", "endsAt": "{{pastEndsAt}}" }',
-  save: { finishedCompetitionId: 'body.id' },
-});
-add('No se asignan problemas a una competencia FINALIZADA → 409', 'POST', '/problems/assign', 409, {
-  auth: 'coachToken', body: '{ "competitionId": {{finishedCompetitionId}}, "problems": [ { "problemId": {{problem1}} } ] }',
-  tests: ["pm.test('Mensaje', () => pm.expect(body.message).to.include('finalizó'));"],
-});
-add('Registrar resultado pendiente', 'POST', '/competitions/{{finishedCompetitionId}}/official-result', 201, {
+add('Registrar resultado pendiente', 'POST', '/competitions/{{competitionId}}/official-result', 201, {
   auth: 'coachToken', body: '{ "confirm": false }',
   tests: ["pm.test('PENDIENTE', () => pm.expect(body.status).to.eql('PENDIENTE'));"],
 });
-add('Resultado duplicado → 409', 'POST', '/competitions/{{finishedCompetitionId}}/official-result', 409, { auth: 'coachToken', body: '{ "confirm": false }' });
-add('Completar y confirmar el resultado', 'PUT', '/competitions/{{finishedCompetitionId}}/official-result', 200, {
+add('Resultado duplicado → 409', 'POST', '/competitions/{{competitionId}}/official-result', 409, { auth: 'coachToken', body: '{ "confirm": false }' });
+add('Completar y confirmar el resultado', 'PUT', '/competitions/{{competitionId}}/official-result', 200, {
   auth: 'coachToken', body: '{ "finalPosition": 3, "solvedProblems": 5, "confirm": true }',
   tests: ["pm.test('CONFIRMADO', () => { pm.expect(body.status).to.eql('CONFIRMADO'); pm.expect(body.finalPosition).to.eql(3); pm.expect(body.solvedProblems).to.eql(5); });"],
 });
-add('Consultar el resultado', 'GET', '/competitions/{{finishedCompetitionId}}/official-result', 200, {
+add('Consultar el resultado', 'GET', '/competitions/{{competitionId}}/official-result', 200, {
   auth: 'coachToken', tests: ["pm.test('Posición 3', () => pm.expect(body.finalPosition).to.eql(3));"],
 });
 add('Historial de participaciones del equipo', 'GET', '/competitions/teams/{{groupId}}/official-results', 200, {
   auth: 'coachToken', tests: ["pm.test('Una participación confirmada', () => pm.expect(body).to.have.lengthOf(1));"],
 });
-add('No se confirma una competencia que no está FINALIZADA → 400', 'POST', '/competitions/{{competitionId}}/official-result', 400, {
-  auth: 'coachToken', body: '{ "finalPosition": 1, "solvedProblems": 1, "confirm": true }',
+add('El listado de competencias muestra la competencia FINALIZADA', 'GET', '/competitions?teamId={{groupId}}', 200, {
+  auth: 'coachToken', tests: ["pm.test('FINALIZADA con 3 problemas', () => { pm.expect(body.items[0].status).to.eql('FINALIZADA'); pm.expect(body.items[0].problemsCount).to.eql(3); });"],
 });
 
 // --- Seguridad en el flujo --------------------------------------------------------------------------------------------------------
 add('Sin token no se ve el ranking → 401', 'GET', '/analytics/teams/{{groupId}}/standings', 401, {
+  tests: [`pm.test('Mensaje', () => pm.expect(body.message).to.eql(${JSON.stringify(missingToken)}));`],
+});
+add('Sin token no se listan las competencias → 401', 'GET', '/competitions?teamId={{groupId}}', 401, {
+  tests: [`pm.test('Mensaje', () => pm.expect(body.message).to.eql(${JSON.stringify(missingToken)}));`],
+});
+add('Sin token no se cambia el estado de una competencia → 401', 'PATCH', '/competitions/{{competitionId}}/status', 401, {
+  body: '{ "status": "EN_CURSO" }',
   tests: [`pm.test('Mensaje', () => pm.expect(body.message).to.eql(${JSON.stringify(missingToken)}));`],
 });
 
@@ -223,7 +279,7 @@ const output = {
   info: {
     name: 'KodikaLab - US07 a US14 Flujo completo',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
-    description: 'Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas, dos competencias, la asignación, una resolución y un resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí).',
+    description: 'Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas y una competencia, y la recorre completa: asignación, inicio y cierre por el coach, resoluciones, ranking, reporte de temas y resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí).',
   },
   variable: [
     { key: 'baseUrl', value: 'http://localhost:8080/api', type: 'string' },
@@ -240,8 +296,6 @@ const output = {
     "  pm.collectionVariables.set('studentCodeB', `F${id}B`);",
     "  pm.collectionVariables.set('startsAt', new Date(Date.now() - 3600000).toISOString());",
     "  pm.collectionVariables.set('endsAt', new Date(Date.now() + 7200000).toISOString());",
-    "  pm.collectionVariables.set('pastStartsAt', new Date(Date.now() - 10800000).toISOString());",
-    "  pm.collectionVariables.set('pastEndsAt', new Date(Date.now() - 3600000).toISOString());",
     '}',
   ])],
   item: items.map((item, i) => ({ ...item, name: `${String(i + 1).padStart(2, '0')} ${item.name}` })),

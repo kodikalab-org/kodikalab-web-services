@@ -1,11 +1,17 @@
 package com.kodika.kodikalab.competitions.competition;
 
+import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.competitions.competition.dto.ChangeCompetitionStatusRequest;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionListItem;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
+import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
+import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
+import com.kodika.kodikalab.teams.groupmembership.dto.GroupMemberData;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
 import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupSummary;
@@ -14,12 +20,14 @@ import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserStatus;
 import jakarta.persistence.EntityManager;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,7 +39,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 class CompetitionServiceTests {
@@ -43,6 +53,7 @@ class CompetitionServiceTests {
     CurrentUserResolver resolver;
     PasswordEncoder encoder;
     EntityManager entityManager;
+    GroupMembershipService memberships;
     CompetitionService service;
     User coach;
 
@@ -53,7 +64,8 @@ class CompetitionServiceTests {
         resolver = mock(CurrentUserResolver.class);
         encoder = mock(PasswordEncoder.class);
         entityManager = mock(EntityManager.class);
-        service = new CompetitionServiceImpl(repository, groups, resolver, encoder, entityManager);
+        memberships = mock(GroupMembershipService.class);
+        service = new CompetitionServiceImpl(repository, groups, resolver, encoder, entityManager, memberships);
         coach = user(10, Role.COACH, UserStatus.ACTIVO);
         when(resolver.currentUser()).thenReturn(coach);
         when(groups.findSummaryById(1)).thenReturn(Optional.of(new StudyGroupSummary(1, 10)));
@@ -287,6 +299,229 @@ class CompetitionServiceTests {
 
         assertThat(service.findSummaryById(9)).isEmpty();
         assertThat(service.findSummaryForUpdate(9)).isEmpty();
+    }
+
+    // ---- cambio de estado: PROGRAMADA, EN_CURSO, FINALIZADA
+
+    @Test
+    void coachStartsAndThenFinishesTheCompetition() {
+        Competition competition = competition(7, 1, CompetitionStatus.PROGRAMADA);
+        when(repository.findForUpdate(7)).thenReturn(Optional.of(competition));
+
+        var started = service.changeStatus(7, statusRequest(CompetitionStatus.EN_CURSO));
+        assertThat(started.status()).isEqualTo(CompetitionStatus.EN_CURSO);
+        assertThat(started.teamId()).isEqualTo(1);
+        assertThat(competition.getStatus()).isEqualTo(CompetitionStatus.EN_CURSO);
+
+        var finished = service.changeStatus(7, statusRequest(CompetitionStatus.FINALIZADA));
+        assertThat(finished.status()).isEqualTo(CompetitionStatus.FINALIZADA);
+        assertThat(competition.getStatus()).isEqualTo(CompetitionStatus.FINALIZADA);
+        verify(repository, times(2)).findForUpdate(7);
+        verify(repository, times(2)).save(competition);
+    }
+
+    @ParameterizedTest
+    @MethodSource("transitionsThatAreNotOneStepForward")
+    void statusCanOnlyAdvanceOneStepAtATime(CompetitionStatus current, CompetitionStatus target) {
+        Competition competition = competition(7, 1, current);
+        when(repository.findForUpdate(7)).thenReturn(Optional.of(competition));
+
+        assertThatThrownBy(() -> service.changeStatus(7, statusRequest(target))).isInstanceOf(ConflictException.class)
+                .hasMessageContaining(current.name()).hasMessageContaining(target.name());
+        assertThat(competition.getStatus()).isEqualTo(current);
+        verify(repository, never()).save(any());
+    }
+
+    static Stream<Arguments> transitionsThatAreNotOneStepForward() {
+        return Stream.of(
+                Arguments.of(CompetitionStatus.PROGRAMADA, CompetitionStatus.PROGRAMADA),
+                Arguments.of(CompetitionStatus.PROGRAMADA, CompetitionStatus.FINALIZADA),
+                Arguments.of(CompetitionStatus.EN_CURSO, CompetitionStatus.PROGRAMADA),
+                Arguments.of(CompetitionStatus.EN_CURSO, CompetitionStatus.EN_CURSO),
+                Arguments.of(CompetitionStatus.FINALIZADA, CompetitionStatus.PROGRAMADA),
+                Arguments.of(CompetitionStatus.FINALIZADA, CompetitionStatus.EN_CURSO),
+                Arguments.of(CompetitionStatus.FINALIZADA, CompetitionStatus.FINALIZADA));
+    }
+
+    @ParameterizedTest
+    @MethodSource("deniedUsers")
+    void onlyAnActiveCoachCanChangeTheStatus(User user) {
+        when(resolver.currentUser()).thenReturn(user);
+
+        assertThatThrownBy(() -> service.changeStatus(7, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(ForbiddenException.class);
+        verify(repository, never()).findForUpdate(any());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void absentSessionCannotChangeTheStatus() {
+        when(resolver.currentUser()).thenThrow(new UnauthorizedException("Sin sesión"));
+
+        assertThatThrownBy(() -> service.changeStatus(7, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(UnauthorizedException.class);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void anotherCoachsCompetitionCannotBeStarted() {
+        Competition competition = competition(7, 3, CompetitionStatus.PROGRAMADA);
+        when(repository.findForUpdate(7)).thenReturn(Optional.of(competition));
+        when(groups.findSummaryById(3)).thenReturn(Optional.of(new StudyGroupSummary(3, 99)));
+
+        assertThatThrownBy(() -> service.changeStatus(7, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(ForbiddenException.class);
+        assertThat(competition.getStatus()).isEqualTo(CompetitionStatus.PROGRAMADA);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void missingCompetitionIsNotFoundWhenChangingTheStatus() {
+        when(repository.findForUpdate(9)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.changeStatus(9, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(NotFoundException.class);
+        verify(repository, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidTeamIds")
+    void competitionIdMustBePositiveToChangeTheStatus(Integer id) {
+        assertThatThrownBy(() -> service.changeStatus(id, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(BadRequestException.class);
+        verify(repository, never()).findForUpdate(any());
+    }
+
+    @Test
+    void theNewStatusIsRequired() {
+        for (ChangeCompetitionStatusRequest request : new ChangeCompetitionStatusRequest[]{null, statusRequest(null)}) {
+            assertThatThrownBy(() -> service.changeStatus(7, request)).isInstanceOfSatisfying(
+                    CompetitionValidationException.class,
+                    exception -> assertThat(exception.getErrors()).containsKey("status"));
+        }
+        verify(repository, never()).findForUpdate(any());
+    }
+
+    @Test
+    void incompleteTeamInformationBlocksTheStatusChange() {
+        Competition withoutCoach = competition(7, 4, CompetitionStatus.PROGRAMADA);
+        when(repository.findForUpdate(7)).thenReturn(Optional.of(withoutCoach));
+        when(groups.findSummaryById(4)).thenReturn(Optional.of(new StudyGroupSummary(4, null)));
+        assertThatThrownBy(() -> service.changeStatus(7, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(ConflictException.class);
+
+        Competition withoutTeam = competition(8, 1, CompetitionStatus.PROGRAMADA);
+        withoutTeam.setGroup(null);
+        when(repository.findForUpdate(8)).thenReturn(Optional.of(withoutTeam));
+        assertThatThrownBy(() -> service.changeStatus(8, statusRequest(CompetitionStatus.EN_CURSO)))
+                .isInstanceOf(ConflictException.class);
+        verify(repository, never()).save(any());
+    }
+
+    // ---- competencias de un equipo
+
+    @Test
+    void responsibleCoachListsTheTeamsCompetitionsWithoutAskingForMemberships() {
+        var items = List.of(item(8, CompetitionStatus.EN_CURSO, 2L), item(7, CompetitionStatus.PROGRAMADA, 0L));
+        when(repository.findListItemsByTeamId(1)).thenReturn(items);
+
+        var response = service.listByTeam(1);
+
+        assertThat(response.teamId()).isEqualTo(1);
+        assertThat(response.total()).isEqualTo(2);
+        assertThat(response.items()).containsExactlyElementsOf(items);
+        verifyNoInteractions(memberships);
+    }
+
+    @Test
+    void activeMemberListsTheTeamsCompetitions() {
+        when(resolver.currentUser()).thenReturn(user(11, Role.PRACTICANTE, UserStatus.ACTIVO));
+        when(memberships.findMembersByTeamId(1)).thenReturn(List.of(
+                new GroupMemberData(20, 1, 12, "Otro integrante", MembershipStatus.ACTIVO),
+                new GroupMemberData(21, 1, 11, "Yo", MembershipStatus.ACTIVO)));
+        when(repository.findListItemsByTeamId(1)).thenReturn(List.of(item(7, CompetitionStatus.PROGRAMADA, 1L)));
+
+        assertThat(service.listByTeam(1).items()).hasSize(1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = MembershipStatus.class, names = {"RETIRADO", "EXPULSADO"})
+    void formerMembersAndStrangersCannotListCompetitions(MembershipStatus status) {
+        when(resolver.currentUser()).thenReturn(user(11, Role.PRACTICANTE, UserStatus.ACTIVO));
+        when(memberships.findMembersByTeamId(1)).thenReturn(List.of(
+                new GroupMemberData(20, 1, 11, "Ex integrante", status),
+                new GroupMemberData(21, 1, 12, "Otro integrante", MembershipStatus.ACTIVO)));
+
+        assertThatThrownBy(() -> service.listByTeam(1)).isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("No pertenece");
+        verify(repository, never()).findListItemsByTeamId(any());
+    }
+
+    @Test
+    void anotherCoachCannotListCompetitionsOfTheTeam() {
+        when(resolver.currentUser()).thenReturn(user(77, Role.COACH, UserStatus.ACTIVO));
+
+        assertThatThrownBy(() -> service.listByTeam(1)).isInstanceOf(ForbiddenException.class);
+        verify(repository, never()).findListItemsByTeamId(any());
+    }
+
+    @Test
+    void suspendedAccountCannotListCompetitions() {
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.SUSPENDIDO));
+
+        assertThatThrownBy(() -> service.listByTeam(1)).isInstanceOf(ForbiddenException.class);
+        verifyNoInteractions(groups);
+    }
+
+    @Test
+    void listingAMissingTeamIsNotFound() {
+        when(groups.findSummaryById(2)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.listByTeam(2)).isInstanceOf(NotFoundException.class);
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidTeamIds")
+    void listingRequiresAPositiveTeamId(Integer teamId) {
+        assertThatThrownBy(() -> service.listByTeam(teamId)).isInstanceOfSatisfying(CompetitionValidationException.class,
+                exception -> assertThat(exception.getErrors()).containsKey("teamId"));
+        verify(groups, never()).findSummaryById(any());
+    }
+
+    @Test
+    void aTeamWithoutCompetitionsGetsAnEmptyList() {
+        when(repository.findListItemsByTeamId(1)).thenReturn(List.of());
+
+        var response = service.listByTeam(1);
+
+        assertThat(response.total()).isZero();
+        assertThat(response.items()).isEmpty();
+    }
+
+    private static CompetitionListItem item(int id, CompetitionStatus status, long problems) {
+        return new CompetitionListItem(id, "Competencia " + id, null, CompetitionAccessType.PUBLICO_GRUPO,
+                PenaltyRule.ICPC_20_MIN, 300, 60, status, START, END, problems);
+    }
+
+    private static Competition competition(int id, int teamId, CompetitionStatus status) {
+        StudyGroup group = new StudyGroup();
+        group.setId(teamId);
+        Competition competition = new Competition();
+        competition.setId(id);
+        competition.setGroup(group);
+        competition.setEventName("Simulacro " + id);
+        competition.setAccessType(CompetitionAccessType.PUBLICO_GRUPO);
+        competition.setPenaltyRule(PenaltyRule.ICPC_20_MIN);
+        competition.setDurationMinutes(300);
+        competition.setScoreboardFreezeMinutes(60);
+        competition.setStatus(status);
+        competition.setStartsAt(START);
+        competition.setEndsAt(END);
+        return competition;
+    }
+
+    private static ChangeCompetitionStatusRequest statusRequest(CompetitionStatus status) {
+        return new ChangeCompetitionStatusRequest(status);
     }
 
     private Competition saved() {

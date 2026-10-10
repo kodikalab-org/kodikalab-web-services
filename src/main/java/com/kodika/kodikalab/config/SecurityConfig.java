@@ -76,6 +76,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PATCH, "/teams/{id}/memberships/{memberId}").hasRole(COACH)   // US-06
                         .requestMatchers(HttpMethod.POST, "/problems", "/problems/assign").hasRole(COACH)         // US-07
                         .requestMatchers(HttpMethod.POST, "/competitions").hasRole(COACH)                         // US-13
+                        .requestMatchers(HttpMethod.PATCH, "/competitions/{competitionId}/status").hasRole(COACH) // US-13
                         .requestMatchers("/competitions/{competitionId}/official-result").hasRole(COACH)          // US-13
                         .requestMatchers(HttpMethod.GET, "/competitions/teams/{teamId}/official-results")
                         .hasRole(COACH)                                                                           // US-13
@@ -89,7 +90,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/progress/me")
                         .hasRole(PRACTICANTE)                                                                     // US-14
 
-                        // Cualquier cuenta autenticada: perfil, listado de grupos, catálogo, problemas asignados, ranking
+                        // Cualquier cuenta autenticada: perfil, mis equipos, grupos, competencias del equipo, catálogo,
+                        // problemas asignados, ranking (los servicios exigen coach responsable o membresía ACTIVO)
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService, userService, accessDeniedHandler,
                         publicEndpoints), UsernamePasswordAuthenticationFilter.class)

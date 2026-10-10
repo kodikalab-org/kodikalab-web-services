@@ -310,6 +310,63 @@ Reglas:
 - El código de invitación no se incluye en el listado.
 - Si no existen grupos activos, se devuelve una lista vacía.
 
+### GET /api/teams/me — Mis equipos
+
+Cualquier cuenta autenticada y `ACTIVO`. Devuelve `200 OK` con un arreglo ordenado por `groupId`, vacío si no hay
+nada que mostrar. La forma depende del rol del token y los campos del otro rol no se incluyen.
+
+**Coach:** los grupos que creó (de cualquier estado), con el código de invitación y los contadores. Es el único lugar
+donde el coach puede volver a consultar el código de un grupo.
+
+```json
+[
+  {
+    "groupId": 1,
+    "name": "Entrenamiento de Grafos",
+    "description": "Preparación para competencias ICPC",
+    "expectedLevel": "Div3",
+    "maxCapacity": 15,
+    "sessionSchedule": "Lunes de 18:00 a 20:00",
+    "status": "ACTIVO",
+    "visibility": "PROTEGIDO",
+    "invitationCode": "A1B2C3D4E5F6",
+    "activeMembers": 3,
+    "pendingRequests": 1
+  }
+]
+```
+
+**Practicante:** los grupos donde tiene o tuvo una membresía, con el estado de esa membresía. Así sabe si lo aceptaron
+(`ACTIVO`) o lo rechazaron (`RECHAZADO`) sin necesidad de una notificación.
+
+```json
+[
+  {
+    "groupId": 1,
+    "name": "Entrenamiento de Grafos",
+    "description": "Preparación para competencias ICPC",
+    "expectedLevel": "Div3",
+    "maxCapacity": 15,
+    "sessionSchedule": "Lunes de 18:00 a 20:00",
+    "status": "ACTIVO",
+    "visibility": "PROTEGIDO",
+    "membership": {
+      "membershipId": 2,
+      "status": "PENDIENTE",
+      "teamRole": "MIEMBRO",
+      "joinedAt": "2026-10-09T19:00:00-05:00",
+      "leftAt": null
+    }
+  }
+]
+```
+
+Reglas:
+- `invitationCode`, `activeMembers` y `pendingRequests` solo aparecen para el coach; `membership` solo para el practicante.
+- `joinedAt` es la fecha de la solicitud mientras la membresía está `PENDIENTE` y la de ingreso cuando pasa a `ACTIVO`.
+- Los contadores del coach cuentan solo membresías `ACTIVO` y `PENDIENTE`.
+- `401` sin token válido; `403` cuenta que no está `ACTIVO`.
+
 ### US04 — Crear grupo de estudio
 
 `POST /api/teams`
@@ -369,7 +426,7 @@ Respuesta: `201 Created`.
 
 ```json
 {
-  "message": "Ingreso al grupo realizado correctamente",
+  "message": "Ingreso al grupo registrado correctamente",
   "membershipId": 1,
   "groupId": 1,
   "status": "ACTIVO"
@@ -429,7 +486,18 @@ Respuesta exitosa: `200 OK`.
     "groupId": 1,
     "practitionerId": 5,
     "status": "PENDIENTE",
-    "requestedAt": "2026-10-09T19:00:00-05:00"
+    "requestedAt": "2026-10-09T19:00:00-05:00",
+    "practitioner": {
+      "fullName": "Ana Prueba",
+      "studentCode": "U2020001",
+      "career": "Ingeniería de Software",
+      "academicCycle": 5,
+      "competitiveLevel": "INTERMEDIO",
+      "codeforcesHandle": "tourist",
+      "codeforcesRating": 3800,
+      "atcoderHandle": null,
+      "vjudgeHandle": null
+    }
   }
 ]
 ```
@@ -439,6 +507,8 @@ Reglas:
 - El parámetro `status` debe ser `PENDIENTE`.
 - Si no existen solicitudes pendientes, se devuelve una lista vacía.
 - `membershipId` identifica un registro real de `practicante_grupo`.
+- `practitioner` trae el perfil académico y competitivo del postulante para que el coach decida con información. No incluye el correo.
+- Las solicitudes salen de la más antigua a la más reciente.
 
 ### US06 — Aceptar o rechazar solicitudes
 
@@ -646,7 +716,7 @@ de `teamId`. Es el paso previo para registrar su resultado oficial y para asigna
 | `accessKey` | Obligatoria con `PRIVADO_PASS` (máximo 72 bytes UTF-8); no se admite con `PUBLICO_GRUPO`. Se guarda solo como hash BCrypt y nunca se devuelve. |
 | `penaltyRule` | `ICPC_20_MIN` (por defecto) o `IOI_POINTS`. |
 | `scoreboardFreezeMinutes` | Opcional, entre 0 y la duración. Por defecto 60, o la duración si esta es menor. |
-| `status` | `PROGRAMADA` (por defecto), `EN_CURSO` o `FINALIZADA`. Se respeta el valor enviado; no se infiere de las fechas. Permite registrar eventos pasados. |
+| `status` | `PROGRAMADA` (por defecto), `EN_CURSO` o `FINALIZADA`. Se respeta el valor enviado; no se infiere de las fechas. Permite registrar eventos pasados. Lo habitual es crearla `PROGRAMADA` y que el coach la inicie y la finalice (ver "Ciclo de vida de la competencia"). |
 | `startsAt`, `endsAt` | Obligatorias, ISO-8601 con zona; `endsAt` al menos un minuto posterior a `startsAt`. |
 
 `durationMinutes` no se envía: se calcula como los minutos entre `startsAt` y `endsAt`. La respuesta devuelve
@@ -660,6 +730,59 @@ equipo de otro coach, `404` equipo inexistente, `409` ya existe una competencia 
 nombre (sin distinguir mayúsculas) y la misma fecha de inicio, `503` persistencia no disponible. Una solicitud
 rechazada no crea ningún registro. El ERD no define una restricción única para el duplicado: la regla se verifica
 en el servicio, por lo que dos solicitudes simultáneas idénticas podrían crear ambas.
+
+## US-13 — Ciclo de vida de la competencia
+
+`PATCH /api/competitions/{competitionId}/status`. Solo el coach responsable del equipo, con cuenta `ACTIVO` y token Bearer.
+
+```json
+{ "status": "EN_CURSO" }
+```
+
+Devuelve `200` con la competencia (la misma forma que `POST /api/competitions`, sin la clave de acceso). El estado solo
+avanza un paso: `PROGRAMADA`, `EN_CURSO`, `FINALIZADA`. No retrocede ni se salta un paso, y `FINALIZADA` es definitivo.
+`startsAt` y `endsAt` son informativos: el estado lo cambia el coach, no el reloj.
+
+| Estado | Qué permite |
+| --- | --- |
+| `PROGRAMADA` | Asignar problemas. No se registran resoluciones (`409`: el coach debe iniciar la competencia). |
+| `EN_CURSO` | Asignar problemas y registrar resoluciones. |
+| `FINALIZADA` | Confirmar el resultado oficial y generar el reporte de temas (US-12). Los practicantes todavía pueden registrar resoluciones (repaso); ya no se asignan problemas (`409`). |
+
+Errores `{ "message": "...", "errors": {} }`: `400` cuerpo inválido o `status` ausente o desconocido (`errors.status`) e
+identificador no numérico; `401` sin token válido; `403` cuenta no coach o coach de otro equipo; `404` competencia
+inexistente; `409` transición no permitida (el mensaje nombra los dos estados); `503` persistencia no disponible. Dos
+solicitudes simultáneas se serializan: una cambia el estado y la otra recibe `409`.
+
+## Competencias de un equipo
+
+`GET /api/competitions?teamId=1`. El coach responsable o un integrante con membresía `ACTIVO`.
+
+```json
+{
+  "teamId": 1,
+  "total": 1,
+  "items": [
+    {
+      "id": 5,
+      "eventName": "Simulacro 1",
+      "description": null,
+      "accessType": "PUBLICO_GRUPO",
+      "penaltyRule": "ICPC_20_MIN",
+      "durationMinutes": 300,
+      "scoreboardFreezeMinutes": 60,
+      "status": "EN_CURSO",
+      "startsAt": "2026-10-20T14:00:00-05:00",
+      "endsAt": "2026-10-20T19:00:00-05:00",
+      "problemsCount": 3
+    }
+  ]
+}
+```
+
+La de inicio más reciente primero y, con el mismo inicio, la creada después; `items` queda vacío si el equipo no tiene
+competencias. Nunca incluye la clave de acceso. Errores: `400` sin `teamId` o no numérico (`errors.teamId`), `401` sin token
+válido, `403` cuenta no activa, practicante sin membresía `ACTIVO` o coach de otro equipo, `404` equipo inexistente.
 
 ## US-13 — Resultados oficiales de competencias
 
@@ -706,7 +829,8 @@ Registra un `ACCEPTED` manual provisional y devuelve `201` con `resolution` (DTO
 declarado cuenta igual en el ranking (US-11) y en el reporte de temas (US-12) hasta que US-09 lo sustituya por un
 registro verificado. Rechaza otro
 `ACCEPTED` para la misma membresía/asignación sin modificar los intentos anteriores. Otros equipos o
-competencias conservan registros independientes.
+competencias conservan registros independientes. Mientras la competencia está `PROGRAMADA` responde `409` (el coach
+debe iniciarla con `PATCH /competitions/{competitionId}/status`); durante `EN_CURSO` y después de `FINALIZADA` se permite.
 
 GET devuelve `200` con `teamId`, `membershipId`, `userId` y `acceptedProblems`: problemas distintos aceptados
 del practicante en ese equipo, según US-11. Sin actividad, el conteo es cero. POST recalcula ese avance antes
@@ -714,7 +838,7 @@ de completar la transacción; si hay un error no se conserva una escritura parci
 
 Errores `{ "message": "...", "errors": {} }`: `400` campos/contexto/asignación cruzada inválidos;
 `401` sesión ausente; `403` rol/cuenta/membresía no autorizados; `404` equipo/asignación inexistente;
-`409` duplicado o datos inconsistentes; `503` información/transacción no disponible; `500` error inesperado.
+`409` duplicado, competencia no iniciada o datos inconsistentes; `503` información/transacción no disponible; `500` error inesperado.
 Detalles y limitaciones: [US-14](16-us14-avance-independiente.md).
 
 ## Problems — catálogo

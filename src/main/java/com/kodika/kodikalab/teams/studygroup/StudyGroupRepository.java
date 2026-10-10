@@ -11,6 +11,10 @@ public interface StudyGroupRepository extends JpaRepository<StudyGroup, Integer>
 
     List<StudyGroup> findByStatusOrderByIdAsc(GroupStatus status);
 
+    /** Grupos que creó el coach, de cualquier estado. */
+    @Query("select g from StudyGroup g where g.coach.userId = :coachUserId order by g.id")
+    List<StudyGroup> findByCoachUserId(@Param("coachUserId") Integer coachUserId);
+
     @Query("""
             select new com.kodika.kodikalab.teams.studygroup.dto.StudyGroupSummary(g.id, c.userId)
             from StudyGroup g left join g.coach c
