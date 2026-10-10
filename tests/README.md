@@ -54,9 +54,12 @@ Respuesta `201 Created`:
 {
   "message": "Registro exitoso",
   "email": "test@gmail.com",
-  "role": "PRACTICANTE"
+  "role": "PRACTICANTE",
+  "recoveryCode": "ABCD-EFGH-IJKL-MNOP-QRST-UVWX"
 }
 ```
+
+`recoveryCode` es el código para recuperar el acceso sin correo (ver [US-02](US02-login.md)); el cliente debe mostrarlo al titular para que lo guarde.
 
 Errores: `400` para entradas inválidas; `409` para correo registrado. El cuerpo contiene `message` y `errors`, sin valores rechazados ni detalles SQL. Registro no inicia sesión.
 
@@ -106,7 +109,7 @@ Autenticación con token Bearer y autorización por rol. Contrato y reglas: [06-
 
 ### Postman
 
-`SEC-jwt-roles.postman_collection.json` (27 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
+`SEC-jwt-roles.postman_collection.json` (29 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
 
 ```bash
 npx --yes newman run tests/SEC-jwt-roles.postman_collection.json -e tests/local.postman_environment.json

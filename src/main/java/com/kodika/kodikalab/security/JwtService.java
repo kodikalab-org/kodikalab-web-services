@@ -5,13 +5,18 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +33,7 @@ public class JwtService {
     private static final String TOKEN_TYPE = "Bearer";
     private static final String ROLE_CLAIM = "role";
     private static final String USER_ID_CLAIM = "uid";
+    private static final String PASSWORD_STAMP_CLAIM = "pwd";
 
     private final SecretKey key;
     private final String issuer;
@@ -73,6 +79,7 @@ public class JwtService {
                 .id(UUID.randomUUID().toString())
                 .claim(USER_ID_CLAIM, user.getId())
                 .claim(ROLE_CLAIM, user.getRole() == null ? null : user.getRole().name())
+                .claim(PASSWORD_STAMP_CLAIM, passwordStamp(user))
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(lifetime)))
                 .signWith(key, Jwts.SIG.HS256)
@@ -101,9 +108,38 @@ public class JwtService {
                 return Optional.empty();
             }
             return Optional.of(new TokenClaims(subject, claims.get(USER_ID_CLAIM, Integer.class),
-                    claims.get(ROLE_CLAIM, String.class), claims.getExpiration().toInstant()));
+                    claims.get(ROLE_CLAIM, String.class), claims.get(PASSWORD_STAMP_CLAIM, String.class),
+                    claims.getExpiration().toInstant()));
         } catch (JwtException | IllegalArgumentException exception) {
             return Optional.empty();
+        }
+    }
+
+    /**
+     * Huella corta del hash vigente de la contraseña. Va dentro del token y se compara en cada petición: al cambiar la
+     * contraseña (por ejemplo, con la recuperación de acceso) los tokens emitidos antes dejan de valer.
+     */
+    public String passwordStamp(User user) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest((user.getPasswordHash() == null ? "" : user.getPasswordHash()).getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(Arrays.copyOf(digest, 12));
+        } catch (GeneralSecurityException exception) {
+            throw new IllegalStateException("SHA-256 no está disponible", exception);
+        }
+    }
+
+    /**
+     * Clave de 32 bytes derivada del secreto para un uso concreto (separación de dominios): quien la usa nunca ve el
+     * secreto y una clave derivada para un fin no sirve para otro.
+     */
+    public byte[] deriveKey(String context) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(key);
+            return mac.doFinal(context.getBytes(StandardCharsets.UTF_8));
+        } catch (GeneralSecurityException exception) {
+            throw new IllegalStateException("HmacSHA256 no está disponible", exception);
         }
     }
 
@@ -116,6 +152,6 @@ public class JwtService {
     }
 
     /** Datos verificados de un token; {@code userId} y {@code role} pueden ser nulos en tokens ajenos al sistema. */
-    public record TokenClaims(String email, Integer userId, String role, Instant expiresAt) {
+    public record TokenClaims(String email, Integer userId, String role, String passwordStamp, Instant expiresAt) {
     }
 }

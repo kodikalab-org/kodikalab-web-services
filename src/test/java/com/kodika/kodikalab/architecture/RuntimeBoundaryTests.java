@@ -79,7 +79,8 @@ class RuntimeBoundaryTests {
                 .filter(entry -> entry.getValue().getBeanType().getPackageName()
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
-                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
+                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/auth/recovery", "/auth/recovery-code",
+                        "/users/me", "/users/me",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",

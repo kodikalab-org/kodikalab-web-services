@@ -91,6 +91,17 @@ class JwtAuthenticationFilterTests {
     }
 
     @Test
+    void tokenIssuedBeforeAPasswordChangeIsRejected() throws Exception {
+        account.setPasswordHash("$2a$10$hash-anterior");
+        String tokenBeforeTheChange = token();
+        account.setPasswordHash("$2a$10$hash-nuevo-tras-recuperar-el-acceso");
+        var request = get("Bearer " + tokenBeforeTheChange);
+        assertThat(run(request, new MockHttpServletResponse())).isNull();
+        assertThat(request.getAttribute(JwtAuthenticationFilter.INVALID_TOKEN_ATTRIBUTE)).isEqualTo(true);
+        assertThat(run(get("Bearer " + token()), new MockHttpServletResponse())).isNotNull();
+    }
+
+    @Test
     void schemeIsCaseInsensitiveAndSurroundingSpacesAreIgnored() throws Exception {
         assertThat(run(get("bearer   " + token() + "  "), new MockHttpServletResponse())).isNotNull();
     }

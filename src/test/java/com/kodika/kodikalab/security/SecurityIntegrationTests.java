@@ -105,6 +105,7 @@ class SecurityIntegrationTests {
     static final List<Endpoint> ANY_ACCOUNT = List.of(
             new Endpoint(HttpMethod.GET, "/users/me", null),
             new Endpoint(HttpMethod.PUT, "/users/me", "{}"),
+            new Endpoint(HttpMethod.POST, "/auth/recovery-code", "{\"password\":\"Password123\"}"),
             new Endpoint(HttpMethod.GET, "/teams", null),
             new Endpoint(HttpMethod.GET, "/problems", null),
             new Endpoint(HttpMethod.GET, "/problems/assigned", null),
@@ -186,7 +187,13 @@ class SecurityIntegrationTests {
     }
 
     private static String forged(String secret, String issuer, String email, String role, Instant expiresAt) {
-        return Jwts.builder().issuer(issuer).subject(email).claim("role", role).issuedAt(Date.from(Instant.now().minusSeconds(7200)))
+        return forged(secret, issuer, email, role, null, expiresAt);
+    }
+
+    private static String forged(String secret, String issuer, String email, String role, String passwordStamp,
+                                 Instant expiresAt) {
+        return Jwts.builder().issuer(issuer).subject(email).claim("role", role).claim("pwd", passwordStamp)
+                .issuedAt(Date.from(Instant.now().minusSeconds(7200)))
                 .expiration(Date.from(expiresAt)).signWith(key(secret), Jwts.SIG.HS256).compact();
     }
 
@@ -280,7 +287,7 @@ class SecurityIntegrationTests {
     void roleClaimInsideTheTokenIsNotTrusted() throws Exception {
         User practitioner = account(Role.PRACTICANTE, UserStatus.ACTIVO);
         String claimsCoach = forged(TestJwt.SECRET, "kodikalab", practitioner.getEmail(), "COACH",
-                Instant.now().plusSeconds(3600));
+                jwt.passwordStamp(practitioner), Instant.now().plusSeconds(3600));
         call(new Endpoint(HttpMethod.POST, "/teams", "{}"), claimsCoach)
                 .andExpect(status().isForbidden()).andExpect(jsonPath("$.message").value(FORBIDDEN));
     }
@@ -344,6 +351,8 @@ class SecurityIntegrationTests {
                 .andExpect(jsonPath("$.security[0].bearerAuth").isArray())
                 .andExpect(jsonPath("$.paths['/auth/login'].post.security").value(empty()))
                 .andExpect(jsonPath("$.paths['/auth/register'].post.security").value(empty()))
+                .andExpect(jsonPath("$.paths['/auth/recovery'].post.security").value(empty()))
+                .andExpect(jsonPath("$.paths['/auth/recovery-code'].post.security[0].bearerAuth").isArray())
                 .andExpect(jsonPath("$.tags[*].name").value(hasItem("Equipos")));
     }
 

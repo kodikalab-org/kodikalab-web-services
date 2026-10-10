@@ -10,6 +10,8 @@ const byteLimit = 'La contraseña no debe superar 72 bytes en UTF-8';
 const missingToken = 'Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)';
 const invalidToken = 'El token es inválido o expiró: inicie sesión nuevamente';
 const forbidden = 'No tiene permisos para realizar esta acción';
+const invalidRecovery = 'Datos de recuperación inválidos';
+const codeFormat = '/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/';
 const registration = (email, role = 'PRACTICANTE', extra = {}) => ({
   firstName: 'Usuario', lastName: 'Prueba', email, password: 'Password123', role, ...extra,
 });
@@ -17,7 +19,7 @@ const login = (email, extra = {}) => ({ email, password: 'Password123', ...extra
 const without = (body, field) => Object.fromEntries(Object.entries(body).filter(([key]) => key !== field));
 
 // POST /auth/register y POST /auth/login (públicos: sin token).
-function request(name, endpoint, body, status, { message, role, email, description = '' } = {}) {
+function request(name, endpoint, body, status, { message, role, email, description = '', tokenVar, recoveryVar } = {}) {
   const exec = [
     `pm.test('HTTP ${status}', () => pm.response.to.have.status(${status}));`,
     'const body = pm.response.json();',
@@ -31,7 +33,9 @@ function request(name, endpoint, body, status, { message, role, email, descripti
     "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });",
   );
   if (status < 400 && endpoint === 'register') exec.push(
-    "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+    "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+    `pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(${codeFormat}));`,
+    `pm.collectionVariables.set(${quote(recoveryVar || 'lastRecoveryCode')}, body.recoveryCode);`,
     "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });",
   );
   if (endpoint === 'login' && status === 200) exec.push(
@@ -41,7 +45,7 @@ function request(name, endpoint, body, status, { message, role, email, descripti
     "const previous = pm.collectionVariables.get('lastToken');",
     "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
     "pm.collectionVariables.set('lastToken', body.token);",
-    "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);",
+    `pm.collectionVariables.set(${tokenVar ? quote(tokenVar) : "body.role === 'COACH' ? 'coachToken' : 'practitionerToken'"}, body.token);`,
   );
   return {
     name,
@@ -63,7 +67,7 @@ function call(name, method, path, status, { token, rawAuthorization, body, messa
     exec.push("pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });");
   }
   if (message) exec.push(`pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(${quote(message)}));`);
-  if (status === 401) exec.push("pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));");
+  if (status === 401 && (message === missingToken || message === invalidToken)) exec.push("pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));");
   exec.push("pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);", ...tests);
   const header = [];
   if (body !== undefined) header.push({ key: 'Content-Type', value: 'application/json' });
@@ -183,8 +187,44 @@ addLogin('Cuenta SUSPENDIDO existente', login('{{suspendedLoginEmail}}'), 401,
 addLogin('No recortar contraseña', { ...normal, password: ' Password123 ' }, 401, unauthorized);
 addLogin('Correo supera 100 caracteres', { ...normal, email: 'a'.repeat(60) + '@' + 'b'.repeat(30) + '.gmail.com' }, 400,
   { message: 'El correo debe tener como máximo 100 caracteres' });
+// Escenario alternativo de US-02: recuperar el acceso sin correo, con el código de recuperación de la cuenta.
+const recovered = (name, status, body, options = {}) => call(name, 'POST', '/auth/recovery', status, { body, ...options });
+loginItems.push(request('Recuperación: preparar cuenta (guarda su código)', 'register', registration('{{recoveryEmail}}'), 201,
+  { message: 'Registro exitoso', role: 'PRACTICANTE', email: '{{recoveryEmail}}', recoveryVar: 'recoveryCode1' }));
+loginItems.push(request('Recuperación: login con la contraseña original (guarda recoveryOldToken)', 'login', login('{{recoveryEmail}}'), 200,
+  { ...{ message: 'Inicio de sesión exitoso', role: 'PRACTICANTE', email: '{{recoveryEmail}}' }, tokenVar: 'recoveryOldToken' }));
+loginItems.push(recovered('Recuperación: código inválido → 401', 401,
+  { email: '{{recoveryEmail}}', recoveryCode: 'AAAA-BBBB-CCCC-DDDD-EEEE-FFFF', newPassword: 'Nueva1234' }, { message: invalidRecovery }));
+loginItems.push(recovered('Recuperación: correo inexistente → 401 (mismo mensaje, no revela la cuenta)', 401,
+  { email: '{{missingLoginEmail}}', recoveryCode: '{{recoveryCode1}}', newPassword: 'Nueva1234' }, { message: invalidRecovery }));
+loginItems.push(recovered('Recuperación: contraseña nueva débil → 400 (el código no se consume)', 400,
+  { email: '{{recoveryEmail}}', recoveryCode: '{{recoveryCode1}}', newPassword: '12345' }, { message: weakPassword }));
+loginItems.push(recovered('Recuperación: código correcto define la contraseña nueva → 200', 200,
+  { email: '{{recoveryEmail}}', recoveryCode: '{{recoveryCode1}}', newPassword: 'Nueva1234' }, {
+    tests: [
+      `pm.test('Código nuevo, distinto del anterior', () => { pm.expect(body.recoveryCode).to.match(${codeFormat}); pm.expect(body.recoveryCode).not.to.eql(pm.collectionVariables.get('recoveryCode1')); });`,
+      "pm.test('Mensaje', () => pm.expect(body.message).to.include('Contraseña actualizada'));",
+      "pm.collectionVariables.set('recoveryCode2', body.recoveryCode);",
+    ],
+  }));
+loginItems.push(call('Recuperación: el token anterior ya no sirve → 401', 'GET', '/teams', 401,
+  { token: 'recoveryOldToken', message: invalidToken }));
+loginItems.push(request('Recuperación: la contraseña anterior ya no sirve → 401', 'login', login('{{recoveryEmail}}'), 401, unauthorized));
+loginItems.push(request('Recuperación: login con la contraseña nueva → 200 (nuevo intento habilitado)', 'login',
+  { email: '{{recoveryEmail}}', password: 'Nueva1234' }, 200,
+  { message: 'Inicio de sesión exitoso', role: 'PRACTICANTE', email: '{{recoveryEmail}}', tokenVar: 'recoveryNewToken' }));
+loginItems.push(recovered('Recuperación: el código anterior es de un solo uso → 401', 401,
+  { email: '{{recoveryEmail}}', recoveryCode: '{{recoveryCode1}}', newPassword: 'Otra12345' }, { message: invalidRecovery }));
+loginItems.push(call('Recuperación: consultar el código vigente (token + contraseña) → 200, igual al entregado', 'POST', '/auth/recovery-code', 200, {
+  token: 'recoveryNewToken', body: { password: 'Nueva1234' },
+  tests: ["pm.test('Es el código de la recuperación', () => pm.expect(body.recoveryCode).to.eql(pm.collectionVariables.get('recoveryCode2')));"],
+}));
+loginItems.push(call('Recuperación: consultar el código sin token → 401', 'POST', '/auth/recovery-code', 401,
+  { body: { password: 'Nueva1234' }, message: missingToken }));
+loginItems.push(call('Recuperación: consultar el código con contraseña incorrecta → 401', 'POST', '/auth/recovery-code', 401,
+  { token: 'recoveryNewToken', body: { password: 'Wrong1234' }, message: 'Credenciales inválidas' }));
 collection('US02-login.postman_collection.json', 'KodikaLab - US02 Auth ERD oficial',
-  'Ejecutar en orden en una base exclusiva de pruebas. Preparar la fixture SUSPENDIDO. Crea dos cuentas activas; no modifica otras. El login devuelve un token JWT (Bearer) y no crea cookies. Ver tests/US02-login.md.',
+  'Ejecutar en orden en una base exclusiva de pruebas. Preparar la fixture SUSPENDIDO. Crea tres cuentas activas; no modifica otras. El login devuelve un token JWT (Bearer) y no crea cookies; el bloque final prueba la recuperación de acceso sin correo con el código de recuperación. Ver tests/US02-login.md.',
   [{ key: 'suspendedLoginEmail', value: 'test.us02.suspended@gmail.com', type: 'string' }], loginItems, [
     "if (pm.info.requestName.startsWith('01 ') || !pm.collectionVariables.get('loginEmail')) {",
     "  const id = pm.variables.replaceIn('{{$guid}}');",
@@ -193,6 +233,7 @@ collection('US02-login.postman_collection.json', 'KodikaLab - US02 Auth ERD ofic
     "  pm.collectionVariables.set('uppercaseLoginEmail', email.toUpperCase());",
     "  pm.collectionVariables.set('coachLoginEmail', `test.us02.coach.${id}@gmail.com`);",
     "  pm.collectionVariables.set('missingLoginEmail', `test.us02.missing.${id}@gmail.com`);",
+    "  pm.collectionVariables.set('recoveryEmail', `test.us02.recovery.${id}@gmail.com`);",
     "  pm.collectionVariables.unset('lastToken');",
     '}',
   ]);
@@ -225,6 +266,10 @@ for (const [name, method, path, body] of [
 ]) {
   sec.push(call(`Sin token: ${name} → 401`, method, path, 401, { message: missingToken, body }));
 }
+sec.push(call('Sin token: POST /auth/recovery-code → 401', 'POST', '/auth/recovery-code', 401, { message: missingToken, body: { password: 'Password123' } }));
+sec.push(call('POST /auth/recovery es público: sin token responde el error de recuperación, no el de token → 401', 'POST', '/auth/recovery', 401, {
+  message: invalidRecovery, body: { email: 'nadie@gmail.com', recoveryCode: 'AAAA-BBBB-CCCC-DDDD-EEEE-FFFF', newPassword: 'Nueva1234' },
+}));
 sec.push(call('Token manipulado → 401', 'GET', '/teams', 401, { token: 'tamperedToken', message: invalidToken, pre: tamper }));
 sec.push(call('Token basura → 401', 'GET', '/teams', 401, { rawAuthorization: 'Bearer esto.no.es-un-jwt', message: invalidToken }));
 sec.push(call('Esquema distinto de Bearer se ignora → 401', 'GET', '/teams', 401, { rawAuthorization: 'Basic dGVzdDp0ZXN0', message: missingToken }));

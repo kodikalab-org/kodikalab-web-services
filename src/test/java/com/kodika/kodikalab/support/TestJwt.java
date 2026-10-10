@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.support;
 
+import com.kodika.kodikalab.auth.RecoveryCodeService;
 import com.kodika.kodikalab.security.JwtProperties;
 import com.kodika.kodikalab.security.JwtService;
 
@@ -13,5 +14,9 @@ public final class TestJwt {
 
     public static JwtService service() {
         return new JwtService(new JwtProperties(SECRET, EXPIRATION_MILLIS, "kodikalab"));
+    }
+
+    public static RecoveryCodeService recoveryCodes() {
+        return new RecoveryCodeService(service());
     }
 }

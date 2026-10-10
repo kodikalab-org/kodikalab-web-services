@@ -26,7 +26,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <ul>
  *   <li>Token ausente o ilegible: la petición sigue sin autenticar y las reglas de {@code SecurityConfig} deciden
  *       (401 en los recursos protegidos).</li>
- *   <li>Token válido de una cuenta inexistente: igual que si fuera inválido.</li>
+ *   <li>Token válido de una cuenta inexistente, o emitido antes del último cambio de contraseña: igual que si
+ *       fuera inválido.</li>
  *   <li>Token válido de una cuenta que ya no está {@code ACTIVO}: 403 inmediato, sin esperar a que venza el token.</li>
  *   <li>En otro caso, la autoridad se deriva del rol guardado en la base de datos, nunca del contenido del token.</li>
  * </ul>
@@ -62,8 +63,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.regionMatches(true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
             Optional<User> account = jwtService.parse(header.substring(BEARER_PREFIX.length()).trim())
-                    .flatMap(claims -> userService.findByEmail(claims.email()))
-                    .filter(user -> user.getRole() != null);
+                    .flatMap(claims -> userService.findByEmail(claims.email())
+                            .filter(user -> user.getRole() != null
+                                    && jwtService.passwordStamp(user).equals(claims.passwordStamp())));
             if (account.isEmpty()) {
                 request.setAttribute(INVALID_TOKEN_ATTRIBUTE, Boolean.TRUE);
             } else if (account.get().getStatus() != UserStatus.ACTIVO) {
