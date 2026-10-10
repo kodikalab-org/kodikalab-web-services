@@ -12,7 +12,6 @@ import com.kodika.kodikalab.problems.topic.Topic;
 import com.kodika.kodikalab.profiles.coach.CoachProfile;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfile;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
-import com.kodika.kodikalab.teams.joinrequest.GroupJoinRequest;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
 import com.kodika.kodikalab.users.User;
 import jakarta.persistence.EntityManagerFactory;
@@ -35,10 +34,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class RuntimeBoundaryTests {
 
-    @Autowired ApplicationContext context;
-    @Autowired EntityManagerFactory entityManagerFactory;
-    @Autowired RequestMappingHandlerMapping mappings;
-    @Autowired MockMvc mvc;
+    @Autowired
+    ApplicationContext context;
+
+    @Autowired
+    EntityManagerFactory entityManagerFactory;
+
+    @Autowired
+    RequestMappingHandlerMapping mappings;
+
+    @Autowired
+    MockMvc mvc;
 
     @Test
     void onlyOfficialErdPersistenceIsRegistered() {
@@ -51,7 +57,6 @@ class RuntimeBoundaryTests {
                         CoachProfile.class.getName(),
                         StudyGroup.class.getName(),
                         GroupMembership.class.getName(),
-                        GroupJoinRequest.class.getName(),
                         Competition.class.getName(),
                         CompetitionProblem.class.getName(),
                         ProblemResolution.class.getName(),
@@ -69,7 +74,6 @@ class RuntimeBoundaryTests {
                         "coachProfileRepository",
                         "studyGroupRepository",
                         "groupMembershipRepository",
-                        "groupJoinRequestRepository",
                         "competitionRepository",
                         "competitionProblemRepository",
                         "problemResolutionRepository",
@@ -98,7 +102,9 @@ class RuntimeBoundaryTests {
                         "/users/me",
                         "/users/me",
                         "/teams",
+                        "/teams",
                         "/teams/{id}/join",
+                        "/teams/{id}/memberships",
                         "/teams/{id}/memberships/{memberId}"
                 );
     }
@@ -107,9 +113,9 @@ class RuntimeBoundaryTests {
     void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess()
             throws Exception {
 
-        // GET /teams ahora devuelve 405 porque existe POST /teams.
+        // GET /teams ahora lista los grupos disponibles.
         mvc.perform(get("/api/teams").contextPath("/api"))
-                .andExpect(status().isMethodNotAllowed());
+                .andExpect(status().isOk());
 
         for (String path : new String[]{
                 "/teams/1/members",

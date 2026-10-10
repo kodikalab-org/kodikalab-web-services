@@ -1,31 +1,32 @@
 
 package com.kodika.kodikalab.teams.studygroup;
 
+import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
-import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.profiles.coach.CoachProfile;
-import com.kodika.kodikalab.profiles.coach.CoachProfileRepository;
+import com.kodika.kodikalab.profiles.coach.CoachProfileService;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @Service
 public class StudyGroupServiceImpl implements StudyGroupService {
 
     private final StudyGroupRepository studyGroupRepository;
-    private final CoachProfileRepository coachProfileRepository;
+    private final CoachProfileService coachProfileService;
     private final CurrentUserResolver currentUserResolver;
 
     public StudyGroupServiceImpl(
             StudyGroupRepository studyGroupRepository,
-            CoachProfileRepository coachProfileRepository,
+            CoachProfileService coachProfileService,
             CurrentUserResolver currentUserResolver) {
         this.studyGroupRepository = studyGroupRepository;
-        this.coachProfileRepository = coachProfileRepository;
+        this.coachProfileService = coachProfileService;
         this.currentUserResolver = currentUserResolver;
     }
 
@@ -39,10 +40,13 @@ public class StudyGroupServiceImpl implements StudyGroupService {
             throw new ForbiddenException("Solo un coach puede crear grupos");
         }
 
-        CoachProfile coach = coachProfileRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new NotFoundException(
-                        "Primero debes completar tu perfil de coach"
-                ));
+        CoachProfile coach = coachProfileService.requireCoachProfile(user.getId());
+
+        if (request.visibility() == GroupVisibility.ARCHIVADO) {
+            throw new BadRequestException(
+                    "No se puede crear un grupo con visibilidad ARCHIVADO"
+            );
+        }
 
         StudyGroup group = new StudyGroup();
 
@@ -71,5 +75,10 @@ public class StudyGroupServiceImpl implements StudyGroupService {
         group.setInvitationCode(invitationCode);
 
         return studyGroupRepository.save(group);
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public List<StudyGroup> getAvailableGroups() {
+        return studyGroupRepository.findByStatusOrderByIdAsc(GroupStatus.ACTIVO);
     }
 }

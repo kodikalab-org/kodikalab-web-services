@@ -212,17 +212,46 @@ Errores con cuerpo `{ "message": "...", "errors": {} }`:
 - `401`: no existe sesión autenticada válida.
 - `404`: el perfil de coach todavía no existe al consultar `GET /users/me`.
 
+
 ## Teams — US04, US05 y US06 implementadas
 
-Las siguientes operaciones están implementadas y disponibles
-en Swagger. La autenticación se realiza mediante la sesión
-HTTP creada por POST /api/auth/login.
+Las funcionalidades de creación de grupos, solicitud de ingreso y revisión de membresías están implementadas.
+
+Los endpoints utilizan la sesión HTTP creada mediante `POST /api/auth/login`.
+
+Las operaciones de Teams utilizan las tablas oficiales `grupo_estudio` y `practicante_grupo`. No se utiliza una tabla adicional `solicitud_grupo`.
+
+### GET /api/teams — Listar grupos activos
+
+Devuelve los grupos de estudio cuyo estado es `ACTIVO`.
+
+Respuesta exitosa: `200 OK`.
+
+```json
+[
+  {
+    "groupId": 1,
+    "name": "Entrenamiento de Grafos",
+    "description": "Preparación para competencias ICPC",
+    "expectedLevel": "Div3",
+    "maxCapacity": 15,
+    "sessionSchedule": "Lunes de 18:00 a 20:00",
+    "status": "ACTIVO",
+    "visibility": "PUBLICO"
+  }
+]
+```
+
+Reglas:
+- Solamente se listan grupos con estado `ACTIVO`.
+- El código de invitación no se incluye en el listado.
+- Si no existen grupos activos, se devuelve una lista vacía.
 
 ### US04 — Crear grupo de estudio
 
-POST /api/teams
+`POST /api/teams`
 
-Rol requerido: COACH, con perfil de coach registrado.
+Rol requerido: `COACH`, con perfil de coach registrado.
 
 Request:
 
@@ -237,7 +266,7 @@ Request:
 }
 ```
 
-Respuesta exitosa: 201 Created.
+Respuesta exitosa: `201 Created`.
 
 ```json
 {
@@ -249,103 +278,216 @@ Respuesta exitosa: 201 Created.
 ```
 
 Reglas:
-- Solamente un COACH puede crear grupos.
+- Solamente un usuario `COACH` puede crear grupos.
 - El coach debe tener su perfil registrado.
-- El grupo se crea con estado ACTIVO.
-- Se genera automáticamente un código de invitación.
+- El grupo se crea con estado `ACTIVO`.
+- Se genera automáticamente un código único de invitación.
 - La capacidad máxima debe estar entre 1 y 1000.
+- La visibilidad `ARCHIVADO` no está permitida al crear grupos.
+- El grupo se guarda en `grupo_estudio`.
 
-### US05 — Solicitar ingreso a un grupo
+### US05 — Ingresar o solicitar ingreso a un grupo
 
-POST /api/teams/{id}/join
+`POST /api/teams/{id}/join`
 
-Rol requerido: PRACTICANTE, con perfil registrado.
+Rol requerido: `PRACTICANTE`, con perfil registrado.
 
-Parámetro:
-- id: identificador del grupo.
+Parámetros:
+- `id`: identificador del grupo.
+- `invitationCode`: parámetro de consulta opcional.
 
 No requiere cuerpo JSON.
 
-Respuesta exitosa: 201 Created.
+#### Caso 1: Grupo público
+
+Un practicante que solicita ingresar a un grupo `PUBLICO` y tiene cupo disponible obtiene directamente una membresía `ACTIVO`.
+
+Respuesta: `201 Created`.
+
+```json
+{
+  "message": "Ingreso al grupo realizado correctamente",
+  "membershipId": 1,
+  "groupId": 1,
+  "status": "ACTIVO"
+}
+```
+
+#### Caso 2: Grupo protegido sin código
+
+Si el grupo tiene visibilidad `PROTEGIDO` y el practicante no proporciona un código de invitación válido, se registra una solicitud con estado `PENDIENTE`.
+
+Respuesta: `201 Created`.
 
 ```json
 {
   "message": "Solicitud de ingreso registrada correctamente",
-  "requestId": 1,
+  "membershipId": 2,
   "groupId": 1,
   "status": "PENDIENTE"
 }
 ```
 
+#### Caso 3: Grupo protegido con código válido
+
+El practicante puede ingresar directamente a un grupo `PROTEGIDO` si proporciona el código de invitación correcto.
+
+Ejemplo:
+
+`POST /api/teams/1/join?invitationCode=CODIGO_GENERADO`
+
+Respuesta: `201 Created`, con estado `ACTIVO`.
+
 Reglas:
-- El grupo debe existir y estar ACTIVO.
-- Solo un PRACTICANTE puede solicitar ingreso.
-- No se permite solicitar ingreso si ya es miembro ACTIVO.
-- No se permiten solicitudes PENDIENTE duplicadas.
-- Una solicitud RECHAZADA no impide realizar una nueva solicitud.
+- El grupo debe existir y encontrarse `ACTIVO`.
+- No se permite ingresar a grupos con visibilidad `ARCHIVADO`.
+- Solo un `PRACTICANTE` con perfil registrado puede ingresar.
+- Se verifica el cupo disponible antes de registrar el ingreso o la solicitud.
+- Únicamente las membresías `ACTIVO` cuentan para el cupo.
+- No se permite crear una solicitud duplicada `PENDIENTE`.
+- Un practicante que ya es miembro `ACTIVO` no puede ingresar nuevamente.
+- Las membresías `RECHAZADO` y `RETIRADO` pueden regresar a `PENDIENTE` mediante una nueva solicitud.
+- Una membresía `EXPULSADO` no puede volver a solicitar ingreso según la política implementada.
+- Las solicitudes se almacenan en `practicante_grupo`, reutilizando el registro del practicante cuando corresponde.
+- `fecha_ingreso` representa inicialmente la fecha de solicitud y se actualiza cuando la membresía pasa a `ACTIVO`.
+
+### US06 — Consultar solicitudes pendientes
+
+`GET /api/teams/{id}/memberships?status=PENDIENTE`
+
+Rol requerido: `COACH` responsable del grupo.
+
+Respuesta exitosa: `200 OK`.
+
+```json
+[
+  {
+    "membershipId": 2,
+    "groupId": 1,
+    "practitionerId": 5,
+    "status": "PENDIENTE",
+    "requestedAt": "2026-10-09T19:00:00-05:00"
+  }
+]
+```
+
+Reglas:
+- Solamente el coach responsable puede consultar las solicitudes.
+- El parámetro `status` debe ser `PENDIENTE`.
+- Si no existen solicitudes pendientes, se devuelve una lista vacía.
+- `membershipId` identifica un registro real de `practicante_grupo`.
 
 ### US06 — Aceptar o rechazar solicitudes
 
-PATCH /api/teams/{id}/memberships/{memberId}
+`PATCH /api/teams/{id}/memberships/{memberId}`
 
-Rol requerido: COACH responsable del grupo.
+Rol requerido: `COACH` responsable del grupo.
 
 Parámetros:
-- id: identificador del grupo.
-- memberId: identificador de la solicitud de ingreso.
-- accept: parámetro booleano de consulta.
-    - true: aceptar.
-    - false: rechazar.
+- `id`: identificador del grupo.
+- `memberId`: identificador de la membresía en `practicante_grupo`.
 
-Ejemplo de aceptación:
+Request para aceptar:
 
-PATCH /api/teams/1/memberships/1?accept=true
+```json
+{
+  "decision": "ACEPTAR"
+}
+```
 
-Respuesta exitosa: 200 OK.
+Request para rechazar:
+
+```json
+{
+  "decision": "RECHAZAR"
+}
+```
+
+#### Aceptación
+
+Respuesta exitosa: `200 OK`.
 
 ```json
 {
   "message": "Solicitud revisada correctamente",
-  "requestId": 1,
+  "membershipId": 2,
   "groupId": 1,
-  "status": "ACEPTADA"
+  "status": "ACTIVO"
 }
 ```
 
-Al aceptar:
-- La solicitud pasa a ACEPTADA.
-- Se registra la fecha de respuesta.
-- Se crea o reactiva una membresía ACTIVO.
-- El practicante obtiene el rol de equipo MIEMBRO.
-- Se verifica la capacidad máxima del grupo.
+Reglas:
+- La membresía debe estar `PENDIENTE`.
+- Se verifica que el coach sea responsable del grupo.
+- Se comprueba que exista cupo disponible.
+- El estado cambia de `PENDIENTE` a `ACTIVO`.
+- `fecha_ingreso` se actualiza con la fecha de aceptación.
+- El practicante conserva el rol de equipo `MIEMBRO`.
+- No se crea una segunda membresía.
 
-Al rechazar:
-- La solicitud pasa a RECHAZADA.
-- Se registra la fecha de respuesta.
-- No se crea ninguna membresía.
+#### Rechazo
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Solicitud revisada correctamente",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "RECHAZADO"
+}
+```
 
 Reglas:
-- Solo el coach responsable puede responder.
-- La solicitud debe estar PENDIENTE.
-- Una solicitud ya respondida no puede procesarse nuevamente.
+- La membresía debe estar `PENDIENTE`.
+- El estado cambia de `PENDIENTE` a `RECHAZADO`.
+- No se crea una tabla ni un registro adicional de solicitud.
+- El practicante puede solicitar ingreso nuevamente.
 
-Nota de contrato:
-Aunque la ruta utiliza el nombre memberId, actualmente
-ese parámetro identifica una solicitud de ingreso, no una
-membresía. Este nombre debe revisarse antes de integrar
-el frontend.
+### Estados de membresía
 
-### Respuestas de error verificadas
+La columna `practicante_grupo.estado` utiliza los siguientes valores:
 
-- 403 Forbidden: usuario sin el rol requerido.
-- 409 Conflict: solicitud pendiente duplicada.
-- 409 Conflict: el practicante ya pertenece al grupo.
-- 409 Conflict: solicitud previamente respondida.
+- `PENDIENTE`: solicitud a la espera de respuesta.
+- `ACTIVO`: practicante integrante del grupo.
+- `RECHAZADO`: solicitud rechazada.
+- `RETIRADO`: practicante que abandonó el grupo.
+- `EXPULSADO`: practicante expulsado del grupo.
 
-Los errores no incluyen trazas internas de Java.
+Los estados se representan con `MembershipStatus` y se persisten como texto mediante `EnumType.STRING`.
 
-La tabla solicitud_grupo es una extensión propuesta al ERD
-oficial y está documentada en 04-database-model.md.
+### Respuestas de error
+
+Las respuestas de error de Teams siguen el formato:
+
+```json
+{
+  "message": "Descripción del error",
+  "errors": {}
+}
+```
+
+Códigos HTTP:
+- `400 Bad Request`: datos inválidos, decisión desconocida o parámetros incorrectos.
+- `401 Unauthorized`: ausencia de sesión válida.
+- `403 Forbidden`: rol no autorizado, coach ajeno o acceso prohibido.
+- `404 Not Found`: grupo, membresía o perfil inexistente.
+- `409 Conflict`: solicitud duplicada, membresía activa, cupo lleno o solicitud ya respondida.
+
+No se exponen trazas internas ni detalles SQL en las respuestas.
+
+### Persistencia y compatibilidad
+
+US04 utiliza `grupo_estudio`.
+
+US05 y US06 utilizan exclusivamente `practicante_grupo`.
+
+La implementación no requiere la entidad ni la tabla adicional `solicitud_grupo`.
+
+Las instalaciones existentes de PostgreSQL deben admitir los estados `PENDIENTE` y `RECHAZADO` en la restricción CHECK de `practicante_grupo.estado`. Este ajuste debe aplicarse mediante una migración reproducible antes del despliegue.
+
+Las pruebas de integración verifican creación de grupos, solicitudes pendientes, aceptación, rechazo, autorización del coach, duplicados y capacidad.
+
 
 ## Rutas pendientes: no implementadas ni publicadas
 

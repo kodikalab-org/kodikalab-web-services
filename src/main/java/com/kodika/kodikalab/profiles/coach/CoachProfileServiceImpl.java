@@ -30,6 +30,13 @@ public class CoachProfileServiceImpl implements CoachProfileService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public CoachProfile requireCoachProfile(Integer userId) {
+        return profileRepository.findByUserId(userId)
+                .orElseThrow(() -> new NotFoundException(PROFILE_NOT_FOUND));
+    }
+
+    @Override
     @Transactional
     public CoachProfileResponse saveCoachProfile(User coach, CoachProfileRequest request) {
         requireCoach(coach);

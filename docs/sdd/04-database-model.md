@@ -98,7 +98,7 @@ El registro de cuenta base no recibe especialidad, código de estudiante ni carr
 
 ## Inventario del dominio y propiedad
 
-Todas las tablas visibles del ERD tienen entidad JPA. `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); las de `teams`, `problems` y `competitions` son **plantilla sin lógica**. FKs dibujadas como `SERIAL` (`resolucion_problema.practicante_grupo_id`, `Categoria.idGrupo`) se mapean como `INT`, porque una FK no se autogenera. Las antiguas entidades de scaffolding se retiraron; sus tablas (`teams`, `problems`, `submissions`...) pueden seguir en bases locales y no se eliminan sin migración aprobada.
+Todas las tablas visibles del ERD tienen entidad JPA. `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); el módulo teams implementa US04, US05 y US06; los módulos problems y competitions mantienen funcionalidades pendientes de desarrollo.*. FKs dibujadas como `SERIAL` (`resolucion_problema.practicante_grupo_id`, `Categoria.idGrupo`) se mapean como `INT`, porque una FK no se autogenera. Las antiguas entidades de scaffolding se retiraron; sus tablas (`teams`, `problems`, `submissions`...) pueden seguir en bases locales y no se eliminan sin migración aprobada.
 
 | Tabla oficial | Módulo dueño objetivo | Relaciones / observaciones |
 | --- | --- | --- |
@@ -124,49 +124,103 @@ No trasladar ni implementar estos otros módulos al adaptar `auth`/`users`.
 
 - `grupo_estudio` contiene `cupo_maximo INT`, default `15`, y `horario_sesiones VARCHAR(150)` opcional. No hay una tabla de horarios independiente en este ERD.
 - Tiene `codigo_invitacion VARCHAR(20)` obligatorio/único, estado `ACTIVO` / `ARCHIVADO` y fecha de creación.
-- `practicante_grupo` relaciona `grupo_id` con `practicante_id`; hay unicidad del par y estados de membresía `ACTIVO` / `RETIRADO` / `EXPULSADO`.
+- `practicante_grupo` relaciona `grupo_id` con `practicante_id`; hay unicidad del par y estados de membresía PENDIENTE / ACTIVO / RECHAZADO / RETIRADO / EXPULSADO.
 - `competencia_problema` tiene unicidad competencia/problema y competencia/orden de letra.
 - Las resoluciones referencian una membresía y un problema de competencia. No usar automáticamente las tablas de resultados/asignaciones del diseño anterior como si siguieran vigentes.
 
-Estas son definiciones documentales, no cambios implementados en código de equipos/competencias.
+Las funcionalidades US04, US05 y US06 de Teams están implementadas. Las funcionalidades restantes de competencias continúan pendientes de desarrollo..
 
-## Extensión propuesta para US-05 y US-06 — solicitud_grupo
 
-US-05 y US-06 implementan el proceso de solicitud, aceptación
-y rechazo de ingreso a grupos de estudio.
+## Implementación de Teams — US04, US05 y US06
 
-Para este flujo se incorporó la entidad GroupJoinRequest,
-persistida en la tabla solicitud_grupo.
+Las funcionalidades de creación de grupos, solicitudes de ingreso y revisión de membresías están implementadas mediante las tablas `grupo_estudio` y `practicante_grupo`.
 
-Esta tabla todavía no pertenece al modelo visible del archivo
-oficial.erd y requiere revisión y aprobación para incorporarse
-definitivamente al ERD del proyecto.
+No se utiliza una tabla adicional `solicitud_grupo`.
 
-### Estructura implementada
+### Grupo de estudio — `grupo_estudio`
 
-| Columna | Tipo | Descripción |
-| --- | --- | --- |
-| id | INTEGER | Identificador de solicitud, PK |
-| grupo_id | INTEGER | FK a grupo_estudio |
-| practicante_id | INTEGER | FK a practicante |
-| estado | VARCHAR(20) | PENDIENTE, ACEPTADA o RECHAZADA |
-| fecha_solicitud | TIMESTAMPTZ | Fecha de registro |
-| fecha_respuesta | TIMESTAMPTZ | Fecha de aceptación o rechazo; nullable |
+La entidad `StudyGroup` representa un grupo administrado por un coach.
 
-### Reglas implementadas
+Campos principales:
 
-- Solo un PRACTICANTE puede solicitar ingreso.
-- No se permiten solicitudes pendientes duplicadas para el mismo grupo y practicante.
-- Un integrante ACTIVO no puede volver a solicitar ingreso al mismo grupo.
-- Solo el COACH responsable puede aceptar o rechazar solicitudes.
-- Una solicitud respondida no puede procesarse nuevamente.
-- Al aceptar, se crea o reactiva una membresía ACTIVO.
-- Al rechazar, no se crea ninguna membresía.
-- Al aceptar, se comprueba que exista capacidad disponible.
+| Columna | Descripción |
+| --- | --- |
+| `id` | Identificador del grupo |
+| `coach_id` | FK al perfil del coach responsable |
+| `nombre` | Nombre del grupo |
+| `descripcion` | Descripción opcional |
+| `nivel_esperado` | Nivel competitivo esperado |
+| `cupo_maximo` | Capacidad máxima |
+| `horario_sesiones` | Horario opcional |
+| `codigo_invitacion` | Código único de invitación |
+| `estado` | `ACTIVO` o `ARCHIVADO` |
+| `fecha_creacion` | Fecha de creación |
+| `visibilidad` | `PUBLICO`, `PROTEGIDO` o `ARCHIVADO` |
 
-La implementación utiliza JPA con ddl-auto: update en el entorno
-local. Su incorporación definitiva al esquema oficial necesita
-actualizar el ERD y validar las restricciones correspondientes.
+Los grupos nuevos se crean con estado `ACTIVO` y no pueden utilizar visibilidad `ARCHIVADO`.
+
+### Solicitudes y membresías — `practicante_grupo`
+
+La entidad `GroupMembership` representa tanto una solicitud de ingreso como una membresía efectiva.
+
+Se reutiliza la misma fila para registrar las transiciones de estado, sin crear una entidad adicional.
+
+Estados implementados:
+
+| Estado | Significado |
+| --- | --- |
+| `PENDIENTE` | Solicitud esperando revisión |
+| `ACTIVO` | Practicante integrante del grupo |
+| `RECHAZADO` | Solicitud rechazada |
+| `RETIRADO` | Practicante que abandonó el grupo |
+| `EXPULSADO` | Practicante expulsado |
+
+Las solicitudes utilizan el identificador real de `practicante_grupo`.
+
+La combinación de `grupo_id` y `practicante_id` es única.
+
+### Reglas de ingreso
+
+- Un grupo `PUBLICO` permite ingreso directo con estado `ACTIVO`.
+- Un grupo `PROTEGIDO` permite ingreso directo con un código de invitación válido.
+- Un grupo `PROTEGIDO` sin código válido registra una solicitud `PENDIENTE`.
+- No se permiten solicitudes duplicadas mientras exista una membresía `PENDIENTE` o `ACTIVO`.
+- Una membresía `RECHAZADO` o `RETIRADO` puede reutilizarse para solicitar ingreso nuevamente.
+- Según la política implementada, una membresía `EXPULSADO` no puede solicitar ingreso nuevamente.
+- Solamente las membresías `ACTIVO` se consideran para el cálculo de capacidad.
+- No se permiten nuevos ingresos o solicitudes cuando el grupo alcanza su cupo máximo.
+- No se permite ingresar a grupos inactivos o con visibilidad `ARCHIVADO`.
+
+### Revisión de solicitudes
+
+Solo el coach responsable puede revisar solicitudes pendientes.
+
+La aceptación realiza:
+
+`PENDIENTE → ACTIVO`
+
+Al aceptar, se verifica el cupo disponible y se actualiza `fecha_ingreso`.
+
+El rechazo realiza:
+
+`PENDIENTE → RECHAZADO`
+
+No se crea ni se elimina ninguna fila adicional durante la revisión.
+
+### Compatibilidad con PostgreSQL
+
+El ERD oficial documentaba originalmente los estados `ACTIVO`, `RETIRADO` y `EXPULSADO`.
+
+Para implementar US05 y US06 sin incorporar otra tabla, el enum Java `MembershipStatus` incorpora `PENDIENTE` y `RECHAZADO`.
+
+Esto requiere ampliar la restricción CHECK de `practicante_grupo.estado` en bases PostgreSQL existentes.
+
+La ampliación de valores debe revisarse y aprobarse como diferencia respecto del ERD oficial. No se deben agregar columnas ni tablas para esta funcionalidad.
+
+Hibernate puede generar los cinco valores en esquemas nuevos, pero `ddl-auto: update` no garantiza modificar correctamente las restricciones CHECK existentes.
+
+Se requiere una migración SQL reproducible y validada antes del despliegue.
+
 
 ## Diferencias del drawio frente a `oficial.erd`
 

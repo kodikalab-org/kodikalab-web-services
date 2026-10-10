@@ -1,8 +1,22 @@
 package com.kodika.kodikalab.teams.groupmembership;
 
-/**
- * Plantilla del servicio de membresías de practicantes en grupos (practicante_grupo).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import java.util.List;
+
 public interface GroupMembershipService {
+
+    // US05: Solicitar ingreso o ingresar directamente
+    GroupMembership requestJoin(
+            Integer groupId,
+            String invitationCode
+    );
+
+    // US06: Consultar solicitudes pendientes
+    List<GroupMembership> getPendingRequests(Integer groupId);
+
+    // US06: Aceptar o rechazar una solicitud
+    GroupMembership reviewRequest(
+            Integer groupId,
+            Integer membershipId,
+            boolean accept
+    );
 }
