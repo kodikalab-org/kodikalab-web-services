@@ -33,6 +33,8 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -556,6 +558,74 @@ class AssignmentsIntegrationTests {
         resolve(memberSession, other, resolution).andExpect(status().isCreated());
     }
 
+    // ---- US-10: progreso por tema
+
+    @Test
+    void practitionerSeesTheirProgressByTopicWeakestFirstWhileOthersStartFromScratch() throws Exception {
+        int graphs = createProblem("Tema Grafos", "CF-TEMA-1", "1400", "Grafos", "BFS");
+        int dp = createProblem("Tema DP", "CF-TEMA-2", "800", "Programación dinámica");
+        int moreGraphs = createProblem("Tema Grafos 2", "CF-TEMA-3", "1200", "Grafos");
+        int competitionId = createCompetition("Simulacro por tema", "PROGRAMADA");
+        int first = JsonPath.read(body(assign(coachSession, competitionId, "[{\"problemId\":" + graphs
+                + "},{\"problemId\":" + dp + "},{\"problemId\":" + moreGraphs + "}]")
+                .andExpect(status().isCreated())), "$.assigned[0].competitionProblemId");
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk());
+
+        // Sin intentos: todos los temas salen en su estado inicial y empatados con cobertura 0, así que todos se marcan.
+        progress(memberSession, teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedProblems").value(3))
+                .andExpect(jsonPath("$.solvedProblems").value(0))
+                .andExpect(jsonPath("$.topics.length()").value(3))
+                .andExpect(jsonPath("$.topics[*].status", everyItem(is("SIN_ACTIVIDAD"))))
+                .andExpect(jsonPath("$.topics[*].needsReinforcement", everyItem(is(true))));
+
+        resolve(memberSession, first, "{\"language\":\"Java\"}").andExpect(status().isCreated());
+
+        progress(memberSession, teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.membershipId").isNumber())
+                .andExpect(jsonPath("$.solvedProblems").value(1))
+                .andExpect(jsonPath("$.unclassifiedProblems").value(0))
+                .andExpect(jsonPath("$.topics[0].topicName").value("Programación dinámica"))
+                .andExpect(jsonPath("$.topics[0].coveragePercentage").value(0.0))
+                .andExpect(jsonPath("$.topics[0].status").value("SIN_ACTIVIDAD"))
+                .andExpect(jsonPath("$.topics[0].needsReinforcement").value(true))
+                .andExpect(jsonPath("$.topics[1].topicName").value("Grafos"))
+                .andExpect(jsonPath("$.topics[1].assignedProblems").value(2))
+                .andExpect(jsonPath("$.topics[1].solvedProblems").value(1))
+                .andExpect(jsonPath("$.topics[1].unsolvedProblems").value(1))
+                .andExpect(jsonPath("$.topics[1].coveragePercentage").value(50.0))
+                .andExpect(jsonPath("$.topics[1].status").value("EN_PROGRESO"))
+                .andExpect(jsonPath("$.topics[1].needsReinforcement").value(false))
+                .andExpect(jsonPath("$.topics[2].topicName").value("BFS"))
+                .andExpect(jsonPath("$.topics[2].coveragePercentage").value(100.0))
+                .andExpect(jsonPath("$.topics[2].status").value("COMPLETADO"))
+                .andExpect(jsonPath("$.topics[2].needsReinforcement").value(false));
+
+        // El avance de un compañero es independiente: no hereda el intento de otro integrante.
+        progress(login(secondMember), teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.solvedProblems").value(0))
+                .andExpect(jsonPath("$.topics[*].status", everyItem(is("SIN_ACTIVIDAD"))));
+    }
+
+    @Test
+    void onlyAnActiveMemberOfTheTeamSeesItsProgressByTopic() throws Exception {
+        progress(coachSession, teamId).andExpect(status().isForbidden());
+        progress(login(outsiderCoach), teamId).andExpect(status().isForbidden());
+        progress(login(retired), teamId).andExpect(status().isForbidden());
+        progress(login(outsider), teamId).andExpect(status().isForbidden());
+        mvc.perform(get("/api/analytics/teams/" + teamId + "/progress/me/topics").contextPath("/api"))
+                .andExpect(status().isUnauthorized());
+        progress(memberSession, Integer.MAX_VALUE).andExpect(status().isNotFound());
+        mvc.perform(get("/api/analytics/teams/abc/progress/me/topics").contextPath("/api")
+                        .with(Bearer.of(memberSession)))
+                .andExpect(status().isBadRequest());
+        // Un equipo sin problemas asignados devuelve un progreso vacío, no un error.
+        progress(memberSession, teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedProblems").value(0))
+                .andExpect(jsonPath("$.topics.length()").value(0));
+    }
+
     // ---- competencias de un equipo
 
     @Test
@@ -608,6 +678,11 @@ class AssignmentsIntegrationTests {
         return mvc.perform(patch("/api/competitions/" + competitionId + "/status").contextPath("/api")
                 .with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"" + state + "\"}"));
+    }
+
+    private ResultActions progress(String session, int team) throws Exception {
+        return mvc.perform(get("/api/analytics/teams/" + team + "/progress/me/topics").contextPath("/api")
+                .with(Bearer.of(session)));
     }
 
     private ResultActions resolve(String session, int assignmentId, String json) throws Exception {

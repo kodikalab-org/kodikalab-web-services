@@ -265,6 +265,7 @@ for (const [name, method, path, body] of [
   ['POST /teams', 'POST', '/teams', {}], ['GET /analytics/teams/1/standings', 'GET', '/analytics/teams/1/standings'],
   ['GET /teams/me', 'GET', '/teams/me'], ['GET /competitions?teamId=1', 'GET', '/competitions?teamId=1'],
   ['PATCH /competitions/1/status', 'PATCH', '/competitions/1/status', { status: 'EN_CURSO' }],
+  ['GET /analytics/teams/1/progress/me/topics', 'GET', '/analytics/teams/1/progress/me/topics'],
 ]) {
   sec.push(call(`Sin token: ${name} → 401`, method, path, 401, { message: missingToken, body }));
 }
@@ -288,6 +289,7 @@ for (const [name, method, path, body] of [
 for (const [name, method, path, body] of [
   ['POST /teams/1/join', 'POST', '/teams/1/join'],
   ['GET /analytics/teams/1/progress/me', 'GET', '/analytics/teams/1/progress/me'],
+  ['GET /analytics/teams/1/progress/me/topics', 'GET', '/analytics/teams/1/progress/me/topics'],
   ['POST /competitions/teams/1/problems/1/resolutions', 'POST', '/competitions/teams/1/problems/1/resolutions', { language: 'Java 21' }],
 ]) {
   sec.push(call(`COACH no puede ${name} → 403`, method, path, 403, { token: 'coachToken', message: forbidden, body }));

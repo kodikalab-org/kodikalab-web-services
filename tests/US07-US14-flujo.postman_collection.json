@@ -2,7 +2,7 @@
   "info": {
     "name": "KodikaLab - US07 a US14 Flujo completo",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas y una competencia, y la recorre completa: asignación, inicio y cierre por el coach, resoluciones, ranking, reporte de temas y resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí)."
+    "description": "Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas y una competencia, y la recorre completa: asignación, inicio y cierre por el coach, resoluciones, ranking, reporte de temas y resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-10, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí)."
   },
   "variable": [
     {
@@ -2101,7 +2101,146 @@
       ]
     },
     {
-      "name": "41 Ranking del equipo (COACH)",
+      "name": "41 Progreso por tema de PRACTICANTE A: los más débiles primero (US-10)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/progress/me/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "progress",
+            "me",
+            "topics"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('3 problemas asignados y 1 resuelto', () => { pm.expect(body.assignedProblems).to.eql(3); pm.expect(body.solvedProblems).to.eql(1); pm.expect(body.unclassifiedProblems).to.eql(0); });",
+              "pm.test('Orden: de menor a mayor cobertura', () => pm.expect(body.topics.map((t) => t.topicName)).to.eql(['Programación dinámica', 'Grafos', 'BFS']));",
+              "pm.test('Programación dinámica: sin actividad y por reforzar', () => { const t = body.topics[0]; pm.expect(t.status).to.eql('SIN_ACTIVIDAD'); pm.expect(t.coveragePercentage).to.eql(0); pm.expect(t.needsReinforcement).to.eql(true); });",
+              "pm.test('Grafos: 1 de 2, en progreso', () => { const t = body.topics[1]; pm.expect(t.assignedProblems).to.eql(2); pm.expect(t.solvedProblems).to.eql(1); pm.expect(t.coveragePercentage).to.eql(50); pm.expect(t.status).to.eql('EN_PROGRESO'); pm.expect(t.needsReinforcement).to.eql(false); });",
+              "pm.test('BFS: completado', () => { const t = body.topics[2]; pm.expect(t.coveragePercentage).to.eql(100); pm.expect(t.status).to.eql('COMPLETADO'); pm.expect(t.needsReinforcement).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42 Progreso por tema de PRACTICANTE B: estado inicial, independiente del de A",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/progress/me/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "progress",
+            "me",
+            "topics"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Ningún problema resuelto, todos los temas sin actividad y por reforzar', () => { pm.expect(body.solvedProblems).to.eql(0); pm.expect(body.topics).to.have.lengthOf(3); for (const t of body.topics) { pm.expect(t.status).to.eql('SIN_ACTIVIDAD'); pm.expect(t.needsReinforcement).to.eql(true); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43 El COACH no consulta el progreso personal por tema → 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/progress/me/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "progress",
+            "me",
+            "topics"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44 Ranking del equipo (COACH)",
       "request": {
         "method": "GET",
         "header": [],
@@ -2144,7 +2283,7 @@
       ]
     },
     {
-      "name": "42 Ranking visto por un integrante",
+      "name": "45 Ranking visto por un integrante",
       "request": {
         "method": "GET",
         "header": [],
@@ -2187,7 +2326,7 @@
       ]
     },
     {
-      "name": "43 El COACH finaliza la competencia → FINALIZADA",
+      "name": "46 El COACH finaliza la competencia → FINALIZADA",
       "request": {
         "method": "PATCH",
         "header": [
@@ -2243,7 +2382,7 @@
       ]
     },
     {
-      "name": "44 Una competencia FINALIZADA no vuelve a EN_CURSO → 409",
+      "name": "47 Una competencia FINALIZADA no vuelve a EN_CURSO → 409",
       "request": {
         "method": "PATCH",
         "header": [
@@ -2299,7 +2438,7 @@
       ]
     },
     {
-      "name": "45 No se asignan problemas a una competencia FINALIZADA → 409",
+      "name": "48 No se asignan problemas a una competencia FINALIZADA → 409",
       "request": {
         "method": "POST",
         "header": [
@@ -2355,7 +2494,7 @@
       ]
     },
     {
-      "name": "46 Tras finalizar, PRACTICANTE B todavía puede registrar su avance → 201",
+      "name": "49 Tras finalizar, PRACTICANTE B todavía puede registrar su avance → 201",
       "request": {
         "method": "POST",
         "header": [
@@ -2414,7 +2553,7 @@
       ]
     },
     {
-      "name": "47 Reporte de temas con menor resolución (COACH)",
+      "name": "50 Reporte de temas con menor resolución (COACH)",
       "request": {
         "method": "GET",
         "header": [],
@@ -2459,7 +2598,7 @@
       ]
     },
     {
-      "name": "48 Registrar resultado pendiente",
+      "name": "51 Registrar resultado pendiente",
       "request": {
         "method": "POST",
         "header": [
@@ -2515,7 +2654,7 @@
       ]
     },
     {
-      "name": "49 Resultado duplicado → 409",
+      "name": "52 Resultado duplicado → 409",
       "request": {
         "method": "POST",
         "header": [
@@ -2571,7 +2710,7 @@
       ]
     },
     {
-      "name": "50 Completar y confirmar el resultado",
+      "name": "53 Completar y confirmar el resultado",
       "request": {
         "method": "PUT",
         "header": [
@@ -2627,7 +2766,7 @@
       ]
     },
     {
-      "name": "51 Consultar el resultado",
+      "name": "54 Consultar el resultado",
       "request": {
         "method": "GET",
         "header": [],
@@ -2669,7 +2808,7 @@
       ]
     },
     {
-      "name": "52 Historial de participaciones del equipo",
+      "name": "55 Historial de participaciones del equipo",
       "request": {
         "method": "GET",
         "header": [],
@@ -2712,7 +2851,7 @@
       ]
     },
     {
-      "name": "53 El listado de competencias muestra la competencia FINALIZADA",
+      "name": "56 El listado de competencias muestra la competencia FINALIZADA",
       "request": {
         "method": "GET",
         "header": [],
@@ -2758,7 +2897,7 @@
       ]
     },
     {
-      "name": "54 Sin token no se ve el ranking → 401",
+      "name": "57 Sin token no se ve el ranking → 401",
       "request": {
         "method": "GET",
         "header": [],
@@ -2795,7 +2934,46 @@
       ]
     },
     {
-      "name": "55 Sin token no se listan las competencias → 401",
+      "name": "58 Sin token no se ve el progreso por tema → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/progress/me/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "progress",
+            "me",
+            "topics"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "59 Sin token no se listan las competencias → 401",
       "request": {
         "method": "GET",
         "header": [],
@@ -2835,7 +3013,7 @@
       ]
     },
     {
-      "name": "56 Sin token no se cambia el estado de una competencia → 401",
+      "name": "60 Sin token no se cambia el estado de una competencia → 401",
       "request": {
         "method": "PATCH",
         "header": [

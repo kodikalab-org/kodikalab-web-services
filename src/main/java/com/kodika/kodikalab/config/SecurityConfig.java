@@ -89,6 +89,8 @@ public class SecurityConfig {
                         .hasRole(PRACTICANTE)                                                                     // US-09/14
                         .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/progress/me")
                         .hasRole(PRACTICANTE)                                                                     // US-14
+                        .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/progress/me/topics")
+                        .hasRole(PRACTICANTE)                                                                     // US-10
 
                         // Cualquier cuenta autenticada: perfil, mis equipos, grupos, competencias del equipo, catálogo,
                         // problemas asignados, ranking (los servicios exigen coach responsable o membresía ACTIVO)

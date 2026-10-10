@@ -109,7 +109,7 @@ Autenticación con token Bearer y autorización por rol. Contrato y reglas: [06-
 
 ### Postman
 
-`SEC-jwt-roles.postman_collection.json` (35 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
+`SEC-jwt-roles.postman_collection.json` (37 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
 
 ```bash
 npx --yes newman run tests/SEC-jwt-roles.postman_collection.json -e tests/local.postman_environment.json
@@ -129,7 +129,7 @@ Sin PostgreSQL: `JwtServiceTests`, `JwtAuthenticationFilterTests`.
 
 ## Flujo US-07 a US-14 (Postman)
 
-`US07-US14-flujo.postman_collection.json` (56 solicitudes, sin fixtures) recorre por la API la vida completa de una competencia: crea un COACH y dos PRACTICANTES (con perfil), un grupo público, tres problemas con temas y una competencia que nace `PROGRAMADA`; asigna los problemas, la inicia y la finaliza como coach, registra resoluciones, consulta el ranking, genera el reporte de temas y confirma el resultado oficial. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente.
+`US07-US14-flujo.postman_collection.json` (60 solicitudes, sin fixtures) recorre por la API la vida completa de una competencia: crea un COACH y dos PRACTICANTES (con perfil), un grupo público, tres problemas con temas y una competencia que nace `PROGRAMADA`; asigna los problemas, la inicia y la finaliza como coach, registra resoluciones, consulta el ranking, genera el reporte de temas y confirma el resultado oficial. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente.
 
 | Historia | Qué comprueba |
 | --- | --- |
@@ -137,6 +137,7 @@ Sin PostgreSQL: `JwtServiceTests`, `JwtAuthenticationFilterTests`.
 | Ciclo de vida | Sin iniciar no se registra (`409`); un practicante no cambia el estado (`403`); estado inexistente `400`; `PROGRAMADA` a `FINALIZADA` y repetir un estado `409`; el coach inicia y finaliza; una competencia FINALIZADA no vuelve atrás ni admite problemas, y sin token `401`. |
 | US-08 | Problemas asignados del practicante (`SIN_INTENTOS`), detalle, filtros por estado y texto, y la vista del coach sin avance personal. |
 | US-09 / US-14 | Registro de la resolución (`ACCEPTED`), duplicado `409`, lenguaje ausente `400`, avance por equipo independiente entre practicantes y estado `RESUELTO` solo para quien resolvió. |
+| US-10 | Progreso por tema del practicante A (de menor a mayor cobertura; Programación dinámica sin actividad y por reforzar, Grafos en progreso, BFS completado), el de B en estado inicial e independiente, `403` para el coach y `401` sin token. |
 | US-11 | Ranking del equipo visto por el coach y por un integrante. |
 | US-12 | Reporte de temas con menor resolución sobre la competencia finalizada por la API: tres temas, con Programación dinámica como el de menor cobertura. |
 | US-13 | Rechazo de confirmar mientras la competencia está en curso (`400`), resultado pendiente, duplicado `409`, confirmación, consulta e historial una vez finalizada. |
