@@ -4,7 +4,7 @@
 
 Un coach con cuenta `ACTIVO` y sesión HTTP puede registrar, consultar, completar y confirmar el resultado de una competencia de su equipo. El coach responsable se obtiene mediante `StudyGroupService`; el equipo se deriva exclusivamente de `Competition.group`. No se acepta un coach ni un equipo enviados por el cliente como autorización.
 
-La competencia existente identifica la participación. Al registrar este resultado, el coach declara su carácter oficial; no se añade una bandera a `competencia`, un catálogo externo de eventos ni un proceso de verificación externo. Los resultados son datos declarados por el coach, no una suma de `ProblemResolution`. US-11 y US-12 siguen utilizando las resoluciones individuales sin cambios.
+La competencia existente identifica la participación; se crea con `POST /api/competitions` (contrato en `03-api-contracts.md`), que permite registrar también eventos pasados con `status: FINALIZADA`. Al registrar este resultado, el coach declara su carácter oficial; no se añade una bandera a `competencia`, un catálogo externo de eventos ni un proceso de verificación externo. Los resultados son datos declarados por el coach, no una suma de `ProblemResolution`. US-11 y US-12 siguen utilizando las resoluciones individuales sin cambios.
 
 Campos del resultado:
 

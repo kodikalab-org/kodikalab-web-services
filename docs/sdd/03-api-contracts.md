@@ -278,6 +278,50 @@ Errores `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin 
 
 Detalle y verificación: [US-12](14-us12-temas-menor-resolucion.md).
 
+## US-13 — Crear competencia
+
+`POST /api/competitions` crea una competencia (`competencia`) para un equipo y devuelve `201`. Solo puede usarla el
+coach responsable de ese equipo, con cuenta `ACTIVO` y sesión HTTP; el coach se obtiene de la sesión y el equipo
+de `teamId`. Es el paso previo para registrar su resultado oficial y para asignarle problemas.
+
+```json
+{
+  "teamId": 1,
+  "eventName": "ICPC Regional 2026",
+  "description": "Fase regional",
+  "accessType": "PUBLICO_GRUPO",
+  "penaltyRule": "ICPC_20_MIN",
+  "scoreboardFreezeMinutes": 60,
+  "status": "PROGRAMADA",
+  "startsAt": "2026-10-20T14:00:00-05:00",
+  "endsAt": "2026-10-20T19:00:00-05:00"
+}
+```
+
+| Campo | Regla |
+| --- | --- |
+| `teamId` | Obligatorio, entero positivo; el coach debe ser el responsable de ese equipo. |
+| `eventName` | Obligatorio, hasta 150 caracteres (se recortan los espacios externos). |
+| `description` | Opcional, hasta 500 caracteres; vacío se guarda como `null`. |
+| `accessType` | `PUBLICO_GRUPO` (por defecto) o `PRIVADO_PASS`. |
+| `accessKey` | Obligatoria con `PRIVADO_PASS` (máximo 72 bytes UTF-8); no se admite con `PUBLICO_GRUPO`. Se guarda solo como hash BCrypt y nunca se devuelve. |
+| `penaltyRule` | `ICPC_20_MIN` (por defecto) o `IOI_POINTS`. |
+| `scoreboardFreezeMinutes` | Opcional, entre 0 y la duración. Por defecto 60, o la duración si esta es menor. |
+| `status` | `PROGRAMADA` (por defecto), `EN_CURSO` o `FINALIZADA`. Se respeta el valor enviado; no se infiere de las fechas. Permite registrar eventos pasados. |
+| `startsAt`, `endsAt` | Obligatorias, ISO-8601 con zona; `endsAt` al menos un minuto posterior a `startsAt`. |
+
+`durationMinutes` no se envía: se calcula como los minutos entre `startsAt` y `endsAt`. La respuesta devuelve
+`id`, `teamId`, `eventName`, `description`, `accessType`, `penaltyRule`, `durationMinutes`,
+`scoreboardFreezeMinutes`, `status`, `startsAt` y `endsAt`. No se acepta un coach ni un rol enviados en el body.
+
+La lectura es estricta: un campo con tipo incorrecto (por ejemplo un número como cadena) se rechaza, y los errores
+de todos los campos se informan juntos. Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos
+inválidos o JSON inválido (`errors` indica los campos), `401` sin sesión, `403` cuenta no coach, suspendida o
+equipo de otro coach, `404` equipo inexistente, `409` ya existe una competencia del mismo equipo con el mismo
+nombre (sin distinguir mayúsculas) y la misma fecha de inicio, `503` persistencia no disponible. Una solicitud
+rechazada no crea ningún registro. El ERD no define una restricción única para el duplicado: la regla se verifica
+en el servicio, por lo que dos solicitudes simultáneas idénticas podrían crear ambas.
+
 ## US-13 — Resultados oficiales de competencias
 
 Solo el coach responsable con cuenta activa y sesión puede utilizar estas rutas:
