@@ -5,6 +5,7 @@ import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.competitions.competition.CompetitionValidationException;
 import com.kodika.kodikalab.competitions.officialresult.OfficialResultValidationException;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
@@ -26,11 +27,19 @@ public class CompetitionExceptionHandler {
         return ResponseEntity.badRequest().body(new ErrorResponse(exception.getMessage(), exception.getErrors()));
     }
 
+    @ExceptionHandler(CompetitionValidationException.class)
+    public ResponseEntity<ErrorResponse> invalidCompetition(CompetitionValidationException exception) {
+        return ResponseEntity.badRequest().body(new ErrorResponse(exception.getMessage(), exception.getErrors()));
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> invalidBody(HttpMessageNotReadableException exception) {
         for (Throwable cause = exception.getCause(); cause != null; cause = cause.getCause()) {
             if (cause instanceof OfficialResultValidationException validation) {
                 return invalidResult(validation);
+            }
+            if (cause instanceof CompetitionValidationException validation) {
+                return invalidCompetition(validation);
             }
         }
         return error(HttpStatus.BAD_REQUEST, "Debe enviar un JSON válido con los campos esperados");
@@ -43,7 +52,7 @@ public class CompetitionExceptionHandler {
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> unauthorized(UnauthorizedException exception) {
-        return error(HttpStatus.UNAUTHORIZED, "Debe iniciar sesión para gestionar resultados oficiales");
+        return error(HttpStatus.UNAUTHORIZED, "Debe iniciar sesión para gestionar competencias y resultados oficiales");
     }
 
     @ExceptionHandler(ForbiddenException.class)
@@ -63,12 +72,12 @@ public class CompetitionExceptionHandler {
 
     @ExceptionHandler({DataAccessException.class, TransactionException.class})
     public ResponseEntity<ErrorResponse> unavailable(Exception exception) {
-        return error(HttpStatus.SERVICE_UNAVAILABLE, "La información necesaria para los resultados no está disponible");
+        return error(HttpStatus.SERVICE_UNAVAILABLE, "La información necesaria no está disponible");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> unexpected(Exception exception) {
-        return error(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo gestionar el resultado oficial");
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "No se pudo completar la operación");
     }
 
     private ResponseEntity<ErrorResponse> error(HttpStatus status, String message) {

@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.competitions;
 
+import com.jayway.jsonpath.JsonPath;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -258,6 +259,106 @@ class OfficialResultIntegrationTests {
             start.countDown();
             return List.of(first.get(30, TimeUnit.SECONDS), second.get(30, TimeUnit.SECONDS));
         }
+    }
+
+    @Test
+    void coachCreatesACompetitionAndThenRegistersAndConfirmsItsOfficialResult() throws Exception {
+        String body = postCompetition(competitionBody(teamId, "ICPC Regional", "FINALIZADA", null), session)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.eventName").value("ICPC Regional"))
+                .andExpect(jsonPath("$.accessType").value("PUBLICO_GRUPO"))
+                .andExpect(jsonPath("$.penaltyRule").value("ICPC_20_MIN"))
+                .andExpect(jsonPath("$.durationMinutes").value(300))
+                .andExpect(jsonPath("$.scoreboardFreezeMinutes").value(60))
+                .andExpect(jsonPath("$.status").value("FINALIZADA"))
+                .andExpect(jsonPath("$.accessKey").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        int createdId = JsonPath.read(body, "$.id");
+
+        create(createdId, "{\"finalPosition\":4,\"solvedProblems\":6,\"confirm\":true}", session, 201);
+        mvc.perform(get(history(teamId)).contextPath("/api").session(session))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].competitionId").value(createdId))
+                .andExpect(jsonPath("$[0].eventName").value("ICPC Regional"))
+                .andExpect(jsonPath("$[0].status").value("CONFIRMADO"));
+    }
+
+    @Test
+    void newCompetitionDefaultsToScheduledAndCannotBeConfirmedUntilFinished() throws Exception {
+        String body = postCompetition(competitionBody(teamId, "Simulacro futuro", null, null), session)
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("PROGRAMADA"))
+                .andReturn().getResponse().getContentAsString();
+        int createdId = JsonPath.read(body, "$.id");
+
+        create(createdId, "{\"finalPosition\":1,\"solvedProblems\":2,\"confirm\":true}", session, 400);
+        create(createdId, "{\"confirm\":false}", session, 201);
+    }
+
+    @Test
+    void privateCompetitionStoresOnlyAHashOfTheAccessKey() throws Exception {
+        String body = postCompetition(competitionBody(teamId, "Privada", null,
+                "\"accessType\":\"PRIVADO_PASS\",\"accessKey\":\"secreto-123\""), session)
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.accessType").value("PRIVADO_PASS"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("secreto"))))
+                .andReturn().getResponse().getContentAsString();
+        int createdId = JsonPath.read(body, "$.id");
+
+        String stored = jdbc.queryForObject("SELECT clave_acceso FROM competencia WHERE id = ?", String.class,
+                createdId);
+        assertThat(stored).startsWith("$2").doesNotContain("secreto");
+        assertThat(encoder.matches("secreto-123", stored)).isTrue();
+    }
+
+    @Test
+    void onlyTheTeamsActiveCoachCanCreateCompetitions() throws Exception {
+        String valid = competitionBody(teamId, "No debe existir", null, null);
+        postCompetition(valid, null).andExpect(status().isUnauthorized());
+        postCompetition(valid, login(account("COACH"))).andExpect(status().isForbidden());
+        postCompetition(valid, login(account("PRACTICANTE"))).andExpect(status().isForbidden());
+        postCompetition(competitionBody(Integer.MAX_VALUE, "No debe existir", null, null), session)
+                .andExpect(status().isNotFound());
+        jdbc.update("UPDATE usuario SET estado_cuenta = 'SUSPENDIDO' WHERE id = ?", coach.id());
+        postCompetition(valid, session).andExpect(status().isForbidden());
+
+        assertThat(countCompetitionsNamed("No debe existir")).isZero();
+    }
+
+    @Test
+    void invalidOrDuplicateCompetitionsAreNotStored() throws Exception {
+        postCompetition("{\"teamId\":" + teamId + ",\"eventName\":\"  \","
+                + "\"startsAt\":\"2026-10-01T14:00:00-05:00\",\"endsAt\":\"2026-10-01T13:00:00-05:00\"}", session)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.eventName").exists())
+                .andExpect(jsonPath("$.errors.endsAt").exists());
+        postCompetition("{\"teamId\":\"" + teamId + "\"}", session).andExpect(status().isBadRequest());
+        assertThat(countCompetitionsNamed("Repetida")).isZero();
+
+        postCompetition(competitionBody(teamId, "Repetida", null, null), session).andExpect(status().isCreated());
+        postCompetition(competitionBody(teamId, "repetida", null, null), session).andExpect(status().isConflict());
+        assertThat(countCompetitionsNamed("Repetida")).isEqualTo(1);
+    }
+
+    private org.springframework.test.web.servlet.ResultActions postCompetition(String body, MockHttpSession requester)
+            throws Exception {
+        var request = post("/api/competitions").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
+                .content(body);
+        if (requester != null) {
+            request.session(requester);
+        }
+        return mvc.perform(request);
+    }
+
+    private static String competitionBody(int forTeam, String name, String state, String extra) {
+        return "{\"teamId\":" + forTeam + ",\"eventName\":\"" + name + "\","
+                + "\"startsAt\":\"2026-10-01T09:00:00-05:00\",\"endsAt\":\"2026-10-01T14:00:00-05:00\""
+                + (state == null ? "" : ",\"status\":\"" + state + "\"")
+                + (extra == null ? "" : "," + extra) + "}";
+    }
+
+    private int countCompetitionsNamed(String name) {
+        return jdbc.queryForObject("SELECT count(*) FROM competencia WHERE lower(nombre_evento) = lower(?)",
+                Integer.class, name);
     }
 
     private int countResults() {

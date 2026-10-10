@@ -192,6 +192,28 @@ class RankingIntegrationTests {
     }
 
     @Test
+    void rowsWithStatesOutsideMembershipDoNotBreakRanking() throws Exception {
+        // Simula estados que una historia futura (solicitudes de ingreso) agregue a practicante_grupo.estado:
+        // no son membresías del ranking y no deben impedir calcularlo ni materializarse como enum.
+        jdbc.execute("""
+                DO $$ DECLARE c text; BEGIN
+                    FOR c IN SELECT conname FROM pg_constraint
+                             WHERE conrelid = 'practicante_grupo'::regclass AND contype = 'c'
+                    LOOP EXECUTE 'ALTER TABLE practicante_grupo DROP CONSTRAINT ' || quote_ident(c); END LOOP;
+                END $$
+                """);
+        membership(teamId, account("PRACTICANTE").id(), "PENDIENTE");
+        membership(teamId, account("PRACTICANTE").id(), "RECHAZADO");
+        resolution(firstMembership, competitionProblemId, "ACCEPTED");
+
+        mvc.perform(get(path(teamId)).contextPath("/api").session(login(coach)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CALCULATED"))
+                .andExpect(jsonPath("$.members.length()").value(3))
+                .andExpect(jsonPath("$.members[0].userId").value(first.id()));
+    }
+
+    @Test
     void anonymousRequestIsUnauthorized() throws Exception {
         mvc.perform(get(path(teamId)).contextPath("/api"))
                 .andExpect(status().isUnauthorized())

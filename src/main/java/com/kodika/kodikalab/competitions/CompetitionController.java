@@ -2,6 +2,8 @@ package com.kodika.kodikalab.competitions;
 
 import com.kodika.kodikalab.competitions.category.CategoryService;
 import com.kodika.kodikalab.competitions.competition.CompetitionService;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
+import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblemService;
 import com.kodika.kodikalab.competitions.problemresolution.ProblemResolutionService;
 import com.kodika.kodikalab.competitions.officialresult.OfficialResultService;
@@ -37,6 +39,12 @@ public class CompetitionController {
         this.problemResolutionService = problemResolutionService;
         this.categoryService = categoryService;
         this.officialResultService = officialResultService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public CompetitionResponse create(@RequestBody CreateCompetitionRequest request) {
+        return competitionService.create(request);
     }
 
     @PostMapping("/{competitionId}/official-result")

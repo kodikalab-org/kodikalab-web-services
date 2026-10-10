@@ -70,7 +70,7 @@ class RuntimeBoundaryTests {
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
                 .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
-                        "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses",
+                        "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
@@ -80,9 +80,11 @@ class RuntimeBoundaryTests {
     @Test
     void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess() throws Exception {
         for (String path : new String[]{"/teams", "/teams/1/members", "/problems", "/problems/assigned",
-                "/competitions", "/analytics/teams/1/topics"}) {
+                "/analytics/teams/1/topics"}) {
             mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isNotFound());
         }
+        // Existe POST /competitions (US-13 T1); no hay listado público, por eso GET responde 405 y no 200.
+        mvc.perform(get("/api/competitions").contextPath("/api")).andExpect(status().isMethodNotAllowed());
         mvc.perform(post("/api/assistant/query").contextPath("/api")
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());

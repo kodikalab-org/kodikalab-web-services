@@ -117,14 +117,21 @@ class StoredTeamRankingServiceTests {
         assertThatThrownBy(() -> service.getRanking(1)).isSameAs(failure);
     }
 
-    @Test
-    void failedWriteReturnsPreviousResultAsUnavailableInsteadOfPublishingUnsavedRanking() {
+    @ParameterizedTest
+    @MethodSource("snapshotWriteFailures")
+    void failedSnapshotWriteStillReturnsTheCalculatedRanking(RuntimeException failure) {
         when(calculator.getRanking(1)).thenReturn(valid);
-        doThrow(new DataAccessResourceFailureException("Write failed")).when(snapshots).save(eq(valid), any());
-        when(snapshots.findByTeamId(1)).thenReturn(Optional.of(previous));
+        doThrow(failure).when(snapshots).save(eq(valid), any());
 
-        assertThatThrownBy(() -> service.getRanking(1)).isInstanceOfSatisfying(RankingRecoveryException.class,
-                exception -> assertThat(exception.getLastValidRanking()).isSameAs(previous));
+        assertThat(service.getRanking(1)).isSameAs(valid);
+        verify(calculator, never()).authorize(any());
+        verify(snapshots, never()).findByTeamId(any());
+    }
+
+    static Stream<RuntimeException> snapshotWriteFailures() {
+        return Stream.of(new DataAccessResourceFailureException("Write failed"),
+                new CannotCreateTransactionException("Database unavailable"),
+                new IllegalStateException("No se pudo conservar el ranking válido"));
     }
 
     @Test
