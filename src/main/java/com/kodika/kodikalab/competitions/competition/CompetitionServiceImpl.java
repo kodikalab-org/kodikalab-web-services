@@ -1,12 +1,18 @@
 package com.kodika.kodikalab.competitions.competition;
 
+import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
+import com.kodika.kodikalab.competitions.competition.dto.ChangeCompetitionStatusRequest;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionListItem;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionListResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionSummary;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
+import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
+import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
 import com.kodika.kodikalab.users.Role;
@@ -16,6 +22,7 @@ import jakarta.persistence.EntityManager;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,21 +40,23 @@ public class CompetitionServiceImpl implements CompetitionService {
     private final CurrentUserResolver currentUserResolver;
     private final PasswordEncoder passwordEncoder;
     private final EntityManager entityManager;
+    private final GroupMembershipService membershipService;
 
     public CompetitionServiceImpl(CompetitionRepository competitionRepository, StudyGroupService groupService,
                                   CurrentUserResolver currentUserResolver, PasswordEncoder passwordEncoder,
-                                  EntityManager entityManager) {
+                                  EntityManager entityManager, GroupMembershipService membershipService) {
         this.competitionRepository = competitionRepository;
         this.groupService = groupService;
         this.currentUserResolver = currentUserResolver;
         this.passwordEncoder = passwordEncoder;
         this.entityManager = entityManager;
+        this.membershipService = membershipService;
     }
 
     @Override
     @Transactional
     public CompetitionResponse create(CreateCompetitionRequest request) {
-        User coach = activeCoach();
+        User coach = activeCoach("Solo un coach activo puede crear competencias");
         if (request == null) {
             throw new CompetitionValidationException(Map.of("body", "Debe enviar los datos de la competencia"));
         }
@@ -138,6 +147,63 @@ public class CompetitionServiceImpl implements CompetitionService {
     }
 
     @Override
+    @Transactional
+    public CompetitionResponse changeStatus(Integer competitionId, ChangeCompetitionStatusRequest request) {
+        User coach = activeCoach("Solo un coach activo puede cambiar el estado de una competencia");
+        if (competitionId == null || competitionId <= 0) {
+            throw new BadRequestException("El identificador debe ser un entero positivo");
+        }
+        CompetitionStatus target = request == null ? null : request.status();
+        if (target == null) {
+            throw new CompetitionValidationException(Map.of("status", "El nuevo estado es obligatorio"));
+        }
+        Competition competition = competitionRepository.findForUpdate(competitionId)
+                .orElseThrow(() -> new NotFoundException("La competencia no existe"));
+        Integer teamId = competition.getGroup() == null ? null : competition.getGroup().getId();
+        var team = teamId == null ? null : groupService.findSummaryById(teamId).orElse(null);
+        if (team == null || team.coachUserId() == null) {
+            throw new ConflictException("La información del equipo o de su coach responsable está incompleta");
+        }
+        if (!team.coachUserId().equals(coach.getId())) {
+            throw new ForbiddenException("No tiene autorización para cambiar el estado de esta competencia");
+        }
+        CompetitionStatus current = competition.getStatus();
+        if (current == null) {
+            throw new ConflictException("La competencia no tiene un estado registrado");
+        }
+        if (!current.canAdvanceTo(target)) {
+            throw new ConflictException("No se puede pasar la competencia de " + current + " a " + target
+                    + ": el estado solo avanza de PROGRAMADA a EN_CURSO y de EN_CURSO a FINALIZADA");
+        }
+        competition.setStatus(target);
+        return response(competitionRepository.save(competition), teamId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CompetitionListResponse listByTeam(Integer teamId) {
+        User user = currentUserResolver.currentUser();
+        if (user.getStatus() != UserStatus.ACTIVO) {
+            throw new ForbiddenException("La cuenta no está activa");
+        }
+        if (teamId == null || teamId <= 0) {
+            throw new CompetitionValidationException(
+                    Map.of("teamId", "El equipo es obligatorio y debe ser un entero positivo"));
+        }
+        var team = groupService.findSummaryById(teamId).orElseThrow(() -> new NotFoundException("El equipo no existe"));
+        if (user.getRole() == Role.COACH) {
+            if (!user.getId().equals(team.coachUserId())) {
+                throw new ForbiddenException("No es el coach responsable de este equipo");
+            }
+        } else if (membershipService.findMembersByTeamId(teamId).stream().noneMatch(member -> member != null
+                && user.getId().equals(member.userId()) && member.status() == MembershipStatus.ACTIVO)) {
+            throw new ForbiddenException("No pertenece a este equipo");
+        }
+        List<CompetitionListItem> items = competitionRepository.findListItemsByTeamId(teamId);
+        return new CompetitionListResponse(teamId, items.size(), items);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Optional<CompetitionSummary> findSummaryById(Integer competitionId) {
         return competitionRepository.findById(competitionId).map(CompetitionServiceImpl::summary);
@@ -154,10 +220,10 @@ public class CompetitionServiceImpl implements CompetitionService {
         return new CompetitionSummary(competition.getId(), teamId, competition.getStatus());
     }
 
-    private User activeCoach() {
+    private User activeCoach(String deniedMessage) {
         User coach = currentUserResolver.currentUser();
         if (coach.getStatus() != UserStatus.ACTIVO || coach.getRole() != Role.COACH) {
-            throw new ForbiddenException("Solo un coach activo puede crear competencias");
+            throw new ForbiddenException(deniedMessage);
         }
         return coach;
     }

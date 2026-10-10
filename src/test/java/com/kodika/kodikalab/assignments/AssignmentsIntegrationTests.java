@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -146,9 +147,17 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.items[0].problem.topics.length()").value(2))
                 .andExpect(jsonPath("$.items[1].problem.topics[0]").value("dp"));
 
-        mvc.perform(post("/api/competitions/teams/" + teamId + "/problems/" + firstAssignment + "/resolutions")
-                        .contextPath("/api").with(Bearer.of(memberSession)).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}"))
+        // Mientras la competencia está PROGRAMADA el practicante ve el problema pero no puede registrar nada.
+        resolve(memberSession, firstAssignment, "{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("aún no ha comenzado")));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM resolucion_problema WHERE competencia_problema_id = ?",
+                Integer.class, firstAssignment)).isZero();
+
+        // El coach inicia la competencia y entonces el practicante puede registrar su resolución.
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EN_CURSO"));
+        resolve(memberSession, firstAssignment, "{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}")
                 .andExpect(status().isCreated());
 
         mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
@@ -459,7 +468,156 @@ class AssignmentsIntegrationTests {
                 .andExpect(content().string(not(containsString("$2a"))));
     }
 
+    // ---- ciclo de vida de la competencia
+
+    @Test
+    void onlyTheResponsibleCoachMovesTheCompetitionThroughItsLifecycle() throws Exception {
+        int competitionId = createCompetition("Simulacro ciclo de vida", "PROGRAMADA");
+
+        changeStatus(memberSession, competitionId, "EN_CURSO").andExpect(status().isForbidden());
+        changeStatus(login(outsiderCoach), competitionId, "EN_CURSO").andExpect(status().isForbidden());
+        mvc.perform(patch("/api/competitions/" + competitionId + "/status").contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"EN_CURSO\"}"))
+                .andExpect(status().isUnauthorized());
+        changeStatus(coachSession, Integer.MAX_VALUE, "EN_CURSO").andExpect(status().isNotFound());
+        changeStatus(coachSession, competitionId, "INVENTADO").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.status").exists());
+        assertThat(statusInDatabase(competitionId)).isEqualTo("PROGRAMADA");
+
+        // El estado avanza un paso a la vez y nunca retrocede.
+        changeStatus(coachSession, competitionId, "FINALIZADA").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("PROGRAMADA")));
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(competitionId))
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.status").value("EN_CURSO"))
+                .andExpect(jsonPath("$.accessKey").doesNotExist());
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isConflict());
+        changeStatus(coachSession, competitionId, "PROGRAMADA").andExpect(status().isConflict());
+        changeStatus(coachSession, competitionId, "FINALIZADA").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FINALIZADA"));
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isConflict());
+        assertThat(statusInDatabase(competitionId)).isEqualTo("FINALIZADA");
+
+        // Una competencia finalizada ya no admite nuevos problemas.
+        int problem = createProblem("Tras finalizar", null, null);
+        assign(coachSession, competitionId, "[{\"problemId\":" + problem + "}]").andExpect(status().isConflict());
+        assertThat(countAssignments(competitionId)).isZero();
+    }
+
+    @Test
+    void twoSimultaneousStartsChangeTheStatusOnlyOnce() throws Exception {
+        int competitionId = createCompetition("Simulacro inicio concurrente", "PROGRAMADA");
+
+        List<Integer> statuses = concurrently(
+                () -> statusOf(changeStatus(coachSession, competitionId, "EN_CURSO")),
+                () -> statusOf(changeStatus(coachSession, competitionId, "EN_CURSO")));
+
+        assertThat(statuses).containsExactly(200, 409);
+        assertThat(statusInDatabase(competitionId)).isEqualTo("EN_CURSO");
+    }
+
+    @Test
+    void theWholeCycleWorksThroughTheApiFromCreationToTheOfficialResultAndTheTopicReport() throws Exception {
+        int graphs = createProblem("Ciclo Grafos", "CF-CICLO-1", "1400", "Grafos");
+        int dp = createProblem("Ciclo DP", "CF-CICLO-2", "800", "dp");
+        int competitionId = createCompetition("Simulacro ciclo completo", "PROGRAMADA");
+        int solved = JsonPath.read(body(assign(coachSession, competitionId,
+                "[{\"problemId\":" + graphs + "},{\"problemId\":" + dp + "}]").andExpect(status().isCreated())),
+                "$.assigned[0].competitionProblemId");
+        String result = "{\"finalPosition\":2,\"solvedProblems\":1,\"confirm\":true}";
+        String resolution = "{\"language\":\"Java\"}";
+
+        // PROGRAMADA: ni resoluciones ni resultado oficial confirmado.
+        resolve(memberSession, solved, resolution).andExpect(status().isConflict());
+        send("/api/competitions/" + competitionId + "/official-result", coachSession, result)
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors['competition.status']").exists());
+
+        // EN_CURSO: el practicante registra; el resultado oficial todavía no se puede confirmar.
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk());
+        resolve(memberSession, solved, resolution).andExpect(status().isCreated());
+        send("/api/competitions/" + competitionId + "/official-result", coachSession, result)
+                .andExpect(status().isBadRequest());
+
+        // FINALIZADA: se confirma el resultado oficial y el reporte de temas ya se puede generar.
+        changeStatus(coachSession, competitionId, "FINALIZADA").andExpect(status().isOk());
+        send("/api/competitions/" + competitionId + "/official-result", coachSession, result)
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("CONFIRMADO"))
+                .andExpect(jsonPath("$.finalPosition").value(2));
+        mvc.perform(get("/api/analytics/teams/" + teamId + "/weaknesses").contextPath("/api")
+                        .with(Bearer.of(coachSession)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.topics.length()").value(2));
+        // Una vez finalizada la competencia el practicante todavía puede registrar su avance (repaso).
+        int other = JsonPath.read(body(mvc.perform(get("/api/problems/assigned").contextPath("/api")
+                        .with(Bearer.of(memberSession)).param("teamId", "" + teamId).param("status", "SIN_INTENTOS"))
+                .andExpect(status().isOk())), "$.items[0].competitionProblemId");
+        resolve(memberSession, other, resolution).andExpect(status().isCreated());
+    }
+
+    // ---- competencias de un equipo
+
+    @Test
+    void competitionsOfATeamAreListedForItsCoachAndActiveMembersOnly() throws Exception {
+        int problem = createProblem("Listado", null, null);
+        int first = createCompetition("Simulacro listado uno", "PROGRAMADA");
+        int second = createCompetition("Simulacro listado dos", "EN_CURSO");
+        assign(coachSession, second, "[{\"problemId\":" + problem + "}]").andExpect(status().isCreated());
+        int third = JsonPath.read(body(send("/api/competitions", coachSession, "{\"teamId\":" + teamId
+                + ",\"eventName\":\"Listado privado\",\"accessType\":\"PRIVADO_PASS\","
+                + "\"accessKey\":\"clave-secreta-9\",\"startsAt\":\"2026-11-01T09:00:00-05:00\","
+                + "\"endsAt\":\"2026-11-01T14:00:00-05:00\"}").andExpect(status().isCreated())), "$.id");
+
+        for (String session : List.of(coachSession, memberSession)) {
+            mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(session)).param("teamId", "" + teamId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.teamId").value(teamId))
+                    .andExpect(jsonPath("$.total").value(3))
+                    // La de inicio más reciente primero; con el mismo inicio, la creada después.
+                    .andExpect(jsonPath("$.items[0].id").value(second))
+                    .andExpect(jsonPath("$.items[0].status").value("EN_CURSO"))
+                    .andExpect(jsonPath("$.items[0].problemsCount").value(1))
+                    .andExpect(jsonPath("$.items[1].id").value(first))
+                    .andExpect(jsonPath("$.items[1].problemsCount").value(0))
+                    .andExpect(jsonPath("$.items[2].id").value(third))
+                    .andExpect(jsonPath("$.items[2].accessType").value("PRIVADO_PASS"))
+                    .andExpect(content().string(not(containsString("clave-secreta"))))
+                    .andExpect(content().string(not(containsString("$2a"))));
+        }
+
+        for (Account denied : List.of(retired, outsider, outsiderCoach)) {
+            mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(login(denied)))
+                            .param("teamId", "" + teamId))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(get("/api/competitions").contextPath("/api").param("teamId", "" + teamId))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(coachSession)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.teamId").exists());
+        mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(coachSession)).param("teamId", "abc"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(coachSession))
+                        .param("teamId", "" + Integer.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
     // ---- utilidades
+
+    private ResultActions changeStatus(String session, int competitionId, String state) throws Exception {
+        return mvc.perform(patch("/api/competitions/" + competitionId + "/status").contextPath("/api")
+                .with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"" + state + "\"}"));
+    }
+
+    private ResultActions resolve(String session, int assignmentId, String json) throws Exception {
+        return mvc.perform(post("/api/competitions/teams/" + teamId + "/problems/" + assignmentId + "/resolutions")
+                .contextPath("/api").with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON).content(json));
+    }
+
+    private String statusInDatabase(int competitionId) {
+        return jdbc.queryForObject("SELECT estado FROM competencia WHERE id = ?", String.class, competitionId);
+    }
 
     private ResultActions send(String path, String session, String json) throws Exception {
         return mvc.perform(post(path).contextPath("/api").with(Bearer.of(session))
