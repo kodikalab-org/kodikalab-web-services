@@ -621,6 +621,50 @@ Las instalaciones existentes de PostgreSQL deben admitir los estados `PENDIENTE`
 
 Las pruebas de integración verifican creación de grupos, solicitudes pendientes, aceptación, rechazo, autorización del coach, duplicados y capacidad.
 
+## Analytics — US-10
+
+`GET /api/analytics/teams/{teamId}/progress/me/topics` devuelve el progreso por tema del practicante autenticado en
+ese equipo. Requiere token Bearer, cuenta `ACTIVO`, rol `PRACTICANTE` y membresía `ACTIVO` propia; el coach dispone del
+reporte del equipo (US-12). El avance de cada equipo es independiente. Respuesta `200 OK`:
+
+```json
+{
+  "teamId": 1,
+  "membershipId": 7,
+  "userId": 10,
+  "assignedProblems": 3,
+  "solvedProblems": 1,
+  "unclassifiedProblems": 0,
+  "reinforcementCriterion": "Se marcan para reforzar los temas con la menor cobertura (todos los empatados) mientras esa cobertura sea menor que 100%. ...",
+  "topics": [
+    {
+      "topicId": 3, "topicName": "Programación dinámica", "assignedProblems": 1, "solvedProblems": 0,
+      "unsolvedProblems": 1, "pendingProblems": 0, "coveragePercentage": 0.00,
+      "status": "SIN_ACTIVIDAD", "needsReinforcement": true
+    },
+    {
+      "topicId": 1, "topicName": "Grafos", "assignedProblems": 2, "solvedProblems": 1,
+      "unsolvedProblems": 1, "pendingProblems": 0, "coveragePercentage": 50.00,
+      "status": "EN_PROGRESO", "needsReinforcement": false
+    }
+  ]
+}
+```
+
+- Se cuentan los problemas asignados al equipo, sea cual sea el estado de la competencia. Un problema cuenta una sola vez por
+  tema aunque se asigne en varias competencias, y está resuelto si el practicante tiene al menos un intento `ACCEPTED`.
+  `solvedProblems` total coincide con `acceptedProblems` de `progress/me`.
+- `status`: `COMPLETADO` si todos los problemas del tema están resueltos, `SIN_ACTIVIDAD` si no hay ningún intento en ellos y
+  `EN_PROGRESO` en los demás casos. Los temas aún sin actividad aparecen igualmente, con su estado inicial.
+- `needsReinforcement` marca los temas con la menor cobertura (todos los empatados) mientras sea menor que 100%. La lista sale
+  de menor a mayor cobertura y, con la misma, por nombre.
+- Un problema sin tema no hace fallar la consulta: se cuenta en `unclassifiedProblems` y no aparece en ningún tema. Un equipo
+  sin problemas asignados devuelve `topics: []`.
+- Errores `{ "message": "...", "errors": {} }`: `400` identificador inválido, `401` sin token válido, `403` rol distinto de
+  `PRACTICANTE`, cuenta no activa o sin membresía `ACTIVO` en el equipo, `404` equipo inexistente, `409` datos faltantes o
+  inconsistentes (`errors` nombra el dato afectado y no se devuelve ningún indicador), `503` información no disponible (el
+  mensaje invita a reintentar). Detalle y decisiones: [US-10](18-us10-progreso-por-tema.md).
+
 ## Analytics — US-11
 
 `GET /api/analytics/teams/{teamId}/standings` consulta resoluciones persistidas del equipo. Requiere token Bearer y cuenta `ACTIVO`: se autoriza al coach responsable o al practicante con membresía `ACTIVO`. La identidad se obtiene desde la sesión; el cliente no elige el usuario solicitante.
@@ -972,14 +1016,6 @@ GET   /teams/{id}/members
 ```txt
 POST /problems/{id}/submit
 GET  /problems/{id}/resources
-```
-
-## Analytics
-
-```txt
-GET  /analytics/teams/{teamId}/topics
-POST /analytics/teams/{teamId}/competitions
-GET  /analytics/users/me/independent-progress
 ```
 
 ## AI Assistant
