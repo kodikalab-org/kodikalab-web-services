@@ -10,7 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/analytics")
-@Tag(name = "Analítica", description = "Ranking, progreso y reportes por equipo (US-11, US-12, US-14).")
+@Tag(name = "Analítica", description = "Ranking, progreso y reportes por equipo (US-10, US-11, US-12, US-14).")
 public class AnalyticsController {
     private final StoredTeamRankingService rankingService;
 

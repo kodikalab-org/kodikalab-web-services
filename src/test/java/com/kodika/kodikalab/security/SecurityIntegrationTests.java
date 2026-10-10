@@ -101,7 +101,8 @@ class SecurityIntegrationTests {
     static final List<Endpoint> PRACTITIONER_ONLY = List.of(
             new Endpoint(HttpMethod.POST, "/teams/1/join", null),
             new Endpoint(HttpMethod.POST, "/competitions/teams/1/problems/1/resolutions", "{\"language\":\"Java 21\"}"),
-            new Endpoint(HttpMethod.GET, "/analytics/teams/1/progress/me", null));
+            new Endpoint(HttpMethod.GET, "/analytics/teams/1/progress/me", null),
+            new Endpoint(HttpMethod.GET, "/analytics/teams/1/progress/me/topics", null));
 
     static final List<Endpoint> ANY_ACCOUNT = List.of(
             new Endpoint(HttpMethod.GET, "/users/me", null),

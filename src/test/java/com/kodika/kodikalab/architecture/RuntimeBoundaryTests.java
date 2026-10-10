@@ -86,7 +86,7 @@ class RuntimeBoundaryTests {
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
-                        "/analytics/teams/{teamId}/progress/me",
+                        "/analytics/teams/{teamId}/progress/me", "/analytics/teams/{teamId}/progress/me/topics",
                         "/teams", "/teams", "/teams/me", "/teams/{id}/join", "/teams/{id}/memberships",
                         "/teams/{id}/memberships/{memberId}",
                         "/problems", "/problems", "/problems/assign", "/problems/assigned",
