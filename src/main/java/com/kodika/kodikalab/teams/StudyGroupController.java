@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.CreateStudyGroupResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.PendingMembershipResponse;
@@ -51,6 +52,12 @@ public class StudyGroupController {
                         .map(StudyGroupResponse::from)
                         .toList()
         );
+    }
+
+    // US05 / US06 - Mis equipos: los grupos del coach o las membresías (con su estado) del practicante
+    @GetMapping("/me")
+    public ResponseEntity<List<MyTeamResponse>> getMyTeams() {
+        return ResponseEntity.ok(studyGroupService.findMyTeams());
     }
 
     // US04 - Crear grupo
