@@ -48,14 +48,14 @@ http://localhost:8080/api/swagger-ui.html
 
 ## Estado actual
 
-- `auth`, `users`, `security`, `common` y `config`: registro (US-01) y login con sesión HTTP (US-02) sobre `usuario`.
+- `auth`, `users`, `security`, `common` y `config`: registro (US-01) y login con token JWT (US-02) sobre `usuario`.
 - `profiles`: perfiles `practicante` y `coach` (US-03) en `GET/PUT /api/users/me`, según el rol de la sesión.
 - `teams`, `competitions` y `problems`: **plantilla del ERD** con una carpeta por entidad (entidad, enums,
   repositorio y servicio) y un controller por módulo, sin lógica ni endpoints. Ver `05-architecture.md`.
 - `assignments` (US-07 y US-08) y `analytics` (US-11 a US-14): implementados sin tablas propias, coordinando por servicios públicos. `ai`: diseño objetivo, sin código.
 
 Todas las tablas del ERD tienen entidad JPA y Hibernate las crea con `ddl-auto: update` en desarrollo. No hay
-migración de datos ni del esquema anterior. La seguridad sigue temporalmente abierta con `permitAll()`, sin JWT.
+migración de datos ni del esquema anterior. La API exige token JWT y autoriza por rol con Spring Security (`06-security-strategy.md`).
 El scaffolding inicial por capas se retiró (ver `12-source-cleanup.md`).
 
 ## Dirección de evolución

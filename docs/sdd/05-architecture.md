@@ -26,7 +26,7 @@ docs/sdd/04-database-model.md
 | `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD (US-07 y US-08 implementadas) | Asigna problemas del catálogo a las competencias del equipo (`competencia_problema`) y expone los problemas asignados con el estado personal; coordina `competitions`, `problems` y `teams` por sus servicios; no recrear tablas retiradas sin diseño aprobado |
 | `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking, su último resultado válido y cobertura por tema (US-12); no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
-| `security` | Sesión, contexto de seguridad, permisos | Componentes transversales; JWT sigue pendiente |
+| `security` | JWT, filtro de autenticación, errores 401/403 | Componentes transversales; las reglas por rol viven en `config.SecurityConfig` |
 | `config` | Beans Spring | Configuración general, sin lógica de negocio |
 | `common` | Excepciones y tipos transversales | Componentes compartidos, sin dependencia de módulos de negocio |
 
@@ -186,7 +186,7 @@ Para módulos que crezcan se permite refinar capas internas, sin obligar a migra
 - `common` no depende de módulos de negocio.
 - `security` y `config` implementan preocupaciones técnicas, no reglas de negocio.
 
-Registro/login no requieren un `AuthRepository`: no existe una entidad persistente propia de autenticación en el ERD. La sesión HTTP actual vive en memoria mediante Spring Security.
+Registro/login no requieren un `AuthRepository`: no existe una entidad persistente propia de autenticación en el ERD. La autenticación es sin estado: el token JWT identifica la cuenta en cada petición y no se persiste nada.
 
 ## Relaciones justificadas por el ERD
 
@@ -211,7 +211,7 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/auth/**` | `auth`; registro/login persisten en `usuario` según el ERD nuevo |
 | `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
 | `/teams/**` | Propuesta pendiente de `teams`; no publicada |
-| `/problems`, `/problems/assign`, `/problems/assigned/**` | Catálogo (`problems`) y US-07/US-08 (`assignments`) implementadas; requieren sesión. `/problems/{id}/submit` y `/problems/{id}/resources` siguen pendientes |
+| `/problems`, `/problems/assign`, `/problems/assigned/**` | Catálogo (`problems`) y US-07/US-08 (`assignments`) implementadas; requieren token Bearer. `/problems/{id}/submit` y `/problems/{id}/resources` siguen pendientes |
 | `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
 | `/analytics/teams/{teamId}/weaknesses` | US-12 implementada; requiere sesión del coach responsable con cuenta activa |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |

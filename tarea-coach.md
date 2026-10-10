@@ -230,7 +230,7 @@ Fase 3 puede escribir pruebas de servicio y la colección Postman mientras corre
 - Crear grupos (`grupo_estudio`, US-04) o cualquier lógica que use `coach_id`.
 - Perfil público del coach consultable por otros usuarios (el ERD dice "perfil público" en `presentacion`, pero no hay historia ni endpoint definido).
 - Verificación/aprobación de coaches, cambio de rol, edición de `usuario.nombre_completo`, correo o contraseña.
-- Cerrar endpoints por rol en `SecurityConfig` (se mantiene `permitAll()`; la autorización sigue en el servicio).
+- Reglas por rol declaradas en `SecurityConfig` (JWT); la pertenencia y propiedad siguen validándose en el servicio.
 
 ## Checklist antes de entregar
 
