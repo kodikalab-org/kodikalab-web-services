@@ -194,6 +194,28 @@ CREATE TABLE ranking_equipo_actual (
 
 El entorno de desarrollo mantiene `ddl-auto=update`, que puede crear esta tabla al arrancar; no se cambió la configuración. No se ejecutó este DDL contra una base local o compartida durante la implementación. Ver `13-us11-ranking-interno.md` para el contrato de recuperación y sus limitaciones.
 
+## Extensión aprobada — US-13
+
+`competitions.officialresult.OfficialResult` agrega `resultado_oficial_competencia`, autorizada para registrar
+el resultado oficial de una competencia. El ERD gráfico aún no contiene esta extensión; las tablas y
+relaciones anteriores permanecen intactas. `ErdSchemaIntegrationTests` incluye la extensión explícitamente.
+
+| Columna | Tipo | Restricción |
+| --- | --- | --- |
+| `id` | `INTEGER` | PK, identidad generada |
+| `competencia_id` | `INTEGER` | Obligatoria, FK a `competencia.id`, única |
+| `posicion_final` | `INTEGER` | Nullable en pendientes; mayor que cero si existe |
+| `problemas_resueltos` | `INTEGER` | Nullable en pendientes; no negativo si existe |
+| `estado` | `VARCHAR(20)` | `PENDIENTE` / `CONFIRMADO`, obligatorio |
+| `registrado_en` | `TIMESTAMPTZ` | Obligatorio |
+| `confirmado_en` | `TIMESTAMPTZ` | Null en pendientes; obligatorio en confirmados |
+
+El check `ck_resultado_oficial_valido` exige ambos números y fecha de confirmación para `CONFIRMADO`.
+`uq_resultado_oficial_competencia` impide duplicados concurrentes. El equipo se obtiene de la competencia;
+no se agrega un `grupo_id` redundante. Sin cascadas ni cambios en `competencia` o `resolucion_problema`.
+Las reglas, el DDL equivalente y el límite de equivalencia entre competencias con IDs distintos se detallan
+en [15-us13-resultados-oficiales.md](15-us13-resultados-oficiales.md). No se ejecutó DDL en una base existente.
+
 ## Migración segura del modelo anterior
 
 Cambiar `@Table` y usar `ddl-auto=update` **no migra** filas de `users` a `usuario`, no combina nombres ni convierte roles/estados.

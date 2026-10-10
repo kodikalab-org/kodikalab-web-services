@@ -5,6 +5,7 @@ import com.kodika.kodikalab.competitions.category.Category;
 import com.kodika.kodikalab.competitions.competition.Competition;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblem;
 import com.kodika.kodikalab.competitions.problemresolution.ProblemResolution;
+import com.kodika.kodikalab.competitions.officialresult.OfficialResult;
 import com.kodika.kodikalab.problems.material.Material;
 import com.kodika.kodikalab.problems.problem.Problem;
 import com.kodika.kodikalab.problems.problemtopic.ProblemTopic;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Update these boundaries deliberately. Template controllers of teams/problems/competitions have no
+ * Update these boundaries deliberately. Template controllers of teams/problems have no
  * handler methods yet, so they must not publish any endpoint until their user story adds one.
  */
 @SpringBootTest
@@ -51,13 +52,13 @@ class RuntimeBoundaryTests {
                         Competition.class.getName(), CompetitionProblem.class.getName(),
                         ProblemResolution.class.getName(), Category.class.getName(), Problem.class.getName(),
                         Topic.class.getName(), ProblemTopic.class.getName(), Material.class.getName(),
-                        TeamRankingSnapshot.class.getName());
+                        TeamRankingSnapshot.class.getName(), OfficialResult.class.getName());
         assertThat(context.getBeansOfType(JpaRepository.class).keySet())
                 .containsExactlyInAnyOrder("userRepository", "practitionerProfileRepository",
                         "coachProfileRepository", "studyGroupRepository", "groupMembershipRepository",
                         "competitionRepository", "competitionProblemRepository", "problemResolutionRepository",
                         "categoryRepository", "problemRepository", "topicRepository", "problemTopicRepository",
-                        "materialRepository", "teamRankingSnapshotRepository");
+                        "materialRepository", "teamRankingSnapshotRepository", "officialResultRepository");
         assertThat(context.containsBean("legacyAuthController")).isFalse();
         assertThat(context.containsBean("legacyAuthService")).isFalse();
     }
@@ -69,7 +70,9 @@ class RuntimeBoundaryTests {
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
                 .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
-                        "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses");
+                        "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses",
+                        "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
+                        "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results");
     }
 
     @Test

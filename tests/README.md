@@ -200,6 +200,32 @@ $env:TOPIC_REPORT_TEST_DB_USER = 'postgres'
 
 La suite crea `topic_report_test_<uuid>`, utiliza login HTTP real, carga fixtures solo en ese schema y lo elimina al terminar. Comprueba consultas, temas sin aceptaciones, deduplicación entre competencias, problemas con múltiples temas, empates, intentos pendientes, aislamiento por equipo, autorización y reintento tras corregir datos. Sin `TOPIC_REPORT_TEST_DB_URL` se omite. Una interrupción puede requerir limpieza manual del schema. No ha sido ejecutada contra PostgreSQL en esta entrega.
 
+## US-13 — Resultados oficiales
+
+Rutas de registro, detalle, actualización de pendientes e historial en `competitions`, solo para el coach
+responsable activo. Reglas, contratos y DDL: [US-13](../docs/sdd/15-us13-resultados-oficiales.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=OfficialResultServiceTests,OfficialResultControllerTests' test
+```
+
+Integración con una base exclusiva de pruebas y permisos para crear/eliminar schemas:
+
+```powershell
+$env:OFFICIAL_RESULT_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:OFFICIAL_RESULT_TEST_DB_USER = 'postgres'
+# Configurar OFFICIAL_RESULT_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=OfficialResultIntegrationTests' test
+```
+
+La suite crea `official_result_test_<uuid>`, carga datos ficticios, utiliza login HTTP real y elimina el schema
+al terminar. Verifica autorización, registro, validación, pendientes excluidos del historial, confirmación,
+conservación de datos, aislamiento por equipo, orden del historial, restricciones SQL y solicitudes concurrentes.
+Sin `OFFICIAL_RESULT_TEST_DB_URL` se omite. Una interrupción puede requerir limpieza manual del schema.
+No ha sido ejecutada contra PostgreSQL en esta entrega.
+
 ## Alcance y datos existentes
 
 - Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.

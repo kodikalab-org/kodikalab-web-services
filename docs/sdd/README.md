@@ -52,6 +52,7 @@ La propiedad de tablas y las capacidades sin tablas oficiales se detallan en `05
 12. [12-source-cleanup.md](12-source-cleanup.md) — Revisión funcional y eliminación del scaffolding sin uso.
 13. [09-component-diagram.md](09-component-diagram.md) — Componentes del API y trazabilidad clase/tabla/US.
 14. [14-us12-temas-menor-resolucion.md](14-us12-temas-menor-resolucion.md) — Cobertura por tema, equivalencias, datos insuficientes y pruebas de US-12.
+15. [15-us13-resultados-oficiales.md](15-us13-resultados-oficiales.md) — Registro pendiente/confirmado, autorización, historial y límite de duplicados de US-13.
 
 ## Assets
 

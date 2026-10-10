@@ -278,9 +278,37 @@ Errores `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin 
 
 Detalle y verificación: [US-12](14-us12-temas-menor-resolucion.md).
 
+## US-13 — Resultados oficiales de competencias
+
+Solo el coach responsable con cuenta activa y sesión puede utilizar estas rutas:
+
+```txt
+POST /competitions/{competitionId}/official-result
+PUT  /competitions/{competitionId}/official-result
+GET  /competitions/{competitionId}/official-result
+GET  /competitions/teams/{teamId}/official-results
+```
+
+POST devuelve `201`; PUT y GET devuelven `200`. Body de POST/PUT: `finalPosition` (entero positivo),
+`solvedProblems` (entero no negativo) y `confirm` (booleano, omitido equivale a `false`). Ambos números pueden
+faltar en un pendiente; confirmar exige ambos y una competencia `FINALIZADA`. PUT reemplaza todos los
+campos editables de un pendiente; un confirmado es inmutable. Solo se permite un registro por competencia.
+El equipo se deriva de la competencia, nunca de un `teamId` enviado en el body.
+
+El detalle devuelve `id`, `competitionId`, `teamId`, `eventName`, `competitionEndsAt`, `finalPosition`,
+`solvedProblems`, `status` (`PENDIENTE`/`CONFIRMADO`), `registeredAt` y `confirmedAt` (null en pendientes).
+El historial devuelve un array de estos DTOs, exclusivamente confirmados, por fecha de fin descendente e ID
+de competencia descendente en igualdad. Sin confirmados devuelve `[]`.
+
+Errores `{ "message": "...", "errors": {} }`: `400` identifica campos inválidos o faltantes al confirmar;
+`401` sesión ausente; `403` coach no autorizado; `404` equipo, competencia o resultado inexistente;
+`409` duplicado o modificación de confirmado; `503` datos/transacción no disponibles; `500` error inesperado.
+Ninguna operación rechazada reemplaza información válida. Ejemplos, tabla y límite de duplicados entre IDs
+distintos: [US-13](15-us13-resultados-oficiales.md).
+
 ## Rutas pendientes: no implementadas ni publicadas
 
-Las siguientes rutas son propuestas para historias futuras. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
+Las siguientes rutas son propuestas para historias futuras: **no aparecen en Swagger y actualmente devuelven `404`**. Los controllers plantilla de `teams` y `problems` no declaran endpoints. US-13 implementa únicamente las rutas de resultados oficiales descritas arriba, dentro de `competitions`.
 
 ## Teams
 

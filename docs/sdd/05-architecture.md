@@ -22,7 +22,7 @@ docs/sdd/04-database-model.md
 | `profiles` | `coach`, `practicante` | Perfiles de rol, datos académicos/competitivos y handles definidos por el ERD |
 | `teams` | `grupo_estudio`, `practicante_grupo` | Coach responsable, grupos, cupos, horario descriptivo, membresías y solicitudes |
 | `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
-| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
+| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria`, `resultado_oficial_competencia` (extensión aprobada US-13) | Evento del grupo, problemas del evento, resoluciones, scoreboard y resultados oficiales confirmados/pendientes |
 | `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
 | `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking, su último resultado válido y cobertura por tema (US-12); no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
@@ -33,6 +33,12 @@ docs/sdd/04-database-model.md
 `Categoria` se mapea en `competitions` (como en `09-component-diagram.md`) y engloba únicamente al grupo de estudio: 1:1 con `grupo_estudio`, según `oficial.erd`. Las incidencias de metadatos del ERD están registradas en `04-database-model.md`.
 
 ## Nombres y estructura
+
+US-13 incorpora `competitions.officialresult` con entidad, repository y Service/ServiceImpl, DTOs propios y
+endpoints en `CompetitionController`. El servicio consulta el repositorio de competencias del mismo módulo,
+`StudyGroupService` para autorizar al coach responsable y `CurrentUserResolver` para la sesión. El handler
+de errores tiene alcance exclusivo a ese controller. No modifica los cálculos ni componentes de US-11/US-12.
+Contrato y persistencia: [15-us13-resultados-oficiales.md](15-us13-resultados-oficiales.md).
 
 Las clases adoptan los **nombres en español del diagrama de clases** (página "CODIGO" del drawio). **Los valores de enums están en español en Java, HTTP y SQL** y se persisten con `@Enumerated(EnumType.STRING)`, sin conversores.
 
