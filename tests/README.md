@@ -112,7 +112,7 @@ Autenticación con token Bearer y autorización por rol. Contrato y reglas: [06-
 npx --yes newman run tests/SEC-jwt-roles.postman_collection.json -e tests/local.postman_environment.json
 ```
 
-Orden recomendado para pruebas manuales (base exclusiva de pruebas): `US01-register`, `US02-login` (requiere la fixture SQL), `SEC-jwt-roles`, `US03-profile`, `US03-coach`, `US04-06-teams`. Todas generan cuentas únicas por corrida y guardan el token en variables de colección.
+Orden recomendado para pruebas manuales (base exclusiva de pruebas): `US01-register`, `US02-login` (requiere la fixture SQL), `SEC-jwt-roles`, `US03-profile`, `US03-coach`, `US04-06-teams`, `US07-US14-flujo`. Todas generan cuentas únicas por corrida y guardan el token en variables de colección.
 
 ### Pruebas Java
 
@@ -123,6 +123,26 @@ Sin PostgreSQL: `JwtServiceTests`, `JwtAuthenticationFilterTests`.
 ```
 
 `SecurityIntegrationTests` es opt-in (`SECURITY_TEST_DB_URL`, `SECURITY_TEST_DB_USER`, `SECURITY_TEST_DB_PASSWORD`) y crea el schema aleatorio `security_test_<uuid>`: `401` en todos los endpoints protegidos sin token, tokens inválidos, `403` por rol en cada endpoint exclusivo, rol del token no confiable, cuenta suspendida o eliminada, ausencia de sesión/cookie, OpenAPI, Swagger y CORS.
+
+## Flujo US-07 a US-14 (Postman)
+
+`US07-US14-flujo.postman_collection.json` (43 solicitudes, sin fixtures) recorre por la API los endpoints de problemas, competencias, avance y resultados: crea un COACH y dos PRACTICANTES (con perfil), un grupo público, tres problemas con temas, una competencia en curso y otra finalizada, asigna los problemas, registra una resolución y confirma un resultado oficial. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente.
+
+| Historia | Qué comprueba |
+| --- | --- |
+| US-07 | Catálogo (`POST`/`GET /problems`, duplicado por URL `409`), `POST /competitions`, asignación atómica con letras automáticas, reasignación `409` y asignación a una competencia FINALIZADA `409`. |
+| US-08 | Problemas asignados del practicante (`SIN_INTENTOS`), detalle, filtros por estado y texto, y la vista del coach sin avance personal. |
+| US-09 / US-14 | Registro de la resolución (`ACCEPTED`), duplicado `409`, lenguaje ausente `400`, avance por equipo independiente entre practicantes y estado `RESUELTO` solo para quien resolvió. |
+| US-11 | Ranking del equipo visto por el coach y por un integrante. |
+| US-12 | Escenario de error: sin problemas en competencias FINALIZADA, `409` con la causa. El cálculo completo no se alcanza solo con la API (no se asigna a una competencia ya finalizada) y lo cubre `TopicReportIntegrationTests`. |
+| US-13 | Resultado pendiente, duplicado `409`, confirmación, consulta, historial y rechazo de confirmar una competencia que no está FINALIZADA. |
+
+```bash
+node tests/generate-flow-collection.mjs   # regenera la colección
+npx --yes newman run tests/US07-US14-flujo.postman_collection.json -e tests/local.postman_environment.json
+```
+
+**Efecto sobre datos:** crea por corrida tres cuentas `test.flow.*@gmail.com`, sus perfiles, un grupo, tres problemas, dos competencias, las asignaciones, una resolución y un resultado oficial. No modifica ni elimina otros datos; usar una base exclusiva de pruebas.
 
 ## US-03 — Perfil de practicante y coach
 

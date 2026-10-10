@@ -1,0 +1,2201 @@
+{
+  "info": {
+    "name": "KodikaLab - US07 a US14 Flujo completo",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas, dos competencias, la asignación, una resolución y un resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí)."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "coachToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "practAToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "practBToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName.startsWith('01 ') || !pm.collectionVariables.get('runId')) {",
+          "  const id = pm.variables.replaceIn('{{$guid}}').replace(/-/g, '').slice(0, 8);",
+          "  pm.collectionVariables.set('runId', id);",
+          "  pm.collectionVariables.set('coachEmail', `test.flow.coach.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('practAEmail', `test.flow.a.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('practBEmail', `test.flow.b.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('studentCodeA', `F${id}A`);",
+          "  pm.collectionVariables.set('studentCodeB', `F${id}B`);",
+          "  pm.collectionVariables.set('startsAt', new Date(Date.now() - 3600000).toISOString());",
+          "  pm.collectionVariables.set('endsAt', new Date(Date.now() + 7200000).toISOString());",
+          "  pm.collectionVariables.set('pastStartsAt', new Date(Date.now() - 10800000).toISOString());",
+          "  pm.collectionVariables.set('pastEndsAt', new Date(Date.now() - 3600000).toISOString());",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Registrar COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Flujo\",\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Registrar PRACTICANTE A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Flujo\",\n  \"email\": \"{{practAEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Registrar PRACTICANTE B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Flujo\",\n  \"email\": \"{{practBEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Login COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"{{coachEmail}}\", \"password\": \"Password123\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token.split('.')).to.have.lengthOf(3); });",
+              "pm.collectionVariables.set(\"coachToken\", body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Login PRACTICANTE A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"{{practAEmail}}\", \"password\": \"Password123\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token.split('.')).to.have.lengthOf(3); });",
+              "pm.collectionVariables.set(\"practAToken\", body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Login PRACTICANTE B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"email\": \"{{practBEmail}}\", \"password\": \"Password123\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token.split('.')).to.have.lengthOf(3); });",
+              "pm.collectionVariables.set(\"practBToken\", body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Perfil del COACH",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"especialidadPrincipal\": \"Grafos\", \"aniosExperiencia\": 3 }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Perfil de PRACTICANTE A",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"codigoEstudiante\": \"{{studentCodeA}}\", \"carrera\": \"Ingeniería de Software\", \"cicloAcademico\": 5, \"nivelCompetitivo\": \"INTERMEDIO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Perfil de PRACTICANTE B",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"codigoEstudiante\": \"{{studentCodeB}}\", \"carrera\": \"Ingeniería de Software\", \"cicloAcademico\": 4, \"nivelCompetitivo\": \"PRINCIPIANTE\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Crear grupo público",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"name\": \"Flujo {{runId}}\", \"description\": \"Equipo de las pruebas US-07 a US-14\", \"expectedLevel\": \"Div3\", \"maxCapacity\": 10, \"sessionSchedule\": \"Lun 18:00\", \"visibility\": \"PUBLICO\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Grupo creado', () => pm.expect(body.groupId).to.be.a('number'));",
+              "pm.collectionVariables.set(\"groupId\", body.groupId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 PRACTICANTE A ingresa al grupo (ACTIVO)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupId}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupId}}",
+            "join"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Membresía ACTIVO', () => pm.expect(body.status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 PRACTICANTE B ingresa al grupo (ACTIVO)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupId}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupId}}",
+            "join"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Membresía ACTIVO', () => pm.expect(body.status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Registrar problema 1 (Grafos, BFS)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Camino mínimo {{runId}}\",\n  \"url\": \"https://judge.example/p/{{runId}}-1\",\n  \"sourcePlatform\": \"CODEFORCES\",\n  \"sourceCode\": \"CF-{{runId}}-1\",\n  \"difficultyRating\": \"1400\",\n  \"timeLimitMs\": 1000,\n  \"memoryLimitMb\": 256,\n  \"topics\": [\"Grafos\",\"BFS\"]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Temas del problema', () => pm.expect(body.topics.map((t) => t.name)).to.include('Grafos'));",
+              "pm.collectionVariables.set(\"problem1\", body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Registrar problema 2 (Programación dinámica)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Mochila {{runId}}\",\n  \"url\": \"https://judge.example/p/{{runId}}-2\",\n  \"sourcePlatform\": \"CODEFORCES\",\n  \"sourceCode\": \"CF-{{runId}}-2\",\n  \"difficultyRating\": \"1800\",\n  \"timeLimitMs\": 1000,\n  \"memoryLimitMb\": 256,\n  \"topics\": [\"Programación dinámica\"]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set(\"problem2\", body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Registrar problema 3 (Grafos)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Componentes conexas {{runId}}\",\n  \"url\": \"https://judge.example/p/{{runId}}-3\",\n  \"sourcePlatform\": \"CODEFORCES\",\n  \"sourceCode\": \"CF-{{runId}}-3\",\n  \"difficultyRating\": \"1200\",\n  \"timeLimitMs\": 1000,\n  \"memoryLimitMb\": 256,\n  \"topics\": [\"Grafos\"]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set(\"problem3\", body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Problema duplicado por URL → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Otro título {{runId}}\",\n  \"url\": \"https://judge.example/p/{{runId}}-1\",\n  \"sourcePlatform\": \"CODEFORCES\",\n  \"sourceCode\": \"CF-{{runId}}-1\",\n  \"difficultyRating\": \"1400\",\n  \"timeLimitMs\": 1000,\n  \"memoryLimitMb\": 256,\n  \"topics\": [\"Grafos\"]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Buscar el catálogo por texto",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems?q={{runId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ],
+          "query": [
+            {
+              "key": "q",
+              "value": "{{runId}}"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Encuentra los 3 problemas', () => pm.expect(body.totalItems).to.eql(3));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Crear competencia en curso",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"teamId\": {{groupId}}, \"eventName\": \"Simulacro {{runId}}\", \"description\": \"Flujo US-07 a US-14\", \"accessType\": \"PUBLICO_GRUPO\", \"penaltyRule\": \"ICPC_20_MIN\", \"scoreboardFreezeMinutes\": 30, \"status\": \"EN_CURSO\", \"startsAt\": \"{{startsAt}}\", \"endsAt\": \"{{endsAt}}\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Sin clave de acceso en la respuesta', () => pm.expect(body).not.to.have.property('accessKey'));",
+              "pm.collectionVariables.set(\"competitionId\", body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Asignar los 3 problemas a la competencia (US-07)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assign",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assign"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"competitionId\": {{competitionId}}, \"problems\": [ { \"problemId\": {{problem1}} }, { \"problemId\": {{problem2}} }, { \"problemId\": {{problem3}} } ] }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Tres asignaciones con letras distintas', () => { pm.expect(body.assigned).to.have.lengthOf(3); pm.expect(new Set(body.assigned.map((a) => a.letter)).size).to.eql(3); });",
+              "pm.collectionVariables.set(\"cp1\", body.assigned[0].competitionProblemId);",
+              "pm.collectionVariables.set(\"cp2\", body.assigned[1].competitionProblemId);",
+              "pm.collectionVariables.set(\"cp3\", body.assigned[2].competitionProblemId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Asignar un problema ya asignado → 409 (no cambia nada)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assign",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assign"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"competitionId\": {{competitionId}}, \"problems\": [ { \"problemId\": {{problem1}} } ] }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 PRACTICANTE A ve sus problemas asignados",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assigned?teamId={{groupId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assigned"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('3 problemas SIN_INTENTOS', () => { pm.expect(body.total).to.eql(3); for (const item of body.items) { pm.expect(item.status).to.eql('SIN_INTENTOS'); pm.expect(item.attemptCount).to.eql(0); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Detalle de un problema asignado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assigned/{{cp1}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assigned",
+            "{{cp1}}"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Detalle con intentos vacíos', () => { pm.expect(body.assignment.competitionProblemId).to.eql(Number(pm.collectionVariables.get('cp1'))); pm.expect(body.attempts).to.have.lengthOf(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 Filtrar por estado y texto",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assigned?teamId={{groupId}}&status=SIN_INTENTOS&q=Mochila",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assigned"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            },
+            {
+              "key": "status",
+              "value": "SIN_INTENTOS"
+            },
+            {
+              "key": "q",
+              "value": "Mochila"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Solo la Mochila', () => pm.expect(body.total).to.eql(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 El COACH ve la asignación del equipo (sin avance personal)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assigned?teamId={{groupId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assigned"
+          ],
+          "query": [
+            {
+              "key": "teamId",
+              "value": "{{groupId}}"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin estado personal', () => { pm.expect(body.total).to.eql(3); pm.expect(body.items[0].status).to.eql(null); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 PRACTICANTE A registra su resolución (ACCEPTED)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/{{groupId}}/problems/{{cp1}}/resolutions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "{{groupId}}",
+            "problems",
+            "{{cp1}}",
+            "resolutions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"language\": \"Java 21\", \"evidenceUrl\": \"https://judge.example/s/{{runId}}\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Aceptada y avance actualizado', () => { pm.expect(body.resolution.verdict).to.eql('ACCEPTED'); pm.expect(body.progress.acceptedProblems).to.eql(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 Registro duplicado → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/{{groupId}}/problems/{{cp1}}/resolutions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "{{groupId}}",
+            "problems",
+            "{{cp1}}",
+            "resolutions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"language\": \"Java 21\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 Lenguaje ausente → 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/{{groupId}}/problems/{{cp2}}/resolutions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "{{groupId}}",
+            "problems",
+            "{{cp2}}",
+            "resolutions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Indica el campo', () => pm.expect(body.errors).to.have.property('language'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Avance de PRACTICANTE A",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/progress/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "progress",
+            "me"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('1 problema aceptado', () => pm.expect(body.acceptedProblems).to.eql(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Avance de PRACTICANTE B: independiente, 0",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/progress/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "progress",
+            "me"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('0 problemas aceptados', () => pm.expect(body.acceptedProblems).to.eql(0));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 El problema pasa a RESUELTO para A",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practAToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assigned/{{cp1}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assigned",
+            "{{cp1}}"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('RESUELTO con 1 intento', () => { pm.expect(body.assignment.status).to.eql('RESUELTO'); pm.expect(body.attempts).to.have.lengthOf(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 Para B el mismo problema sigue SIN_INTENTOS",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assigned/{{cp1}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assigned",
+            "{{cp1}}"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('SIN_INTENTOS', () => pm.expect(body.assignment.status).to.eql('SIN_INTENTOS'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Ranking del equipo (COACH)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/standings",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "standings"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('A primero con 1 problema', () => { pm.expect(body.status).to.eql('CALCULATED'); pm.expect(body.members[0].acceptedProblems).to.eql(1); pm.expect(body.members[0].position).to.eql(1); pm.expect(body.members[1].acceptedProblems).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 Ranking visto por un integrante",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practBToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/standings",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "standings"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Dos integrantes', () => pm.expect(body.members).to.have.lengthOf(2));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 Reporte de temas sin competencias FINALIZADA con problemas → 409 (escenario de error de US-12)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/weaknesses",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "weaknesses"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Explica la causa', () => pm.expect(body.errors.assignments).to.include('FINALIZADA'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35 Crear competencia FINALIZADA",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"teamId\": {{groupId}}, \"eventName\": \"Oficial {{runId}}\", \"status\": \"FINALIZADA\", \"startsAt\": \"{{pastStartsAt}}\", \"endsAt\": \"{{pastEndsAt}}\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.collectionVariables.set(\"finishedCompetitionId\", body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "36 No se asignan problemas a una competencia FINALIZADA → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assign",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assign"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"competitionId\": {{finishedCompetitionId}}, \"problems\": [ { \"problemId\": {{problem1}} } ] }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.include('finalizó'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "37 Registrar resultado pendiente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{finishedCompetitionId}}",
+            "official-result"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"confirm\": false }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('PENDIENTE', () => pm.expect(body.status).to.eql('PENDIENTE'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "38 Resultado duplicado → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{finishedCompetitionId}}",
+            "official-result"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"confirm\": false }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "39 Completar y confirmar el resultado",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{finishedCompetitionId}}",
+            "official-result"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"finalPosition\": 3, \"solvedProblems\": 5, \"confirm\": true }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('CONFIRMADO', () => { pm.expect(body.status).to.eql('CONFIRMADO'); pm.expect(body.finalPosition).to.eql(3); pm.expect(body.solvedProblems).to.eql(5); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "40 Consultar el resultado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{finishedCompetitionId}}/official-result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{finishedCompetitionId}}",
+            "official-result"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Posición 3', () => pm.expect(body.finalPosition).to.eql(3));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "41 Historial de participaciones del equipo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/{{groupId}}/official-results",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "{{groupId}}",
+            "official-results"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Una participación confirmada', () => pm.expect(body).to.have.lengthOf(1));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42 No se confirma una competencia que no está FINALIZADA → 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/{{competitionId}}/official-result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "{{competitionId}}",
+            "official-result"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"finalPosition\": 1, \"solvedProblems\": 1, \"confirm\": true }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43 Sin token no se ve el ranking → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/{{groupId}}/standings",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "{{groupId}}",
+            "standings"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
