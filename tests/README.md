@@ -179,6 +179,27 @@ $env:RANKING_TEST_DB_USER = 'postgres'
 
 La suite crea `ranking_test_<uuid>`, carga fixtures únicamente en ese schema y utiliza login HTTP real antes de consultar el ranking. Verifica consolidación entre competencias, empates, ceros, ausencia de actividad, aislamiento por equipo, membresías inactivas, referencias cruzadas y permisos. También comprueba la recuperación del resultado guardado, su reemplazo tras corregir datos, una sola fila por equipo, rechazo de escrituras anteriores y que un miembro revocado no vea el resultado guardado. Elimina su schema al terminar; una interrupción puede requerir limpieza manual. Sin `RANKING_TEST_DB_URL`, se omite. No ha sido ejecutada contra PostgreSQL en esta entrega.
 
+## US-12 — Temas con menor resolución
+
+Endpoint: `GET /api/analytics/teams/{teamId}/weaknesses`, solo para el coach responsable con cuenta activa y sesión HTTP. Contrato, decisiones aprobadas y resultados: [US-12](../docs/sdd/14-us12-temas-menor-resolucion.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=TopicCoverageCalculatorTests,TeamTopicReportServiceTests,TopicReportControllerTests' test
+```
+
+Integración con una base exclusiva de pruebas y permisos para crear/eliminar schemas:
+
+```powershell
+$env:TOPIC_REPORT_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:TOPIC_REPORT_TEST_DB_USER = 'postgres'
+# Configurar TOPIC_REPORT_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=TopicReportIntegrationTests' test
+```
+
+La suite crea `topic_report_test_<uuid>`, utiliza login HTTP real, carga fixtures solo en ese schema y lo elimina al terminar. Comprueba consultas, temas sin aceptaciones, deduplicación entre competencias, problemas con múltiples temas, empates, intentos pendientes, aislamiento por equipo, autorización y reintento tras corregir datos. Sin `TOPIC_REPORT_TEST_DB_URL` se omite. Una interrupción puede requerir limpieza manual del schema. No ha sido ejecutada contra PostgreSQL en esta entrega.
+
 ## Alcance y datos existentes
 
 - Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.

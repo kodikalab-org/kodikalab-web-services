@@ -24,7 +24,7 @@ docs/sdd/04-database-model.md
 | `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
 | `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
 | `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
-| `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking y su último resultado válido; no dueño de entidades transaccionales ajenas |
+| `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking, su último resultado válido y cobertura por tema (US-12); no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
 | `security` | Sesión, contexto de seguridad, permisos | Componentes transversales; JWT sigue pendiente |
 | `config` | Beans Spring | Configuración general, sin lógica de negocio |
@@ -202,6 +202,7 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/teams/**` | Propuesta pendiente de `teams`; no publicada |
 | `/problems/**` | Propuesta pendiente de `problems` / asignación; no publicada |
 | `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
+| `/analytics/teams/{teamId}/weaknesses` | US-12 implementada; requiere sesión del coach responsable con cuenta activa |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |
 
 Las rutas pendientes se conservan únicamente como contratos propuestos. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints, así que no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.

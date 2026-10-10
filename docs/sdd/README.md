@@ -51,6 +51,7 @@ La propiedad de tablas y las capacidades sin tablas oficiales se detallan en `05
 11. [11-erd-oficial-alignment.md](11-erd-oficial-alignment.md) — Secuencia de adaptación de auth/users.
 12. [12-source-cleanup.md](12-source-cleanup.md) — Revisión funcional y eliminación del scaffolding sin uso.
 13. [09-component-diagram.md](09-component-diagram.md) — Componentes del API y trazabilidad clase/tabla/US.
+14. [14-us12-temas-menor-resolucion.md](14-us12-temas-menor-resolucion.md) — Cobertura por tema, equivalencias, datos insuficientes y pruebas de US-12.
 
 ## Assets
 

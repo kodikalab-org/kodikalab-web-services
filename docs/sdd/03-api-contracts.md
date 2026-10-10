@@ -238,6 +238,46 @@ En `409` o `503` se añade opcionalmente `lastValidRanking: { "calculatedAt": ".
 
 Detalle de reglas y verificación: [US-11](13-us11-ranking-interno.md).
 
+## Analytics — US-12
+
+`GET /api/analytics/teams/{teamId}/weaknesses` consulta la cobertura por tema. Requiere sesión HTTP, cuenta `ACTIVO`, rol `COACH` y ser el coach responsable del equipo. Un integrante no puede consultar este reporte, aunque pueda acceder al ranking. La identidad se resuelve desde la sesión; los parámetros del cliente no conceden permisos.
+
+Se consideran competencias `FINALIZADA`, integrantes actualmente `ACTIVO` y problemas distintos del catálogo. Por tema, la cobertura es `100 × problemas aceptados / problemas asignados`. Una aceptación de cualquier integrante incluido resuelve el problema para el equipo. Repeticiones entre intentos o competencias no aumentan el indicador. Un problema con varios temas se cuenta una vez en cada tema.
+
+Respuesta `200 OK`:
+
+```json
+{
+  "teamId": 1,
+  "metric": "DISTINCT_SOLVED_PROBLEMS_OVER_ASSIGNED_PROBLEMS",
+  "comparisonCriterion": "EXACT_PROPORTION_MINIMUM_ALL_TIES",
+  "comparisonExplanation": "Se comparan proporciones exactas de problemas distintos aceptados sobre asignados; todos los temas con la proporción mínima comparten menor cobertura. El porcentaje se redondea solo para mostrarlo.",
+  "activeMembers": 2,
+  "pendingResolutions": 1,
+  "topics": [
+    {
+      "topicId": 10,
+      "topicName": "Grafos",
+      "assignedProblems": 3,
+      "solvedProblems": 1,
+      "unsolvedProblems": 2,
+      "solvingMembers": 1,
+      "pendingResolutions": 1,
+      "coveragePercentage": 33.33,
+      "lowestCoverage": true
+    }
+  ]
+}
+```
+
+Se devuelven todos los temas del universo analizado, ordenados por proporción ascendente; `lowestCoverage` identifica **todos** los empatados en el mínimo exacto, antes del redondeo. Dentro del empate, el ID de tema estabiliza la presentación sin establecer prioridades. Los recuentos de problemas sin aceptación y de integrantes con aceptaciones permiten al coach decidir el refuerzo.
+
+`PENDIENTE` no suma al numerador y se informa como recuento de resoluciones únicas, global y por tema; no invalida automáticamente el reporte. Sin ninguna resolución definitiva de integrantes activos en competencias finalizadas, hay información insuficiente y se indica el número de pendientes en el error. Un tema sin aceptaciones permanece en el reporte cuando el conjunto sí tiene información suficiente.
+
+Errores `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin sesión, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por información insuficiente o inconsistente (identifica campos, índices o problemas sin clasificación), `503` por información no disponible debido a persistencia/transacción y `500` por error inesperado. Los errores no incluyen conclusiones parciales. Puede repetirse el mismo GET tras corregir los datos o recuperar su disponibilidad. US-12 no almacena reportes ni modifica el último ranking de US-11.
+
+Detalle y verificación: [US-12](14-us12-temas-menor-resolucion.md).
+
 ## Rutas pendientes: no implementadas ni publicadas
 
 Las siguientes rutas son propuestas para historias futuras. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints: **no aparecen en Swagger y actualmente devuelven `404`**. No deben considerarse funcionalidades disponibles.
@@ -264,7 +304,6 @@ GET  /problems/{id}/resources
 
 ```txt
 GET  /analytics/teams/{teamId}/topics
-GET  /analytics/teams/{teamId}/weaknesses
 POST /analytics/teams/{teamId}/competitions
 GET  /analytics/users/me/independent-progress
 ```
