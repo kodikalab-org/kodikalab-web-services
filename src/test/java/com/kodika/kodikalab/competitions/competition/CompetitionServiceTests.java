@@ -260,6 +260,35 @@ class CompetitionServiceTests {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    void summaryExposesTheTeamAndStatusOfAnExistingCompetition() {
+        Competition competition = new Competition();
+        competition.setId(5);
+        StudyGroup group = new StudyGroup();
+        group.setId(1);
+        competition.setGroup(group);
+        competition.setStatus(CompetitionStatus.EN_CURSO);
+        when(repository.findById(5)).thenReturn(Optional.of(competition));
+        when(repository.findForUpdate(5)).thenReturn(Optional.of(competition));
+
+        assertThat(service.findSummaryById(5)).hasValueSatisfying(summary -> {
+            assertThat(summary.id()).isEqualTo(5);
+            assertThat(summary.teamId()).isEqualTo(1);
+            assertThat(summary.status()).isEqualTo(CompetitionStatus.EN_CURSO);
+        });
+        assertThat(service.findSummaryForUpdate(5)).isPresent();
+        verify(repository).findForUpdate(5);
+    }
+
+    @Test
+    void summaryOfAMissingCompetitionIsEmpty() {
+        when(repository.findById(9)).thenReturn(Optional.empty());
+        when(repository.findForUpdate(9)).thenReturn(Optional.empty());
+
+        assertThat(service.findSummaryById(9)).isEmpty();
+        assertThat(service.findSummaryForUpdate(9)).isEmpty();
+    }
+
     private Competition saved() {
         ArgumentCaptor<Competition> captor = ArgumentCaptor.forClass(Competition.class);
         verify(repository).save(captor.capture());

@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.competitions.problemresolution;
 
+import com.kodika.kodikalab.competitions.problemresolution.dto.MemberAttempt;
 import com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData;
 import com.kodika.kodikalab.competitions.problemresolution.dto.ManualResolutionRequest;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblem;
@@ -48,6 +49,12 @@ public class ProblemResolutionServiceImpl implements ProblemResolutionService {
     @Transactional(readOnly = true)
     public List<TeamResolutionData> findResolutionsByTeamId(Integer teamId) {
         return problemResolutionRepository.findResolutionsByTeamId(teamId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MemberAttempt> findAttemptsByMembershipId(Integer membershipId) {
+        return problemResolutionRepository.findAttemptsByMembershipId(membershipId);
     }
 
     @Override
