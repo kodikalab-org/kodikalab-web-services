@@ -14,7 +14,7 @@ El frontend decide la navegación según `role`; el backend no inventa pantallas
 4. Elegir el entorno local (`baseUrl = http://localhost:8080/api`).
 5. Ejecutar las **35 solicitudes en orden**; cada login guarda el token en variables de colección.
 
-Crea dos cuentas activas de prueba, prueba ambos roles y rechaza el registro `ADMIN`. Comprueba error genérico, reintento, normalización, datos inválidos, correo superior a 100, límite BCrypt, rol de login ignorado, cuenta suspendida y token nuevo en cada login. Las últimas 13 solicitudes prueban la recuperación de acceso sin correo (código inválido o de otra cuenta, contraseña débil, recuperación correcta, invalidación del token y de la contraseña anteriores, código de un solo uso y consulta del código vigente). No borra ni sobrescribe cuentas existentes.
+Crea tres cuentas activas de prueba (una de ellas para la recuperación), prueba ambos roles y rechaza el registro `ADMIN`. Comprueba error genérico, reintento, normalización, datos inválidos, correo superior a 100, límite BCrypt, rol de login ignorado, cuenta suspendida y token nuevo en cada login. Las últimas 13 solicitudes prueban la recuperación de acceso sin correo (código inválido o de otra cuenta, contraseña débil, recuperación correcta, invalidación del token y de la contraseña anteriores, código de un solo uso y consulta del código vigente). No borra ni sobrescribe cuentas existentes.
 
 **Un `401` aislado no demuestra suspensión:** un correo ausente produce el mismo error. Confirmar la fixture antes de ejecutar; si la fila ya existe, el SQL no cambia su estado ni hash.
 
@@ -57,8 +57,8 @@ Se normaliza el correo, no la contraseña. No se exige de nuevo la política de 
 
 ## Tokens
 
-- Contienen identidad (`sub`, `uid`) y rol informativo; no contraseña ni entidad JPA. El rol efectivo se lee de `usuario.rol` en cada petición.
+- Contienen identidad (`sub`, `uid`), rol informativo y una huella del hash de la contraseña (`pwd`); nunca la contraseña ni una entidad JPA. El rol efectivo se lee de `usuario.rol` en cada petición.
 - Firmados con HMAC-SHA256 con `JWT_SECRET` (obligatorio, mínimo 32 caracteres); vigencia `JWT_EXPIRATION` (por defecto 24 h).
-- Cada login emite un token nuevo; los anteriores siguen válidos hasta su vencimiento (no hay revocación todavía).
+- Cada login emite un token nuevo; los anteriores siguen válidos hasta su vencimiento, salvo que la contraseña cambie (recuperación de acceso): entonces dejan de valer. No hay otra revocación todavía.
 - Una cuenta que pasa a `SUSPENDIDO` recibe `403` con su token vigente.
 - Detalle y reglas de acceso por rol: `docs/sdd/06-security-strategy.md`. Colección de seguridad: `tests/SEC-jwt-roles.postman_collection.json`.

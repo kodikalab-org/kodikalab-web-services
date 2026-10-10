@@ -54,9 +54,12 @@ Respuesta `201 Created`:
 {
   "message": "Registro exitoso",
   "email": "test@gmail.com",
-  "role": "PRACTICANTE"
+  "role": "PRACTICANTE",
+  "recoveryCode": "ABCD-EFGH-IJKL-MNOP-QRST-UVWX"
 }
 ```
+
+`recoveryCode` es el código para recuperar el acceso sin correo (ver [US-02](US02-login.md)); el cliente debe mostrarlo al titular para que lo guarde.
 
 Errores: `400` para entradas inválidas; `409` para correo registrado. El cuerpo contiene `message` y `errors`, sin valores rechazados ni detalles SQL. Registro no inicia sesión.
 
