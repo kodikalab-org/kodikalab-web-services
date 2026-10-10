@@ -35,13 +35,14 @@ POST /auth/login
 }
 ```
 
-Respuesta pública, sin contraseña, hash ni JWT:
+Respuesta pública, sin contraseña, hash ni JWT. Incluye el `recoveryCode` de la cuenta, que el titular debe guardar (ver "Recuperación de acceso sin correo"):
 
 ```json
 {
   "message": "Registro exitoso",
   "email": "test@gmail.com",
-  "role": "PRACTICANTE"
+  "role": "PRACTICANTE",
+  "recoveryCode": "ABCD-EFGH-IJKL-MNOP-QRST-UVWX"
 }
 ```
 
@@ -106,10 +107,10 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 
 | Acceso | Endpoints |
 | --- | --- |
-| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `/swagger-ui.html`, `/v3/api-docs` |
+| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `/swagger-ui.html`, `/v3/api-docs` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
-| Cualquier cuenta autenticada | El resto: `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
+| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
 
 Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
 dependen de datos (coach responsable del equipo, membresía activa, cuenta `ACTIVO`).
@@ -122,13 +123,43 @@ Errores de seguridad, con el cuerpo `{ "message": "...", "errors": {} }`:
 - `403`, rol sin permiso: `No tiene permisos para realizar esta acción`.
 - `403`, cuenta que dejó de estar `ACTIVO` después de iniciar sesión: `La cuenta no está habilitada`.
 
-El token es un JWT firmado con HMAC-SHA256 que contiene `sub` (correo), `uid`, `role`, `iat`, `exp`, `jti` e
+El token es un JWT firmado con HMAC-SHA256 que contiene `sub` (correo), `uid`, `role`, `pwd` (huella del hash de la contraseña), `iat`, `exp`, `jti` e
 `iss=kodikalab`; nunca contraseñas ni hashes. El rol efectivo se lee siempre de la base de datos, no del token.
 Configuración: `JWT_SECRET` (obligatorio, mínimo 32 caracteres), `JWT_EXPIRATION` (milisegundos, por defecto 24 h) y
 `CORS_ALLOWED_ORIGINS`. Detalle y decisiones: `06-security-strategy.md`.
 
-La recuperación de acceso descrita en `tarea.md` queda pendiente: no se definió su contrato técnico ni se implementan
-endpoints de recuperación.
+### Recuperación de acceso sin correo (US-02, escenario alternativo)
+
+El sistema no envía correos: el titular verifica su identidad con el **código de recuperación** de su cuenta.
+
+- **Código:** 24 caracteres Base32 en 6 grupos, por ejemplo `ABCD-EFGH-IJKL-MNOP-QRST-UVWX`. Se entrega en la respuesta del registro y en la de cada recuperación; el cliente debe mostrarlo al titular para que lo guarde. **No se guarda en la base de datos**: es un HMAC-SHA256 del correo y del hash vigente de la contraseña, con una clave derivada de `JWT_SECRET`. Es de un solo uso por construcción (al cambiar la contraseña cambia el código) y existe también para las cuentas anteriores a esta función.
+
+`POST /api/auth/recovery` (público):
+
+```json
+{
+  "email": "test@gmail.com",
+  "recoveryCode": "ABCD-EFGH-IJKL-MNOP-QRST-UVWX",
+  "newPassword": "Nueva1234"
+}
+```
+
+`200 OK`:
+
+```json
+{
+  "message": "Contraseña actualizada. Inicie sesión con la nueva contraseña y guarde su nuevo código de recuperación: el anterior ya no sirve.",
+  "recoveryCode": "WXYZ-2345-6723-ABCD-EFGH-IJKL"
+}
+```
+
+- `400`: campo ausente, correo inválido, contraseña nueva que no cumple la política del registro (8 caracteres, una mayúscula y un número) o de más de 72 bytes UTF-8.
+- `401` `Datos de recuperación inválidos`: código incorrecto, correo no registrado, cuenta `SUSPENDIDO` o código ya usado. Todos responden igual, sin revelar si la cuenta existe.
+- La contraseña nueva se guarda con BCrypt, los tokens emitidos antes del cambio dejan de valer (`401`) y se habilita un nuevo inicio de sesión. Dos solicitudes simultáneas con el mismo código: solo una gana.
+
+`POST /api/auth/recovery-code` (requiere token): recibe `{ "password": "<contraseña actual>" }` y devuelve `200` con `{ "message": "...", "recoveryCode": "..." }`, el código vigente. Sirve para cuentas creadas antes de esta función o si el titular perdió el código. `401 Credenciales inválidas` si la contraseña no coincide; `400` si falta.
+
+Límites conocidos: rotar `JWT_SECRET` cambia todos los códigos (cada titular puede consultar el nuevo con su contraseña) y todavía no hay limitación de intentos; con 120 bits de entropía, adivinar un código no es factible.
 
 La colección `tests/US02-login.postman_collection.json`, su fixture SQL y `tests/US02-login.md` usan el modelo oficial; un `401` con un correo ausente no prueba una cuenta suspendida existente. Diseño: `10-us02-login.md`. Secuencia de alineación: `11-erd-oficial-alignment.md`.
 

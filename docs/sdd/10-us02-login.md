@@ -40,7 +40,7 @@ Peticiones posteriores: Authorization: Bearer <token>
 
 ## Alcance pendiente
 
-El escenario alternativo de recuperación de acceso de `tarea.md` no tiene contrato técnico definido. Falta acordar endpoints, verificación de titularidad, tokens con expiración/uso único y transporte seguro. No se implementan ni simulan esas operaciones en esta feature.
+El escenario alternativo de recuperación de acceso se resuelve **sin correo electrónico**, con un código de recuperación derivado del secreto del servidor: no agrega tablas ni columnas. Contrato en `03-api-contracts.md` y decisiones en `06-security-strategy.md` ("Recuperación de acceso sin correo").
 
 Logout, revocación de tokens y limitación de intentos requieren una política de seguridad posterior, antes de producción (`06-security-strategy.md`). CSRF no aplica: la autenticación no usa cookies. El frontend decide su navegación a partir del rol; no hay pantallas ni URLs de frontend definidas en este repositorio.
 

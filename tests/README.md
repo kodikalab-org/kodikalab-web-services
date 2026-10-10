@@ -106,7 +106,7 @@ Autenticación con token Bearer y autorización por rol. Contrato y reglas: [06-
 
 ### Postman
 
-`SEC-jwt-roles.postman_collection.json` (27 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
+`SEC-jwt-roles.postman_collection.json` (29 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
 
 ```bash
 npx --yes newman run tests/SEC-jwt-roles.postman_collection.json -e tests/local.postman_environment.json

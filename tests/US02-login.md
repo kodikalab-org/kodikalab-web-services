@@ -4,7 +4,7 @@
 
 `POST /api/auth/login` consulta `usuario`, valida BCrypt y permite solo `ACTIVO`; `SUSPENDIDO` deniega el acceso. Java y SQL usan los mismos enums en español con `@Enumerated(EnumType.STRING)` sin converters. Devuelve el rol almacenado (`PRACTICANTE`/`COACH`) y un token JWT (`token`, `tokenType`, `expiresIn`); no crea sesión ni cookie.
 
-El frontend decide la navegación según `role`; el backend no inventa pantallas. Recuperación de acceso, logout, revocación y limitación de intentos quedan pendientes de contrato/política antes de producción.
+El frontend decide la navegación según `role`; el backend no inventa pantallas. Logout, revocación y limitación de intentos quedan pendientes de política antes de producción. La recuperación de acceso se hace sin correo, con el código de recuperación de la cuenta (`POST /api/auth/recovery`).
 
 ## Postman
 
@@ -12,9 +12,9 @@ El frontend decide la navegación según `role`; el backend no inventa pantallas
 2. Ejecutar allí `tests/fixtures/US02-login-statuses.sql` y comprobar la fila `test.us02.suspended@gmail.com`, con `SUSPENDIDO` y `PRACTICANTE`.
 3. Importar `US02-login.postman_collection.json` y `local.postman_environment.json`.
 4. Elegir el entorno local (`baseUrl = http://localhost:8080/api`).
-5. Ejecutar las **22 solicitudes en orden**; cada login guarda el token en variables de colección.
+5. Ejecutar las **35 solicitudes en orden**; cada login guarda el token en variables de colección.
 
-Crea dos cuentas activas de prueba, prueba ambos roles y rechaza el registro `ADMIN`. Comprueba error genérico, reintento, normalización, datos inválidos, correo superior a 100, límite BCrypt, rol de login ignorado, cuenta suspendida y token nuevo en cada login. No borra ni sobrescribe cuentas existentes.
+Crea dos cuentas activas de prueba, prueba ambos roles y rechaza el registro `ADMIN`. Comprueba error genérico, reintento, normalización, datos inválidos, correo superior a 100, límite BCrypt, rol de login ignorado, cuenta suspendida y token nuevo en cada login. Las últimas 13 solicitudes prueban la recuperación de acceso sin correo (código inválido o de otra cuenta, contraseña débil, recuperación correcta, invalidación del token y de la contraseña anteriores, código de un solo uso y consulta del código vigente). No borra ni sobrescribe cuentas existentes.
 
 **Un `401` aislado no demuestra suspensión:** un correo ausente produce el mismo error. Confirmar la fixture antes de ejecutar; si la fila ya existe, el SQL no cambia su estado ni hash.
 
