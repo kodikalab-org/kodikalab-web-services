@@ -8,7 +8,7 @@ Las historias funcionales se conservan. El modelo físico de referencia es `asse
 - US03 implementa el perfil del rol de la sesión: `practicante` (datos académicos, nivel y handles de Codeforces/AtCoder/VJudge) y `coach` (especialidad, organización, experiencia y presentación). No se crean perfiles con datos ficticios durante el registro base.
 - US05/US06 (solicitud de ingreso y aceptación/rechazo) no usan una tabla de solicitudes propia; su mecanismo se define al implementar esas historias.
 - Equipos, competencias y catálogo se describen con las tablas oficiales nuevas, pero su código se adapta únicamente en la tarea del módulo correspondiente.
-- El escenario de recuperación de acceso de US02 sigue pendiente de contrato, no se da por completado por tener login.
+- El escenario de recuperación de acceso de US02 se resuelve sin correo electrónico, con un código de recuperación de la cuenta; ver `03-api-contracts.md` y `06-security-strategy.md`.
 
 ## Sprint 1
 
