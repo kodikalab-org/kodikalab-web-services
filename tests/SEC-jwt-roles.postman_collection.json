@@ -90,7 +90,9 @@
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{secCoachEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
               "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
@@ -144,7 +146,9 @@
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{secPractitionerEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
               "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
@@ -504,7 +508,108 @@
       ]
     },
     {
-      "name": "11 Token manipulado → 401",
+      "name": "11 Sin token: POST /auth/recovery-code → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery-code"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 POST /auth/recovery es público: sin token responde el error de recuperación, no el de token → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"nadie@gmail.com\",\n  \"recoveryCode\": \"AAAA-BBBB-CCCC-DDDD-EEEE-FFFF\",\n  \"newPassword\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Datos de recuperación inválidos\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Token manipulado → 401",
       "request": {
         "method": "GET",
         "header": [],
@@ -557,7 +662,7 @@
       ]
     },
     {
-      "name": "12 Token basura → 401",
+      "name": "14 Token basura → 401",
       "request": {
         "method": "GET",
         "header": [
@@ -598,7 +703,7 @@
       ]
     },
     {
-      "name": "13 Esquema distinto de Bearer se ignora → 401",
+      "name": "15 Esquema distinto de Bearer se ignora → 401",
       "request": {
         "method": "GET",
         "header": [
@@ -639,7 +744,7 @@
       ]
     },
     {
-      "name": "14 PRACTICANTE no puede POST /teams → 403",
+      "name": "16 PRACTICANTE no puede POST /teams → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -695,7 +800,7 @@
       ]
     },
     {
-      "name": "15 PRACTICANTE no puede POST /problems → 403",
+      "name": "17 PRACTICANTE no puede POST /problems → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -751,7 +856,7 @@
       ]
     },
     {
-      "name": "16 PRACTICANTE no puede POST /problems/assign → 403",
+      "name": "18 PRACTICANTE no puede POST /problems/assign → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -808,7 +913,7 @@
       ]
     },
     {
-      "name": "17 PRACTICANTE no puede POST /competitions → 403",
+      "name": "19 PRACTICANTE no puede POST /competitions → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -864,7 +969,7 @@
       ]
     },
     {
-      "name": "18 PRACTICANTE no puede GET /teams/1/memberships → 403",
+      "name": "20 PRACTICANTE no puede GET /teams/1/memberships → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -914,7 +1019,7 @@
       ]
     },
     {
-      "name": "19 PRACTICANTE no puede GET /analytics/teams/1/weaknesses → 403",
+      "name": "21 PRACTICANTE no puede GET /analytics/teams/1/weaknesses → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -959,7 +1064,7 @@
       ]
     },
     {
-      "name": "20 PRACTICANTE no puede GET /competitions/teams/1/official-results → 403",
+      "name": "22 PRACTICANTE no puede GET /competitions/teams/1/official-results → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -1004,7 +1109,7 @@
       ]
     },
     {
-      "name": "21 COACH no puede POST /teams/1/join → 403",
+      "name": "23 COACH no puede POST /teams/1/join → 403",
       "request": {
         "method": "POST",
         "header": [],
@@ -1048,7 +1153,7 @@
       ]
     },
     {
-      "name": "22 COACH no puede GET /analytics/teams/1/progress/me → 403",
+      "name": "24 COACH no puede GET /analytics/teams/1/progress/me → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -1094,7 +1199,7 @@
       ]
     },
     {
-      "name": "23 COACH no puede POST /competitions/teams/1/problems/1/resolutions → 403",
+      "name": "25 COACH no puede POST /competitions/teams/1/problems/1/resolutions → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -1155,7 +1260,7 @@
       ]
     },
     {
-      "name": "24 COACH: GET /teams → 200",
+      "name": "26 COACH: GET /teams → 200",
       "request": {
         "method": "GET",
         "header": [],
@@ -1196,7 +1301,7 @@
       ]
     },
     {
-      "name": "25 PRACTICANTE: GET /teams → 200",
+      "name": "27 PRACTICANTE: GET /teams → 200",
       "request": {
         "method": "GET",
         "header": [],
@@ -1237,7 +1342,7 @@
       ]
     },
     {
-      "name": "26 PRACTICANTE: GET /problems → 200",
+      "name": "28 PRACTICANTE: GET /problems → 200",
       "request": {
         "method": "GET",
         "header": [],
@@ -1277,7 +1382,7 @@
       ]
     },
     {
-      "name": "27 COACH con rol correcto llega al servicio: POST /teams vacío → 400",
+      "name": "29 COACH con rol correcto llega al servicio: POST /teams vacío → 400",
       "request": {
         "method": "POST",
         "header": [

@@ -82,7 +82,9 @@
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{registrationEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
               "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
@@ -238,7 +240,9 @@
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{coachEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
               "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
@@ -1252,7 +1256,9 @@
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{nameLimitEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
               "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
@@ -1357,7 +1363,9 @@
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{emailLimit}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
               "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
