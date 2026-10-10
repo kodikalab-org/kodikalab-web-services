@@ -34,7 +34,7 @@ class LoginControllerTests {
         service = mock(AuthService.class);
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mvc = MockMvcBuilders.standaloneSetup(new AuthController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new AuthController(service, mock(AccountRecoveryService.class)))
                 .setControllerAdvice(new AuthExceptionHandler()).setValidator(validator).build();
     }
 

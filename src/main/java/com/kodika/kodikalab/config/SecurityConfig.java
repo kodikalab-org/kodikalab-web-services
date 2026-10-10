@@ -49,6 +49,7 @@ public class SecurityConfig {
                 paths.matcher(HttpMethod.OPTIONS, "/**"),
                 paths.matcher(HttpMethod.POST, "/auth/register"),
                 paths.matcher(HttpMethod.POST, "/auth/login"),
+                paths.matcher(HttpMethod.POST, "/auth/recovery"),
                 paths.matcher("/swagger-ui.html"),
                 paths.matcher("/swagger-ui/**"),
                 paths.matcher("/v3/api-docs"),

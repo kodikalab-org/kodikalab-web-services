@@ -24,11 +24,14 @@ public class AuthServiceImpl implements AuthService {
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RecoveryCodeService recoveryCodes;
 
-    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService,
+                           RecoveryCodeService recoveryCodes) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.recoveryCodes = recoveryCodes;
     }
 
     @Override
@@ -43,7 +46,9 @@ public class AuthServiceImpl implements AuthService {
         }
         String passwordHash = passwordEncoder.encode(request.password());
         userService.createUser(fullName, request.email(), passwordHash, request.role());
-        return new AuthResponse("Registro exitoso", request.email(), request.role());
+        // El código de recuperación se entrega una sola vez; después se consulta con la contraseña (ver AccountRecoveryService).
+        return new AuthResponse("Registro exitoso", request.email(), request.role(), null, null, null,
+                recoveryCodes.codeFor(request.email(), passwordHash));
     }
 
     @Override

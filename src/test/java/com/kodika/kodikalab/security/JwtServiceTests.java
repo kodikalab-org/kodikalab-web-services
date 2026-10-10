@@ -60,6 +60,31 @@ class JwtServiceTests {
     }
 
     @Test
+    void tokenCarriesTheStampOfTheCurrentPasswordHash() {
+        User account = user(Role.COACH);
+        var claims = service.parse(service.issue(account).token()).orElseThrow();
+        assertThat(claims.passwordStamp()).isEqualTo(service.passwordStamp(account)).hasSize(16);
+        account.setPasswordHash("$2a$10$otro-hash-de-otra-contrasena");
+        assertThat(service.passwordStamp(account)).isNotEqualTo(claims.passwordStamp());
+    }
+
+    @Test
+    void stampDoesNotExposeTheHashAndToleratesAMissingOne() {
+        User account = user(Role.COACH);
+        assertThat(service.passwordStamp(account)).doesNotContain("2a").doesNotContain(account.getPasswordHash());
+        account.setPasswordHash(null);
+        assertThat(service.passwordStamp(account)).isEqualTo(service.passwordStamp(account)).isNotBlank();
+    }
+
+    @Test
+    void derivedKeysAreStableSeparatedByContextAndBoundToTheSecret() {
+        assertThat(service.deriveKey("recuperacion")).hasSize(32).isEqualTo(service.deriveKey("recuperacion"))
+                .isNotEqualTo(service.deriveKey("otro-uso"));
+        var other = new JwtService(new JwtProperties("otro-secreto-distinto-de-al-menos-32-caracteres", 60_000, "kodikalab"));
+        assertThat(other.deriveKey("recuperacion")).isNotEqualTo(service.deriveKey("recuperacion"));
+    }
+
+    @Test
     void tokenNeverContainsThePasswordHash() {
         String token = service.issue(user(Role.PRACTICANTE)).token();
         assertThat(payloadOf(token)).doesNotContain("hash", "password", "$2a$");

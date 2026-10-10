@@ -35,7 +35,7 @@ class LoginServiceTests {
     void setUp() {
         users = mock(UserService.class);
         encoder = mock(PasswordEncoder.class);
-        service = new AuthServiceImpl(users, encoder, jwt);
+        service = new AuthServiceImpl(users, encoder, jwt, TestJwt.recoveryCodes());
         user = new User();
         user.setEmail("test@gmail.com");
         user.setPasswordHash("HASH");
@@ -115,7 +115,7 @@ class LoginServiceTests {
         String password = " Password123 ";
         user.setPasswordHash(bcrypt.encode(password));
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        AuthService realService = new AuthServiceImpl(users, bcrypt, jwt);
+        AuthService realService = new AuthServiceImpl(users, bcrypt, jwt, TestJwt.recoveryCodes());
         assertThat(realService.login(new LoginRequest(user.getEmail(), password)).role()).isEqualTo(Role.PRACTICANTE);
         assertThatThrownBy(() -> realService.login(new LoginRequest(user.getEmail(), password.strip())))
                 .isInstanceOf(UnauthorizedException.class).hasMessage("Credenciales inválidas");
