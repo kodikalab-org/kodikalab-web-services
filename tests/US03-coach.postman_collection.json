@@ -1,0 +1,431 @@
+{
+  "info": {
+    "name": "KodikaLab - US03 Perfil coach ERD oficial",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección para validar el perfil coach de US-03 según docs/sdd/assets/oficial.erd (tabla coach). Ejecutar en orden con cookie jar habilitado."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName.startsWith('01 ') || !pm.collectionVariables.get('coachEmail')) {",
+          "  const id = pm.variables.replaceIn('{{$guid}}').slice(0, 8);",
+          "  pm.collectionVariables.set('runId', id);",
+          "  pm.collectionVariables.set('coachEmail', `test.us03.coach.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('studentCode', `US03C${id}`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Registrar COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Coach\",\n  \"lastName\": \"Perfil\",\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Rol desde cuenta', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
+              "pm.test('Cookie de sesión recibida', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 GET perfil coach antes de completarlo devuelve 404",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Perfil de coach aún no registrado', () => pm.expect(pm.response.json().message).to.eql('El perfil de coach aún no está registrado'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Crear perfil COACH según ERD",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"especialidadPrincipal\": \"Grafos y Programación Dinámica\",\n  \"organizacionClub\": \"Club de Programación Competitiva\",\n  \"aniosExperiencia\": 4,\n  \"presentacion\": \"Entrenador de maratones ICPC.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const profile = body.profile;",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql('Perfil actualizado correctamente'));",
+              "pm.test('Campos ERD persistidos', () => { pm.expect(profile.role).to.eql('COACH'); pm.expect(profile.email).to.eql(pm.collectionVariables.get('coachEmail')); pm.expect(profile.especialidadPrincipal).to.eql('Grafos y Programación Dinámica'); pm.expect(profile.organizacionClub).to.eql('Club de Programación Competitiva'); pm.expect(profile.aniosExperiencia).to.eql(4); pm.expect(profile.presentacion).to.eql('Entrenador de maratones ICPC.'); });",
+              "pm.test('Sin datos sensibles ni campos de practicante', () => { for (const key of ['passwordHash', 'password', 'sessionId', 'usuarioId', 'codigoEstudiante', 'codeforcesHandle']) pm.expect(profile).not.to.have.property(key); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Consultar perfil COACH",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Perfil persistido', () => pm.expect(profile.especialidadPrincipal).to.eql('Grafos y Programación Dinámica'));",
+              "pm.test('Sin datos sensibles ni campos de practicante', () => { for (const key of ['passwordHash', 'password', 'sessionId', 'usuarioId', 'codigoEstudiante', 'codeforcesHandle']) pm.expect(profile).not.to.have.property(key); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Actualizar perfil COACH",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"especialidadPrincipal\": \"Flujo en redes\",\n  \"organizacionClub\": \"Universidad Prueba\",\n  \"aniosExperiencia\": 6,\n  \"presentacion\": \"Coach de equipos regionales.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Datos actualizados', () => { pm.expect(profile.especialidadPrincipal).to.eql('Flujo en redes'); pm.expect(profile.aniosExperiencia).to.eql(6); pm.expect(profile.role).to.eql('COACH'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Error por años negativos y especialidad vacía",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"especialidadPrincipal\": \"  \",\n  \"organizacionClub\": \"Otro club\",\n  \"aniosExperiencia\": -1,\n  \"presentacion\": \"No debe guardarse.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Campos inválidos señalados', () => { pm.expect(body.errors.especialidadPrincipal).to.eql('La especialidad principal es obligatoria'); pm.expect(body.errors.aniosExperiencia).to.eql('Los años de experiencia no pueden ser negativos'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Verificar que el error no reemplazó datos previos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Datos previos conservados', () => { pm.expect(profile.especialidadPrincipal).to.eql('Flujo en redes'); pm.expect(profile.organizacionClub).to.eql('Universidad Prueba'); pm.expect(profile.aniosExperiencia).to.eql(6); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Opcionales en blanco se guardan como null",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"especialidadPrincipal\": \"Flujo en redes\",\n  \"organizacionClub\": \"  \",\n  \"aniosExperiencia\": 0,\n  \"presentacion\": \"\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Opcionales en null', () => { pm.expect(profile.organizacionClub).to.eql(null); pm.expect(profile.presentacion).to.eql(null); pm.expect(profile.aniosExperiencia).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 COACH con body de practicante es rechazado",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCode}}\",\n  \"carrera\": \"Ingeniería de Software\",\n  \"cicloAcademico\": 1,\n  \"nivelCompetitivo\": \"PRINCIPIANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Se exigen campos de coach', () => pm.expect(pm.response.json().errors).to.have.property('especialidadPrincipal'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

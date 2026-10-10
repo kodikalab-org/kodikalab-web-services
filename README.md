@@ -12,7 +12,7 @@ El objetivo de este repositorio es centralizar los servicios web necesarios para
 - **Spring Boot 3**.
 - **PostgreSQL 15+**.
 - **Maven** mediante Maven Wrapper (`./mvnw`).
-- **Spring Security** con JWT.
+- **Spring Security** con sesión HTTP; JWT futuro, sin activar.
 - **SpringDoc OpenAPI** para documentación Swagger.
 
 ---
@@ -60,8 +60,8 @@ Database: kodikalab_db
 Cada integrante debe configurar Git con su nombre y correo institucional:
 
 ```bash
-git config --global user.name "Nombre Apellido"
-git config --global user.email "correo@upc.edu.pe"
+git config --global user.name "Usuario de prueba"
+git config --global user.email "test@gmail.com"
 ```
 
 Verificar configuración:
@@ -123,19 +123,23 @@ Si usan pgAdmin, pueden crearla visualmente con el nombre:
 kodikalab_db
 ```
 
-El proyecto usa enfoque **code-first** con JPA/Hibernate. Esto significa que las entidades Java son la fuente de verdad del modelo de datos y Hibernate crea o actualiza las tablas automáticamente al iniciar la aplicación.
+El proyecto usa enfoque **code-first guiado por el ERD del SDD** con JPA/Hibernate.
+
+Esto significa que el diseño funcional y relacional esperado está documentado en:
+
+```txt
+docs/sdd/assets/oficial.erd
+```
+
+Todas las tablas visibles de `docs/sdd/assets/oficial.erd` tienen entidad JPA, y Hibernate las crea o actualiza al iniciar la aplicación (`ddl-auto: update`). `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); `teams`, `problems` y `competitions` son plantillas sin lógica para las siguientes historias.
 
 Por eso, para desarrollo local, solo es obligatorio crear la base de datos vacía. No es obligatorio ejecutar manualmente un script SQL antes de iniciar el backend.
 
-El archivo:
+Actualmente no hay un snapshot SQL vigente en `docs/sdd/assets/`; el artefacto oficial es `oficial.erd`. Un nuevo snapshot se generará después de revisar sus metadatos y validar las entidades.
 
-```txt
-docs/sdd/assets/init_schema.sql
-```
+`auth`/`users` ya implementan la cuenta `usuario`: ID entero, nombre completo de hasta 150, correo de hasta 100 y enums de rol/estado en español persistidos directamente con `@Enumerated(EnumType.STRING)`, sin conversores. Los perfiles y los demás módulos conservan su alcance pendiente. Usar `ddl-auto=update` no migra automáticamente tablas, columnas, roles ni datos existentes; ver `docs/sdd/11-erd-oficial-alignment.md`.
 
-queda como snapshot/export de referencia del esquema, útil para revisión, documentación o generación de diagramas, pero no es el paso principal de arranque local.
-
-> Importante: el proyecto usa `spring.jpa.hibernate.ddl-auto=update` en desarrollo. Si se modifican entidades JPA, Hibernate puede reflejar esos cambios en la base local.
+> Importante: el proyecto usa `spring.jpa.hibernate.ddl-auto=update` en desarrollo. Si se modifican entidades JPA, primero debe revisarse el ERD del SDD y luego reflejar el cambio en código y documentación cuando corresponda.
 
 ---
 
@@ -416,30 +420,58 @@ Paquete raíz:
 com.kodika.kodikalab
 ```
 
-Estructura base:
+KodikaLab se organiza como un **monolito modular simple**: una sola aplicación Spring Boot y una sola base de datos PostgreSQL, pero con paquetes separados por dominio.
+
+El scaffolding inicial por capas sin lógica se retiró tras revisar funcionalidad y referencias. Actualmente existen `auth`, `users`, `profiles`, `security`, `config` y `common` con lógica, y `teams`, `problems` y `competitions` como plantilla del ERD (entidades, repositorios, servicios y controllers sin endpoints). `assignments`, `analytics` y `ai` son diseño objetivo:
 
 ```txt
 src/main/java/com/kodika/kodikalab
+├── auth
+├── users
+├── profiles
+├── teams
+├── problems
+├── assignments
+├── competitions
+├── analytics
+├── ai
+├── security
 ├── config
-├── controller
-├── dto
-├── entity
-├── repository
-└── service
-    └── impl
+└── common
 ```
 
-Responsabilidad por capa:
+Módulos principales:
 
-| Capa | Responsabilidad |
-|---|---|
-| `controller` | Exponer endpoints REST y delegar a servicios. |
-| `service` | Definir contratos de negocio. |
-| `service/impl` | Implementar casos de uso. |
-| `repository` | Acceso a datos mediante Spring Data JPA. |
-| `entity` | Modelo persistente JPA. |
-| `dto` | Objetos de entrada y salida de la API. |
-| `config` | Configuración transversal: seguridad, Swagger, CORS, etc. |
+| Módulo | Responsabilidad |
+| --- | --- |
+| `auth` | Registro, login, autenticación y JWT futuro. |
+| `users` | Cuenta base `usuario`, correo, hash, rol y estado. |
+| `profiles` | Perfiles `coach`/`practicante` y handles del ERD. |
+| `teams` | Equipos, coach, membresías, solicitudes y horarios. |
+| `problems` | Catálogo de problemas, temas y recursos académicos. |
+| `assignments` | Asignaciones, destinatarios, detalles y resoluciones/envíos. |
+| `competitions` | Competencias y resultados. |
+| `analytics` | Métricas, progreso, rankings y debilidades. |
+| `ai` | Conversaciones, mensajes y acciones del asistente IA. |
+| `security` | Filtros, permisos y seguridad transversal. |
+| `config` | Configuración transversal de Spring. |
+| `common` | Excepciones, respuestas comunes y utilidades compartidas. |
+
+Reglas básicas:
+
+- Controllers delegan en services.
+- Controllers no usan repositories directamente.
+- Un módulo debe usar preferentemente sus propios repositories.
+- Evitar acceder directamente a repositories internos de otros módulos.
+- Los DTOs deben vivir preferentemente dentro del módulo que los usa.
+- Las entidades JPA deben alinearse con el ERD del SDD.
+
+Ver detalle en:
+
+```txt
+docs/sdd/05-architecture.md
+docs/sdd/04-database-model.md
+```
 
 ---
 

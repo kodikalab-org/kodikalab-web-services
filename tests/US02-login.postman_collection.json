@@ -1,0 +1,1124 @@
+{
+  "info": {
+    "name": "KodikaLab - US02 Auth ERD oficial",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar en orden en una base exclusiva de pruebas. Preparar la fixture SUSPENDIDO. Crea dos cuentas activas; no modifica otras. Mantener cookie jar habilitado. Ver tests/US02-login.md."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "suspendedLoginEmail",
+      "value": "test.us02.suspended@gmail.com",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName.startsWith('01 ') || !pm.collectionVariables.get('loginEmail')) {",
+          "  const id = pm.variables.replaceIn('{{$guid}}');",
+          "  const email = `test.us02.${id}@gmail.com`;",
+          "  pm.collectionVariables.set('loginEmail', email);",
+          "  pm.collectionVariables.set('uppercaseLoginEmail', email.toUpperCase());",
+          "  pm.collectionVariables.set('coachLoginEmail', `test.us02.coach.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('missingLoginEmail', `test.us02.missing.${id}@gmail.com`);",
+          "  pm.collectionVariables.unset('lastSessionCookie');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Preparar PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "const cookie = pm.response.headers.get('Set-Cookie');",
+              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
+              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Contraseña incorrecta",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Wrong123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Usuario inexistente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{missingLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Reintento correcto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "const cookie = pm.response.headers.get('Set-Cookie');",
+              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
+              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Correo normalizado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"  {{uppercaseLoginEmail}}  \",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "const cookie = pm.response.headers.get('Set-Cookie');",
+              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
+              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Preparar COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{coachLoginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{coachLoginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Login COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{coachLoginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "const cookie = pm.response.headers.get('Set-Cookie');",
+              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
+              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Registro ADMIN rechazado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{missingLoginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"ADMIN\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El rol debe ser PRACTICANTE o COACH\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Cuenta ADMIN no creada",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{missingLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Correo ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Contraseña ausente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Correo inválido",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"correo-invalido\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Contraseña en blanco",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"   \"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Correo nulo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": null,\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 BCrypt supera 72 bytes",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"A1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 El cliente no puede elevar rol",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"ADMIN\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "const cookie = pm.response.headers.get('Set-Cookie');",
+              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
+              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Renovación de sesión",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "const cookie = pm.response.headers.get('Set-Cookie');",
+              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
+              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 JSON mal formado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{broken}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Cuenta SUSPENDIDO existente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{suspendedLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Requiere fixture SQL y comprobar su fila SUSPENDIDO: un correo ausente también devuelve 401."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 No recortar contraseña",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \" Password123 \"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Correo supera 100 caracteres",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.gmail.com\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El correo debe tener como máximo 100 caracteres\"));",
+              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

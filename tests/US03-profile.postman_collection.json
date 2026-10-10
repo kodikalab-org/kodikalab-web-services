@@ -1,0 +1,705 @@
+{
+  "info": {
+    "name": "KodikaLab - US03 Perfil practicante ERD oficial",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección para validar US-03 según docs/sdd/assets/oficial.erd. Ejecutar en orden con cookie jar habilitado. Prevalece ERD: Codeforces, AtCoder y VJudge; LeetCode no se persiste. No realiza commits ni cambios de código."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName.startsWith('01 ') || !pm.collectionVariables.get('profileEmail')) {",
+          "  const id = pm.variables.replaceIn('{{$guid}}').slice(0, 8);",
+          "  pm.collectionVariables.set('runId', id);",
+          "  pm.collectionVariables.set('profileEmail', `test.us03.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('coachEmail', `test.us03.coach.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('otherPractitionerEmail', `test.us03.other.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('studentCode', `US03${id}`);",
+          "  pm.collectionVariables.set('otherStudentCode', `US03O${id}`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Registrar PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Perfil\",\n  \"email\": \"{{profileEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Registro exitoso', () => pm.expect(body.message).to.eql('Registro exitoso'));",
+              "pm.test('Rol PRACTICANTE', () => pm.expect(body.role).to.eql('PRACTICANTE'));",
+              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{profileEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Login exitoso', () => pm.expect(body.message).to.eql('Inicio de sesión exitoso'));",
+              "pm.test('Rol desde cuenta', () => pm.expect(body.role).to.eql('PRACTICANTE'));",
+              "pm.test('Cookie de sesión recibida', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 GET perfil antes de completarlo devuelve 404",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Perfil aún no registrado', () => pm.expect(pm.response.json().message).to.eql('El perfil de practicante aún no está registrado'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Crear perfil PRACTICANTE según ERD",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCode}}\",\n  \"carrera\": \"Ingeniería de Software\",\n  \"cicloAcademico\": 5,\n  \"nivelCompetitivo\": \"INTERMEDIO\",\n  \"codeforcesHandle\": \"tourist\",\n  \"atcoderHandle\": \"tourist_atcoder\",\n  \"vjudgeHandle\": \"usuario_vjudge\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message.startsWith('Perfil actualizado correctamente')).to.be.true);",
+              "pm.test('Perfil corresponde al practicante autenticado', () => { pm.expect(body.profile.email).to.eql(pm.collectionVariables.get('profileEmail')); pm.expect(body.profile.role).to.eql('PRACTICANTE'); });",
+              "pm.test('Campos ERD persistidos', () => { pm.expect(body.profile.codigoEstudiante).to.eql(pm.collectionVariables.get('studentCode')); pm.expect(body.profile.nivelCompetitivo).to.eql('INTERMEDIO'); pm.expect(body.profile.codeforcesHandle === null || body.profile.codeforcesHandle === 'tourist').to.be.true; pm.expect(body.profile.atcoderHandle).to.eql('tourist_atcoder'); pm.expect(body.profile.vjudgeHandle).to.eql('usuario_vjudge'); });",
+              "pm.test('Sin LeetCode ni datos sensibles', () => { for (const key of ['leetcodeHandle', 'password', 'passwordHash', 'password_hash', 'token']) pm.expect(body.profile).not.to.have.property(key); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Consultar perfil PRACTICANTE",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Perfil obtenido', () => pm.expect(body.message).to.eql('Perfil obtenido correctamente'));",
+              "pm.test('Código estudiante conservado', () => pm.expect(body.profile.codigoEstudiante).to.eql(pm.collectionVariables.get('studentCode')));",
+              "pm.test('No expone passwordHash', () => pm.expect(body.profile).not.to.have.property('passwordHash'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Actualizar nivel y trayectoria",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCode}}\",\n  \"carrera\": \"Ciencias de la Computación\",\n  \"cicloAcademico\": 6,\n  \"nivelCompetitivo\": \"AVANZADO\",\n  \"codeforcesHandle\": \"tourist\",\n  \"atcoderHandle\": \"tourist_atcoder\",\n  \"vjudgeHandle\": \"usuario_vjudge_actualizado\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Datos actualizados', () => { pm.expect(profile.carrera).to.eql('Ciencias de la Computación'); pm.expect(profile.cicloAcademico).to.eql(6); pm.expect(profile.nivelCompetitivo).to.eql('AVANZADO'); pm.expect(profile.codeforcesRating === null || Number.isInteger(profile.codeforcesRating)).to.be.true; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Error por handle inválido conserva datos previos",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCode}}\",\n  \"carrera\": \"Ciencias de la Computación\",\n  \"cicloAcademico\": 6,\n  \"nivelCompetitivo\": \"AVANZADO\",\n  \"codeforcesHandle\": \"handle con espacios\",\n  \"atcoderHandle\": \"tourist_atcoder\",\n  \"vjudgeHandle\": \"usuario_vjudge_actualizado\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Campo inválido señalado', () => pm.expect(body.errors.codeforcesHandle).to.eql('El identificador de Codeforces no cumple el formato permitido'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Verificar que error no reemplazó datos previos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Handle anterior conservado', () => pm.expect(profile.codeforcesHandle === null || profile.codeforcesHandle === 'tourist').to.be.true);",
+              "pm.test('Nivel anterior conservado', () => pm.expect(profile.nivelCompetitivo).to.eql('AVANZADO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 LeetCode fuera del ERD no se persiste",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCode}}\",\n  \"carrera\": \"Ciencias de la Computación\",\n  \"cicloAcademico\": 6,\n  \"nivelCompetitivo\": \"AVANZADO\",\n  \"codeforcesHandle\": \"tourist\",\n  \"atcoderHandle\": \"tourist_atcoder\",\n  \"vjudgeHandle\": \"usuario_vjudge_actualizado\",\n  \"leetcodeHandle\": \"no_debe_persistir\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('No devuelve LeetCode', () => pm.expect(profile).not.to.have.property('leetcodeHandle'));",
+              "pm.test('Sigue usando plataformas ERD', () => { pm.expect(profile).to.have.property('codeforcesHandle'); pm.expect(profile).to.have.property('atcoderHandle'); pm.expect(profile).to.have.property('vjudgeHandle'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Registrar COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Coach\",\n  \"lastName\": \"Perfil\",\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Login COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Rol COACH autenticado', () => pm.expect(pm.response.json().role).to.eql('COACH'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 COACH con body de practicante es rechazado y no crea practicante",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{otherStudentCode}}\",\n  \"carrera\": \"Ingeniería de Software\",\n  \"cicloAcademico\": 1,\n  \"nivelCompetitivo\": \"PRINCIPIANTE\",\n  \"codeforcesHandle\": \"coach_no\",\n  \"atcoderHandle\": \"coach_no\",\n  \"vjudgeHandle\": \"coach_no\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Se exigen campos de coach', () => { pm.expect(body.errors).to.have.property('especialidadPrincipal'); pm.expect(body.errors).to.have.property('aniosExperiencia'); });",
+              "pm.test('No se devuelve perfil', () => pm.expect(body).not.to.have.property('profile'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Registrar segundo PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Otro\",\n  \"lastName\": \"Practicante\",\n  \"email\": \"{{otherPractitionerEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Login segundo PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{otherPractitionerEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Segundo practicante autenticado', () => pm.expect(pm.response.json().email).to.eql(pm.collectionVariables.get('otherPractitionerEmail')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Codeforces inexistente no se persiste y guarda otros datos",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{otherStudentCode}}\",\n  \"carrera\": \"Ingeniería de Software\",\n  \"cicloAcademico\": 1,\n  \"nivelCompetitivo\": \"PRINCIPIANTE\",\n  \"codeforcesHandle\": \"cf_missing_{{runId}}\",\n  \"atcoderHandle\": \"otro_at\",\n  \"vjudgeHandle\": \"otro_vj\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const profile = pm.response.json().profile;",
+              "pm.test('Otros datos válidos guardados', () => { pm.expect(profile.codigoEstudiante).to.eql(pm.collectionVariables.get('otherStudentCode')); pm.expect(profile.carrera).to.eql('Ingeniería de Software'); });",
+              "pm.test('Mensaje advierte Codeforces no confirmado', () => pm.expect(pm.response.json().message).to.include('Codeforces no confirmó el identificador informado'));",
+              "pm.test('Codeforces inexistente queda sin persistir', () => { pm.expect(profile.codeforcesHandle).to.eql(null); pm.expect(profile.codeforcesRating).to.eql(null); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Código de estudiante duplicado devuelve 409",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCode}}\",\n  \"carrera\": \"Ingeniería de Software\",\n  \"cicloAcademico\": 1,\n  \"nivelCompetitivo\": \"PRINCIPIANTE\",\n  \"codeforcesHandle\": \"otro_cf\",\n  \"atcoderHandle\": \"otro_at\",\n  \"vjudgeHandle\": \"otro_vj\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Mensaje duplicado', () => pm.expect(pm.response.json().message).to.eql('El código de estudiante ya está vinculado a otro practicante'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

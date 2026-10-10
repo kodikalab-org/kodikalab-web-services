@@ -1,0 +1,1389 @@
+{
+  "info": {
+    "name": "KodikaLab - US04 US05 US06 Teams",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Flujo secuencial de Teams. Ejecutar con Collection Runner, cookie jar habilitado y servidor local activo. Crea usuarios, perfiles y grupos de prueba en la base conectada al servidor. No ejecutar en producción."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "Password123",
+      "type": "string"
+    },
+    {
+      "key": "coachEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "practitionerEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "secondPractitionerEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "otherCoachEmail",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Registrar COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"COACH\",\n  \"lastName\": \"Teams\",\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const id = pm.variables.replaceIn('{{$guid}}').replace(/-/g, '').slice(0, 12);",
+              "pm.collectionVariables.set('runId', id);",
+              "for (const [key, prefix] of [['coachEmail','coach'], ['practitionerEmail','practitioner'], ['secondPractitionerEmail','second'], ['otherCoachEmail','othercoach']]) { pm.collectionVariables.set(key, `teams.${prefix}.${id}@gmail.com`); }",
+              "pm.collectionVariables.set('studentCodeA', `TA${id}`);",
+              "pm.collectionVariables.set('studentCodeB', `TB${id}`);",
+              "for (const key of ['groupA','groupB','groupPublic','membershipA','membershipB','inviteA']) pm.collectionVariables.unset(key);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Completar perfil COACH",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"especialidadPrincipal\": \"Grafos\",\n  \"organizacionClub\": \"Club ICPC\",\n  \"aniosExperiencia\": 4,\n  \"presentacion\": \"Coach para pruebas Teams\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Crear grupo Protegido A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Protegido A\",\n  \"description\": \"Pruebas US04-US06\",\n  \"expectedLevel\": \"Div3\",\n  \"maxCapacity\": 3,\n  \"sessionSchedule\": \"Lunes 18:00\",\n  \"visibility\": \"PROTEGIDO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Grupo groupA creado', () => { const b=pm.response.json(); pm.expect(b.groupId).to.be.a('number'); pm.expect(b.invitationCode).to.be.a('string'); pm.collectionVariables.set('groupA', b.groupId); pm.collectionVariables.set('inviteA', b.invitationCode); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Crear grupo Protegido B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Protegido B\",\n  \"description\": \"Pruebas US04-US06\",\n  \"expectedLevel\": \"Div3\",\n  \"maxCapacity\": 3,\n  \"sessionSchedule\": \"Lunes 18:00\",\n  \"visibility\": \"PROTEGIDO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Grupo groupB creado', () => { const b=pm.response.json(); pm.expect(b.groupId).to.be.a('number'); pm.expect(b.invitationCode).to.be.a('string'); pm.collectionVariables.set('groupB', b.groupId); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Crear grupo Publico cupo 1",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Publico cupo 1\",\n  \"description\": \"Pruebas US04-US06\",\n  \"expectedLevel\": \"Div3\",\n  \"maxCapacity\": 1,\n  \"sessionSchedule\": \"Lunes 18:00\",\n  \"visibility\": \"PUBLICO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Grupo groupPublic creado', () => { const b=pm.response.json(); pm.expect(b.groupId).to.be.a('number'); pm.expect(b.invitationCode).to.be.a('string'); pm.collectionVariables.set('groupPublic', b.groupId); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Listar grupos activos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Incluye grupos creados, sin códigos', () => { const all=pm.response.json(); pm.expect(all).to.be.an('array'); for (const key of ['groupA','groupB','groupPublic']) { const g=all.find(x=>x.groupId===Number(pm.collectionVariables.get(key))); pm.expect(g).to.exist; pm.expect(g).not.to.have.property('invitationCode'); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Rechazar creación con visibilidad ARCHIVADO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"No crear archivado\",\n  \"expectedLevel\": \"Div3\",\n  \"maxCapacity\": 3,\n  \"visibility\": \"ARCHIVADO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Registrar PRACTICANTE A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"PRACTICANTE A\",\n  \"lastName\": \"Teams\",\n  \"email\": \"{{practitionerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Login PRACTICANTE A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{practitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Completar perfil PRACTICANTE",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCodeA}}\",\n  \"carrera\": \"Ingenieria de Software\",\n  \"cicloAcademico\": 5,\n  \"nivelCompetitivo\": \"INTERMEDIO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Solicitud grupo protegido A -> PENDIENTE",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Membresía pendiente', () => { const b=pm.response.json(); pm.expect(b.status).to.eql('PENDIENTE'); pm.expect(b.membershipId).to.be.a('number'); pm.collectionVariables.set('membershipA',b.membershipId); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Solicitud pendiente duplicada -> 409",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Error uniforme',()=>{const b=pm.response.json(); pm.expect(b.message).to.be.a('string'); pm.expect(b.errors).to.be.an('object');});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Ingreso directo público -> ACTIVO",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupPublic}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupPublic}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Miembro ACTIVO', () => pm.expect(pm.response.json().status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Registrar PRACTICANTE B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"PRACTICANTE B\",\n  \"lastName\": \"Teams\",\n  \"email\": \"{{secondPractitionerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Login PRACTICANTE B",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{secondPractitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Completar perfil PRACTICANTE",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"codigoEstudiante\": \"{{studentCodeB}}\",\n  \"carrera\": \"Ingenieria de Software\",\n  \"cicloAcademico\": 5,\n  \"nivelCompetitivo\": \"INTERMEDIO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Cupo público lleno -> 409",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupPublic}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupPublic}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Registrar COACH ajeno",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"COACH ajeno\",\n  \"lastName\": \"Teams\",\n  \"email\": \"{{otherCoachEmail}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Rol COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Login COACH ajeno",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{otherCoachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 Completar perfil COACH",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"especialidadPrincipal\": \"Grafos\",\n  \"organizacionClub\": \"Club ICPC\",\n  \"aniosExperiencia\": 4,\n  \"presentacion\": \"Coach para pruebas Teams\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 Coach ajeno no puede aprobar -> 403",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/memberships/{{membershipA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "memberships",
+            "{{membershipA}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"ACEPTAR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 Login COACH dueño",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 Consultar solicitudes pendientes A",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/memberships?status=PENDIENTE",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "memberships"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('La solicitud sigue pendiente', () => {const xs=pm.response.json(); pm.expect(xs).to.be.an('array'); pm.expect(xs.some(x=>x.membershipId===Number(pm.collectionVariables.get('membershipA'))&&x.status==='PENDIENTE')).to.be.true;});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 Aceptar solicitud A -> ACTIVO",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/memberships/{{membershipA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "memberships",
+            "{{membershipA}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"ACEPTAR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Membresía ACTIVO', () => pm.expect(pm.response.json().status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 Pendientes A ahora vacío",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/memberships?status=PENDIENTE",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "memberships"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sin solicitudes',()=>pm.expect(pm.response.json()).to.be.an('array').that.is.empty);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 Login PRACTICANTE A nuevamente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{practitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Solicitar grupo protegido B -> PENDIENTE",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Nueva solicitud B',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('PENDIENTE');pm.collectionVariables.set('membershipB',b.membershipId);});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Login COACH dueño nuevamente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 Rechazar solicitud B -> RECHAZADO",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships/{{membershipB}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships",
+            "{{membershipB}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"RECHAZAR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Estado RECHAZADO',()=>pm.expect(pm.response.json().status).to.eql('RECHAZADO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 Login PRACTICANTE A de nuevo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{practitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Reintentar solicitud B tras rechazo -> PENDIENTE",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Se reutiliza membresía',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('PENDIENTE');pm.expect(b.membershipId).to.eql(Number(pm.collectionVariables.get('membershipB')));});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 Login PRACTICANTE B nuevamente",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{secondPractitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
+              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 Invitación correcta a protegido A -> ACTIVO",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupA}}/join?invitationCode={{inviteA}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupA}}",
+            "join"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Ingreso directo',()=>pm.expect(pm.response.json().status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
