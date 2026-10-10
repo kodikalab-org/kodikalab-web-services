@@ -14,6 +14,11 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
     @Query("select m from GroupMembership m where m.group.id = :teamId and m.practitioner.userId = :userId")
     Optional<GroupMembership> findForUpdate(@Param("teamId") Integer teamId, @Param("userId") Integer userId);
 
+    /**
+     * Membresías reales del equipo. Filtra por los estados de membresía para que filas con otros estados
+     * (p. ej. solicitudes de ingreso pendientes o rechazadas) no se mezclen con integrantes ni se
+     * materialicen como enum.
+     */
     @Query("""
             select new com.kodika.kodikalab.teams.groupmembership.dto.GroupMemberData(
                 m.id, g.id, u.id, u.fullName, m.status)
@@ -22,6 +27,9 @@ public interface GroupMembershipRepository extends JpaRepository<GroupMembership
             left join m.practitioner p
             left join p.user u
             where g.id = :teamId
+              and m.status in (com.kodika.kodikalab.teams.groupmembership.MembershipStatus.ACTIVO,
+                               com.kodika.kodikalab.teams.groupmembership.MembershipStatus.RETIRADO,
+                               com.kodika.kodikalab.teams.groupmembership.MembershipStatus.EXPULSADO)
             order by m.id
             """)
     List<GroupMemberData> findMembersByTeamId(@Param("teamId") Integer teamId);
