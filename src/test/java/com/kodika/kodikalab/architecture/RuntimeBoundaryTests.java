@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Update these boundaries deliberately. Template controllers of teams/problems have no
+ * Update these boundaries deliberately. Template controllers of problems have no
  * handler methods yet, so they must not publish any endpoint until their user story adds one.
  */
 @SpringBootTest
@@ -74,12 +74,16 @@ class RuntimeBoundaryTests {
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
-                        "/analytics/teams/{teamId}/progress/me");
+                        "/analytics/teams/{teamId}/progress/me",
+                        "/teams", "/teams", "/teams/{id}/join", "/teams/{id}/memberships",
+                        "/teams/{id}/memberships/{memberId}");
     }
 
     @Test
     void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess() throws Exception {
-        for (String path : new String[]{"/teams", "/teams/1/members", "/problems", "/problems/assigned",
+        // GET /teams lista los grupos disponibles (US-04/US-05).
+        mvc.perform(get("/api/teams").contextPath("/api")).andExpect(status().isOk());
+        for (String path : new String[]{"/teams/1/members", "/problems", "/problems/assigned",
                 "/analytics/teams/1/topics"}) {
             mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isNotFound());
         }

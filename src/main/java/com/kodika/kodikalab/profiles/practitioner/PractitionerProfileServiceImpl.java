@@ -42,6 +42,12 @@ public class PractitionerProfileServiceImpl implements PractitionerProfileServic
                 .orElseThrow(() -> new NotFoundException(PROFILE_NOT_FOUND));
         return PractitionerProfileResponse.of("Perfil obtenido correctamente", profile);
     }
+    @Override
+    @Transactional(readOnly = true)
+    public PractitionerProfile requirePractitionerProfile(Integer userId) {
+        return profileRepository.findByUserId(userId)
+                .orElseThrow(() -> new NotFoundException(PROFILE_NOT_FOUND));
+    }
 
     /**
      * La consulta a Codeforces se hace antes de abrir la transacción para no retener

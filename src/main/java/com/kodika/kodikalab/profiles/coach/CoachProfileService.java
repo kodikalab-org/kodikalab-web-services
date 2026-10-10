@@ -5,7 +5,13 @@ import com.kodika.kodikalab.profiles.coach.dto.CoachProfileResponse;
 import com.kodika.kodikalab.users.User;
 
 public interface CoachProfileService {
+
     CoachProfileResponse getCoachProfile(User coach);
 
-    CoachProfileResponse saveCoachProfile(User coach, CoachProfileRequest request);
+    CoachProfileResponse saveCoachProfile(
+            User coach,
+            CoachProfileRequest request
+    );
+
+    CoachProfile requireCoachProfile(Integer userId);
 }

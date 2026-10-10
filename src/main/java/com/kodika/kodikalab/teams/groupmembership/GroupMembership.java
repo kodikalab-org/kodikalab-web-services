@@ -21,8 +21,14 @@ import lombok.Setter;
 import org.hibernate.annotations.ColumnDefault;
 
 /**
- * Tabla {@code practicante_grupo}: pertenencia efectiva del practicante al grupo.
- * UNIQUE(grupo_id, practicante_id); según el ERD, al reingresar se reactiva el registro.
+ * Tabla {@code practicante_grupo}: gestiona solicitudes de ingreso
+ * y membresias de los practicantes en los grupos de estudio.
+ *
+ * UNIQUE(grupo_id, practicante_id): cada practicante tiene un unico
+ * registro por grupo, que se reutiliza al solicitar nuevamente.
+ *
+ * fecha_ingreso representa la fecha de solicitud cuando el estado
+ * es PENDIENTE y la fecha de ingreso cuando es ACTIVO.
  */
 @Entity
 @Table(name = "practicante_grupo",
