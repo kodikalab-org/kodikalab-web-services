@@ -95,8 +95,6 @@ class TeamsIntegrationTests {
 
         registry.add("spring.jpa.show-sql", () -> "false");
 
-        registry.add("server.servlet.session.cookie.secure",
-                () -> "false");
     }
 
     @AfterAll
@@ -181,7 +179,7 @@ class TeamsIntegrationTests {
     }
 
     @Test
-    void requestWithoutSessionCannotCreateGroup() {
+    void requestWithoutTokenCannotCreateGroup() {
         var response = http.exchange(
                 "/teams",
                 HttpMethod.POST,
@@ -804,6 +802,99 @@ class TeamsIntegrationTests {
         assertThat(denied.getBody()).containsKey("message");
     }
 
+    // ---- GET /teams/me y datos del postulante
+
+    @Test
+    void coachSeesOnlyTheirOwnGroupsWithTheInvitationCodeAndTheMemberCounts() {
+        String coachSession = coachSession(account(Role.COACH));
+        var open = createGroup(coachSession, "Mis equipos publico", "PUBLICO", 5);
+        var closed = createGroup(coachSession, "Mis equipos protegido", "PROTEGIDO", 5);
+        createGroup(coachSession(account(Role.COACH)), "Grupo ajeno", "PUBLICO", 5);
+
+        join(practitionerSession(account(Role.PRACTICANTE)), (Integer) open.get("groupId"));
+        join(practitionerSession(account(Role.PRACTICANTE)), (Integer) closed.get("groupId"));
+        join(practitionerSession(account(Role.PRACTICANTE)), (Integer) closed.get("groupId"));
+
+        var mine = myTeams(coachSession);
+
+        assertThat(mine).hasSize(2);
+        assertThat(mine.get(0)).containsEntry("groupId", open.get("groupId"))
+                .containsEntry("name", "Mis equipos publico")
+                .containsEntry("visibility", "PUBLICO")
+                .containsEntry("invitationCode", open.get("invitationCode"))
+                .containsEntry("activeMembers", 1).containsEntry("pendingRequests", 0)
+                .doesNotContainKey("membership");
+        assertThat(mine.get(1)).containsEntry("groupId", closed.get("groupId"))
+                .containsEntry("visibility", "PROTEGIDO")
+                .containsEntry("invitationCode", closed.get("invitationCode"))
+                .containsEntry("activeMembers", 0).containsEntry("pendingRequests", 2);
+    }
+
+    @Test
+    void practitionerSeesTheStatusOfEachOfTheirRequestsAndNeverTheCoachFields() {
+        String coachSession = coachSession(account(Role.COACH));
+        var open = createGroup(coachSession, "Practicante publico", "PUBLICO", 5);
+        var closed = createGroup(coachSession, "Practicante protegido", "PROTEGIDO", 5);
+        String session = practitionerSession(account(Role.PRACTICANTE));
+        join(session, (Integer) open.get("groupId"));
+        join(session, (Integer) closed.get("groupId"));
+
+        var before = myTeams(session);
+
+        assertThat(before).hasSize(2);
+        assertThat(before.get(0)).containsEntry("groupId", open.get("groupId"));
+        assertThat(membershipOf(before.get(0))).containsEntry("status", "ACTIVO").containsEntry("teamRole", "MIEMBRO");
+        assertThat(membershipOf(before.get(1))).containsEntry("status", "PENDIENTE");
+        assertThat(before).allSatisfy(team -> assertThat(team)
+                .doesNotContainKeys("invitationCode", "activeMembers", "pendingRequests"));
+
+        // El coach rechaza la solicitud y el practicante lo ve sin que nadie se lo notifique.
+        Object membershipId = membershipOf(before.get(1)).get("membershipId");
+        var review = http.exchange("/teams/" + closed.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH, new HttpEntity<>(Map.of("decision", "RECHAZAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(review.getStatusCode().value()).isEqualTo(200);
+        assertThat(membershipOf(myTeams(session).get(1))).containsEntry("status", "RECHAZADO");
+
+        // Quien todavía no pidió ingreso a ningún grupo recibe una lista vacía.
+        assertThat(myTeams(practitionerSession(account(Role.PRACTICANTE)))).isEmpty();
+    }
+
+    @Test
+    void myTeamsRequiresAToken() {
+        var response = http.exchange("/teams/me", HttpMethod.GET, new HttpEntity<>(headers(null)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(response.getStatusCode().value()).isEqualTo(401);
+    }
+
+    @Test
+    void coachSeesTheApplicantsProfileInThePendingRequestsOldestFirst() {
+        String coachSession = coachSession(account(Role.COACH));
+        Integer groupId = (Integer) createGroup(coachSession, "Solicitudes con perfil", "PROTEGIDO", 5).get("groupId");
+        User first = account(Role.PRACTICANTE);
+        User second = account(Role.PRACTICANTE);
+        join(practitionerSession(first), groupId);
+        join(practitionerSession(second), groupId);
+
+        var pending = http.exchange("/teams/" + groupId + "/memberships?status=PENDIENTE", HttpMethod.GET,
+                new HttpEntity<>(headers(coachSession)),
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+
+        assertThat(pending.getStatusCode().value()).isEqualTo(200);
+        assertThat(pending.getBody()).hasSize(2);
+        assertThat(pending.getBody()).extracting(item -> item.get("practitionerId"))
+                .containsExactly(first.getId(), second.getId());
+        Map<?, ?> applicant = (Map<?, ?>) pending.getBody().get(0).get("practitioner");
+        assertThat(applicant.get("fullName")).isEqualTo("Usuario de Prueba");
+        assertThat(applicant.get("studentCode")).asString().isNotBlank();
+        assertThat(applicant.get("career")).isEqualTo("Ingenieria de Software");
+        assertThat(applicant.get("academicCycle")).isEqualTo(5);
+        assertThat(applicant.get("competitiveLevel")).isEqualTo("INTERMEDIO");
+        assertThat(applicant.get("codeforcesHandle")).isNull();
+        assertThat(pending.getBody().toString()).doesNotContain(first.getEmail()).doesNotContain(second.getEmail());
+    }
+
     private User account(Role role) {
         User user = new User();
 
@@ -838,12 +929,61 @@ class TeamsIntegrationTests {
         assertThat(response.getStatusCode().value())
                 .isEqualTo(200);
 
-        String cookie = response.getHeaders()
-                .getFirst(HttpHeaders.SET_COOKIE);
+        Object token = response.getBody().get("token");
 
-        assertThat(cookie).isNotNull();
+        assertThat(token).isInstanceOf(String.class);
 
-        return cookie.split(";", 2)[0];
+        return (String) token;
+    }
+
+    /** Inicia sesión con una cuenta de coach y le registra su perfil; devuelve su token. */
+    private String coachSession(User coach) {
+        String session = login(coach);
+        var profile = http.exchange("/users/me", HttpMethod.PUT,
+                new HttpEntity<>(Map.of("especialidadPrincipal", "Grafos", "aniosExperiencia", 4), headers(session)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(profile.getStatusCode().value()).isEqualTo(200);
+        return session;
+    }
+
+    /** Inicia sesión con una cuenta de practicante y le registra su perfil; devuelve su token. */
+    private String practitionerSession(User practitioner) {
+        String session = login(practitioner);
+        var profile = http.exchange("/users/me", HttpMethod.PUT,
+                new HttpEntity<>(Map.of("codigoEstudiante", "T" + UUID.randomUUID().toString().substring(0, 8),
+                        "carrera", "Ingenieria de Software", "cicloAcademico", 5, "nivelCompetitivo", "INTERMEDIO"),
+                        headers(session)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(profile.getStatusCode().value()).isEqualTo(200);
+        return session;
+    }
+
+    private Map<String, Object> createGroup(String coachSession, String name, String visibility, int capacity) {
+        var created = http.exchange("/teams", HttpMethod.POST,
+                new HttpEntity<>(Map.of("name", name, "expectedLevel", "Div3", "maxCapacity", capacity,
+                        "visibility", visibility), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(created.getStatusCode().value()).isEqualTo(201);
+        return created.getBody();
+    }
+
+    private Map<String, Object> join(String session, Integer groupId) {
+        var joined = http.exchange("/teams/" + groupId + "/join", HttpMethod.POST,
+                new HttpEntity<>(headers(session)), new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(joined.getStatusCode().value()).isEqualTo(201);
+        return joined.getBody();
+    }
+
+    private List<Map<String, Object>> myTeams(String session) {
+        var response = http.exchange("/teams/me", HttpMethod.GET, new HttpEntity<>(headers(session)),
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        return response.getBody();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> membershipOf(Map<String, Object> team) {
+        return (Map<String, Object>) team.get("membership");
     }
 
     private HttpHeaders headers(String session) {
@@ -852,7 +992,7 @@ class TeamsIntegrationTests {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         if (session != null) {
-            headers.set(HttpHeaders.COOKIE, session);
+            headers.setBearerAuth(session);
         }
 
         return headers;

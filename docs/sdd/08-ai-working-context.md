@@ -9,7 +9,7 @@
 - El nuevo ERD prevalece sobre los ejemplos del modelo anterior. No asumir que una entidad actual está alineada porque compile.
 - No modificar `.env`, exponer secretos, ejecutar commits/push ni cambiar ramas sin autorización.
 - No incluir datos personales en documentación, colecciones o fixtures: usar nombres genéricos como `Usuario Prueba` y correos de ejemplo como `test@gmail.com`.
-- No cambiar `/api`, activar JWT ni cerrar endpoints de desarrollo sin solicitud explícita.
+- JWT y las reglas por rol están activos (`config.SecurityConfig`): todo endpoint nuevo exige token Bearer y, si es exclusivo de `COACH` o `PRACTICANTE`, debe declarar su regla allí. No cambiar `/api` sin solicitud explícita.
 - El scaffolding raíz `controller`/`dto`/`entity`/`repository`/`service` se retiró tras revisión y autorización; no restaurarlo. Los módulos `teams`, `problems` y `competitions` existen como **plantilla del ERD** (decisión del dueño del proyecto): entidades JPA, enums, repositorios, servicios y controllers sin lógica ni endpoints. Cada historia agrega sus métodos y endpoints con su contrato; no agregar respuestas ficticias ni endpoints sin historia. Revisar referencias y avisar antes de nuevas eliminaciones; `auth/dto` sí es funcional y se conserva.
 - No ejecutar DDL/migraciones sobre la base local ni usar `ddl-auto=update` como sustituto de una migración aprobada.
 - Después de cambios Java, ejecutar `./mvnw clean compile` y las pruebas correspondientes.
@@ -18,7 +18,7 @@
 
 Fuente vigente: `docs/sdd/assets/oficial.erd`. No hay un snapshot SQL vigente en assets. Los archivos retirados no se restauran automáticamente.
 
-`auth`/`users`, fixtures y Postman están alineados al ERD oficial para la cuenta base. `profiles` implementa los perfiles `practicante` y `coach` (US-03) en `GET/PUT /api/users/me`, que actúan según el rol de la sesión; colecciones `tests/US03-profile.postman_collection.json` y `tests/US03-coach.postman_collection.json`. Los demás módulos siguen como diseño pendiente; su scaffolding sin lógica fue retirado. Los datos existentes no se han migrado ni eliminado. Mantener esta distinción al extender el proyecto.
+`auth`/`users`, fixtures y Postman están alineados al ERD oficial para la cuenta base. `profiles` implementa los perfiles `practicante` y `coach` (US-03) en `GET/PUT /api/users/me`, que actúan según el rol del token; colecciones `tests/US03-profile.postman_collection.json` y `tests/US03-coach.postman_collection.json`. Los demás módulos siguen como diseño pendiente; su scaffolding sin lógica fue retirado. Los datos existentes no se han migrado ni eliminado. Mantener esta distinción al extender el proyecto.
 
 `oficial.erd` es el ERD oficial; conserva restos ocultos en resoluciones, categoría y solicitudes que no forman parte del modelo, y el drawio debe corregirse en `Categoria`. Ver `04-database-model.md`. No editar el archivo oficial para ocultarlas ni generar su SQL completo sin revisarlas.
 
@@ -30,7 +30,7 @@ Fuente vigente: `docs/sdd/assets/oficial.erd`. No hay un snapshot SQL vigente en
 - El registro puede conservar `firstName`/`lastName` en su DTO y unirlos explícitamente; validar el límite combinado de 150, sin crear columnas adicionales.
 - `Role`: `PRACTICANTE`/`COACH` en Java, HTTP y SQL. El valor antiguo `PRACTITIONER` se rechaza; no mantener `ADMIN` como rol oficial.
 - `UserStatus`: `ACTIVO`/`SUSPENDIDO`. Usar `@Enumerated(EnumType.STRING)` directamente, sin converters ni ordinales. No mantener automáticamente `INACTIVE`/`BLOCKED`.
-- BCrypt, mensajes genéricos de login y sesión HTTP se conservan; no devolver ni registrar hashes/contraseñas.
+- BCrypt, mensajes genéricos de login y token JWT se conservan; no devolver ni registrar hashes/contraseñas.
 - `auth` consulta por el servicio público de `users`, no por su repository directamente.
 - No fabricar campos obligatorios de perfiles `coach`/`practicante` ni implementar perfiles en una tarea de cuentas base.
 - Conservar las pruebas de rechazo de `ADMIN`, correo superior a 100, nombre combinado superior a 150 y cuentas suspendidas; no restaurar fixtures de `users`/`INACTIVE`/`BLOCKED`.

@@ -2,7 +2,7 @@
   "info": {
     "name": "KodikaLab - US02 Auth ERD oficial",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Ejecutar en orden en una base exclusiva de pruebas. Preparar la fixture SUSPENDIDO. Crea dos cuentas activas; no modifica otras. Mantener cookie jar habilitado. Ver tests/US02-login.md."
+    "description": "Ejecutar en orden en una base exclusiva de pruebas. Preparar la fixture SUSPENDIDO. Crea tres cuentas activas; no modifica otras. El login devuelve un token JWT (Bearer) y no crea cookies; el bloque final prueba la recuperación de acceso sin correo con el código de recuperación. Ver tests/US02-login.md."
   },
   "variable": [
     {
@@ -29,7 +29,8 @@
           "  pm.collectionVariables.set('uppercaseLoginEmail', email.toUpperCase());",
           "  pm.collectionVariables.set('coachLoginEmail', `test.us02.coach.${id}@gmail.com`);",
           "  pm.collectionVariables.set('missingLoginEmail', `test.us02.missing.${id}@gmail.com`);",
-          "  pm.collectionVariables.unset('lastSessionCookie');",
+          "  pm.collectionVariables.set('recoveryEmail', `test.us02.recovery.${id}@gmail.com`);",
+          "  pm.collectionVariables.unset('lastToken');",
           "}"
         ]
       }
@@ -46,6 +47,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
@@ -75,12 +79,15 @@
             "exec": [
               "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
+              "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -96,6 +103,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -125,15 +135,18 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
-              "const cookie = pm.response.headers.get('Set-Cookie');",
-              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
-              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
             ]
           }
         }
@@ -149,6 +162,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Wrong123\"\n}",
@@ -178,10 +194,10 @@
             "exec": [
               "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -197,6 +213,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{missingLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -226,10 +245,10 @@
             "exec": [
               "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -245,6 +264,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -274,15 +296,18 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
-              "const cookie = pm.response.headers.get('Set-Cookie');",
-              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
-              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
             ]
           }
         }
@@ -298,6 +323,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"  {{uppercaseLoginEmail}}  \",\n  \"password\": \"Password123\"\n}",
@@ -327,15 +355,18 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
-              "const cookie = pm.response.headers.get('Set-Cookie');",
-              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
-              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
             ]
           }
         }
@@ -351,6 +382,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{coachLoginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
@@ -380,12 +414,15 @@
             "exec": [
               "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{coachLoginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"lastRecoveryCode\", body.recoveryCode);",
+              "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -401,6 +438,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{coachLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -430,15 +470,18 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{coachLoginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
-              "const cookie = pm.response.headers.get('Set-Cookie');",
-              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
-              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
             ]
           }
         }
@@ -454,6 +497,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{missingLoginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"ADMIN\"\n}",
@@ -483,10 +529,10 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El rol debe ser PRACTICANTE o COACH\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -502,6 +548,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{missingLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -531,10 +580,10 @@
             "exec": [
               "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -550,6 +599,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"password\": \"Password123\"\n}",
@@ -579,9 +631,9 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -597,6 +649,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\"\n}",
@@ -626,9 +681,9 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -644,6 +699,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"correo-invalido\",\n  \"password\": \"Password123\"\n}",
@@ -673,9 +731,9 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -691,6 +749,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"   \"\n}",
@@ -720,9 +781,9 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -738,6 +799,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": null,\n  \"password\": \"Password123\"\n}",
@@ -767,9 +831,9 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -785,6 +849,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"A1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"\n}",
@@ -814,10 +881,10 @@
             "exec": [
               "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -833,6 +900,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"ADMIN\"\n}",
@@ -862,22 +932,25 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
-              "const cookie = pm.response.headers.get('Set-Cookie');",
-              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
-              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
             ]
           }
         }
       ]
     },
     {
-      "name": "18 Renovación de sesión",
+      "name": "18 Nuevo token en cada login",
       "request": {
         "method": "POST",
         "header": [
@@ -886,6 +959,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -915,15 +991,18 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
               "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
               "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{loginEmail}}\").trim().toLowerCase()));",
-              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
-              "const cookie = pm.response.headers.get('Set-Cookie');",
-              "pm.test('Cookie segura para HTTP local', () => { pm.expect(cookie).to.include('JSESSIONID='); pm.expect(cookie).to.match(/HttpOnly/i); pm.expect(cookie).to.match(/SameSite=Lax/i); });",
-              "if (cookie) { const id = cookie.split(';')[0]; const old = pm.collectionVariables.get('lastSessionCookie'); pm.test('Renovación de sesión', () => { if (old) pm.expect(id).not.to.eql(old); }); pm.collectionVariables.set('lastSessionCookie', id); }"
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
             ]
           }
         }
@@ -939,6 +1018,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{broken}",
@@ -968,9 +1050,9 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -986,6 +1068,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{suspendedLoginEmail}}\",\n  \"password\": \"Password123\"\n}",
@@ -1015,10 +1100,10 @@
             "exec": [
               "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -1034,6 +1119,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"password\": \" Password123 \"\n}",
@@ -1063,10 +1151,10 @@
             "exec": [
               "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
             ]
           }
         }
@@ -1082,6 +1170,9 @@
             "value": "application/json"
           }
         ],
+        "auth": {
+          "type": "noauth"
+        },
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.gmail.com\",\n  \"password\": \"Password123\"\n}",
@@ -1111,10 +1202,693 @@
             "exec": [
               "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
               "const body = pm.response.json();",
-              "pm.test('Sin datos sensibles', () => { for (const key of ['password', 'passwordHash', 'password_hash', 'token']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
               "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
               "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El correo debe tener como máximo 100 caracteres\"));",
-              "pm.test('Error sin identidad ni nueva sesión', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 Recuperación: preparar cuenta (guarda su código)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{recoveryEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{recoveryEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'recoveryCode', 'role']));",
+              "pm.test('Código de recuperación (6 grupos de 4)', () => pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/));",
+              "pm.collectionVariables.set(\"recoveryCode1\", body.recoveryCode);",
+              "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 Recuperación: login con la contraseña original (guarda recoveryOldToken)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{recoveryEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(\"recoveryOldToken\", body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 Recuperación: código inválido → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"recoveryCode\": \"AAAA-BBBB-CCCC-DDDD-EEEE-FFFF\",\n  \"newPassword\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Datos de recuperación inválidos\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 Recuperación: correo inexistente → 401 (mismo mensaje, no revela la cuenta)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{missingLoginEmail}}\",\n  \"recoveryCode\": \"{{recoveryCode1}}\",\n  \"newPassword\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Datos de recuperación inválidos\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 Recuperación: contraseña nueva débil → 400 (el código no se consume)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"recoveryCode\": \"{{recoveryCode1}}\",\n  \"newPassword\": \"12345\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"La contraseña debe contener al menos 8 caracteres, una mayúscula y un número\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "28 Recuperación: código correcto define la contraseña nueva → 200",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"recoveryCode\": \"{{recoveryCode1}}\",\n  \"newPassword\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "pm.test('Código nuevo, distinto del anterior', () => { pm.expect(body.recoveryCode).to.match(/^[A-Z2-7]{4}(-[A-Z2-7]{4}){5}$/); pm.expect(body.recoveryCode).not.to.eql(pm.collectionVariables.get('recoveryCode1')); });",
+              "pm.test('Mensaje', () => pm.expect(body.message).to.include('Contraseña actualizada'));",
+              "pm.collectionVariables.set('recoveryCode2', body.recoveryCode);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "29 Recuperación: el token anterior ya no sirve → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{recoveryOldToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El token es inválido o expiró: inicie sesión nuevamente\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "30 Recuperación: la contraseña anterior ya no sirve → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Error sin identidad ni token', () => { pm.expect(body).not.to.have.property('email'); pm.expect(body).not.to.have.property('role'); pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 Recuperación: login con la contraseña nueva → 200 (nuevo intento habilitado)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"password\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{recoveryEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(\"recoveryNewToken\", body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Recuperación: el código anterior es de un solo uso → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{recoveryEmail}}\",\n  \"recoveryCode\": \"{{recoveryCode1}}\",\n  \"newPassword\": \"Otra12345\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Datos de recuperación inválidos\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "33 Recuperación: consultar el código vigente (token + contraseña) → 200, igual al entregado",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{recoveryNewToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery-code"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "pm.test('Es el código de la recuperación', () => pm.expect(body.recoveryCode).to.eql(pm.collectionVariables.get('recoveryCode2')));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "34 Recuperación: consultar el código sin token → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery-code"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"Nueva1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35 Recuperación: consultar el código con contraseña incorrecta → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{recoveryNewToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/recovery-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "recovery-code"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"password\": \"Wrong1234\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Credenciales inválidas\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
             ]
           }
         }

@@ -13,9 +13,16 @@ import com.kodika.kodikalab.problems.topic.Topic;
 import com.kodika.kodikalab.profiles.coach.CoachProfile;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfile;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
+import com.kodika.kodikalab.security.JwtService;
+import com.kodika.kodikalab.support.Bearer;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
+import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
+import com.kodika.kodikalab.users.UserRepository;
+import com.kodika.kodikalab.users.UserStatus;
 import jakarta.persistence.EntityManagerFactory;
+import java.time.OffsetDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -24,6 +31,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +50,8 @@ class RuntimeBoundaryTests {
     @Autowired EntityManagerFactory entityManagerFactory;
     @Autowired RequestMappingHandlerMapping mappings;
     @Autowired MockMvc mvc;
+    @Autowired UserRepository users;
+    @Autowired JwtService jwt;
 
     @Test
     void onlyOfficialErdPersistenceIsRegistered() {
@@ -69,33 +79,50 @@ class RuntimeBoundaryTests {
                 .filter(entry -> entry.getValue().getBeanType().getPackageName()
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
-                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
+                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/auth/recovery", "/auth/recovery-code",
+                        "/users/me", "/users/me",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
+                        "/competitions", "/competitions/{competitionId}/status",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
-                        "/analytics/teams/{teamId}/progress/me",
-                        "/teams", "/teams", "/teams/{id}/join", "/teams/{id}/memberships",
+                        "/analytics/teams/{teamId}/progress/me", "/analytics/teams/{teamId}/progress/me/topics",
+                        "/teams", "/teams", "/teams/me", "/teams/{id}/join", "/teams/{id}/memberships",
                         "/teams/{id}/memberships/{memberId}",
                         "/problems", "/problems", "/problems/assign", "/problems/assigned",
                         "/problems/assigned/{competitionProblemId}");
     }
 
     @Test
+    @Transactional
     void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess() throws Exception {
+        // Una cuenta temporal (se revierte al terminar el test) para recorrer las rutas con un token válido.
+        User account = new User();
+        account.setFullName("Prueba Limites");
+        account.setEmail("limites." + UUID.randomUUID() + "@test.com");
+        account.setPasswordHash("$2a$10$sin-uso");
+        account.setRole(Role.COACH);
+        account.setStatus(UserStatus.ACTIVO);
+        account.setCreatedAt(OffsetDateTime.now());
+        users.saveAndFlush(account);
+        var token = Bearer.of(jwt.issue(account).token());
+
         // GET /teams lista los grupos disponibles (US-04/US-05).
-        mvc.perform(get("/api/teams").contextPath("/api")).andExpect(status().isOk());
+        mvc.perform(get("/api/teams").contextPath("/api").with(token)).andExpect(status().isOk());
         for (String path : new String[]{"/teams/1/members", "/analytics/teams/1/topics"}) {
-            mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isNotFound());
+            mvc.perform(get("/api" + path).contextPath("/api").with(token)).andExpect(status().isNotFound());
         }
-        // El catálogo y los problemas asignados (US-07/US-08) existen y exigen sesión: sin ella, 401 y no 404.
+        // El catálogo y los problemas asignados (US-07/US-08) existen y exigen token: sin él, 401 y no 404.
         for (String path : new String[]{"/problems", "/problems/assigned", "/problems/assigned/1"}) {
             mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isUnauthorized());
         }
-        // Existe POST /competitions (US-13 T1); no hay listado público, por eso GET responde 405 y no 200.
-        mvc.perform(get("/api/competitions").contextPath("/api")).andExpect(status().isMethodNotAllowed());
-        mvc.perform(post("/api/assistant/query").contextPath("/api")
+        // GET /competitions lista las competencias de un equipo: exige teamId, por eso sin él responde 400 y no 200.
+        mvc.perform(get("/api/competitions").contextPath("/api").with(token)).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/assistant/query").contextPath("/api").with(token)
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
+        // Sin token, cualquier ruta (incluso inexistente) responde 401: la API no revela qué rutas existen.
+        mvc.perform(get("/api/teams").contextPath("/api")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/competitions").contextPath("/api")).andExpect(status().isUnauthorized());
     }
 }

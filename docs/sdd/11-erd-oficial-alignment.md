@@ -29,8 +29,8 @@ Los defaults SQL de estado/fecha están declarados en JPA. Los enums usan los mi
 - Correo hasta 100 en registro y login; no se impone un dominio institucional exclusivo.
 - BCrypt, límite de 72 bytes UTF-8 sin truncado y mensajes públicos de aceptación.
 - Login solo para cuentas activas; mismo `401 Credenciales inválidas` para credenciales incorrectas, cuentas ausentes o suspendidas.
-- Sesión HTTP con rol almacenado, renovación de ID, cookie `HttpOnly`/`SameSite=Lax` y expiración de 30 minutos.
-- JWT no activado; otros endpoints conservan `permitAll()`. No es autorización lista para producción.
+- Autenticación con token JWT (Bearer) sin sesión HTTP; el rol efectivo se lee de `usuario.rol` en cada petición.
+- Autorización por rol en `SecurityConfig`; ver `06-security-strategy.md` para lo que sigue pendiente antes de producción.
 - No se fabrican perfiles `coach`/`practicante` sin sus datos obligatorios.
 - Documentación, fixtures y colecciones usan nombres genéricos y correos de prueba, sin datos personales.
 

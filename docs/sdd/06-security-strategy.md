@@ -4,68 +4,103 @@
 
 Modelo vigente: `docs/sdd/assets/oficial.erd`. `auth`/`users` implementan la cuenta oficial; los enums y tablas anteriores no forman parte del modelo activo de autenticación.
 
+La API usa **Spring Security + JWT sin estado** (requisito de autenticación y autorización del Sprint 1). Reemplaza a la sesión HTTP de US-02 y al `permitAll()` de desarrollo.
+
 ## Estado actual
 
-Durante el desarrollo inicial, Spring Security está configurado para permitir todos los endpoints:
+- **Autenticación:** `POST /api/auth/login` valida la contraseña con BCrypt y devuelve un JWT. El cliente lo envía en cada petición como `Authorization: Bearer <token>`. No hay sesión HTTP, `JSESSIONID` ni cookies.
+- **Autorización:** las reglas por rol (`COACH` / `PRACTICANTE`) se declaran en un solo lugar, `config.SecurityConfig`. Los servicios conservan las verificaciones que dependen de datos (coach responsable del equipo, membresía activa, cuenta `ACTIVO`).
+- **Errores:** `401` y `403` en JSON `{ "message": "...", "errors": {} }`, igual que el resto de la API.
+- **Documentación:** Swagger UI (`/api/swagger-ui.html`) y OpenAPI (`/api/v3/api-docs`) son públicos y declaran el esquema `bearerAuth`; el botón **Authorize** acepta el token.
 
-```java
-.anyRequest().permitAll()
+## Flujo
+
+```text
+POST /api/auth/login
+  → auth.AuthController → auth.AuthService.login
+      → users.UserService.findByEmail → PasswordEncoder.matches (BCrypt)
+      → security.JwtService.issue  → { token, tokenType: "Bearer", expiresIn }
+
+Peticiones posteriores: Authorization: Bearer <token>
+  → security.JwtAuthenticationFilter   valida firma, emisor y vigencia; carga la cuenta
+  → config.SecurityConfig              reglas por rol
+  → controller → service               verificaciones de pertenencia / propiedad
 ```
 
-Esto permite que los integrantes prueben sus endpoints sin bloquearse por autenticación JWT.
+## Token
 
-## Objetivo posterior
+JWT firmado con HMAC-SHA256 (`jjwt`). Claims: `iss=kodikalab`, `sub` (correo), `uid`, `role`, `pwd` (huella del hash de la contraseña), `iat`, `exp` y `jti` (identificador único). Nunca contiene contraseñas, hashes ni datos de negocio.
 
-Cuando los endpoints base estén implementados, se debe reemplazar la configuración permisiva por seguridad basada en JWT.
+- **El rol del token es informativo para el cliente.** En cada petición el filtro vuelve a leer la cuenta y deriva la autoridad (`ROLE_COACH` / `ROLE_PRACTICANTE`) del rol guardado en `usuario.rol`. Un token firmado con un rol distinto del almacenado no eleva privilegios.
+- **Cambio de contraseña:** el filtro compara `pwd` con la huella del hash vigente. Al recuperar el acceso (o cambiar la contraseña) los tokens emitidos antes dejan de valer (`401`), lo que cubre la revocación en ese caso.
+- **Cuenta suspendida:** si la cuenta deja de estar `ACTIVO` después de iniciar sesión, cualquier petición con su token recibe `403 La cuenta no está habilitada`, sin esperar a que el token venza.
+- **Cuenta inexistente:** un token válido de una cuenta eliminada se trata como inválido (`401`).
+- **Rechazos:** token mal formado, manipulado, sin firma (`alg=none`), firmado con otra clave, de otro emisor o vencido. Las causas no se distinguen hacia afuera.
+- Los endpoints públicos (registro, login, documentación) ignoran cualquier token que el cliente adjunte.
 
-## Endpoints públicos esperados
+## Reglas de acceso
 
-Cuando se active JWT, normalmente quedarán públicos:
+| Acceso | Endpoints |
+| --- | --- |
+| Público | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**` |
+| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `PATCH /competitions/{competitionId}/status`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
+| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me`, `GET /analytics/teams/{teamId}/progress/me/topics` |
+| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /teams/me`, `GET /competitions?teamId=`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
 
-```txt
-POST /auth/register
-POST /auth/login
-GET  /swagger-ui/**
-GET  /v3/api-docs/**
-```
+Todo endpoint nuevo queda protegido por defecto (`anyRequest().authenticated()`). Si es exclusivo de un rol, agregar su regla en `SecurityConfig` y una fila en esta tabla.
 
-## Endpoints protegidos
+## Errores
 
-Todos los demás endpoints deberían requerir token:
+| Código | Causa | `message` |
+| --- | --- | --- |
+| `401` | Sin token (o esquema distinto de Bearer) | `Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)` |
+| `401` | Token inválido, manipulado, vencido o de una cuenta inexistente | `El token es inválido o expiró: inicie sesión nuevamente` |
+| `403` | Rol sin permiso | `No tiene permisos para realizar esta acción` |
+| `403` | Cuenta que ya no está `ACTIVO` | `La cuenta no está habilitada` |
 
-```txt
-Authorization: Bearer <token>
-```
+Las respuestas `401` incluyen `WWW-Authenticate: Bearer` (con `error="invalid_token"` si se envió un token inválido).
 
-## Implementado en US-01
+## Configuración
 
-- Bean `PasswordEncoder` con BCrypt en `SecurityConfig`.
-- Registro con contraseña hasheada; nunca se devuelve contraseña/hash en la respuesta.
-- Se mantiene `permitAll()` sin JWT, según el alcance de desarrollo actual.
+| Variable | Descripción |
+| --- | --- |
+| `JWT_SECRET` | **Obligatoria**, sin valor por defecto. Mínimo 32 caracteres (`openssl rand -hex 32`). Sin ella, o con el valor de ejemplo `CHANGE_ME…`, la aplicación no arranca. |
+| `JWT_EXPIRATION` | Vigencia en milisegundos; por defecto `86400000` (24 h). |
+| `CORS_ALLOWED_ORIGINS` | Orígenes del frontend permitidos, separados por comas. Sin credenciales ni cookies. |
 
-## Implementado en US-02
-
-- Login usa `PasswordEncoder.matches`, mensaje genérico y validación de estado sobre `usuario`.
-- Se permite SQL `ACTIVO` y se deniega `SUSPENDIDO` con el mismo `401 Credenciales inválidas` que un usuario ausente o una contraseña incorrecta. `UserStatus` usa los mismos valores `ACTIVO`/`SUSPENDIDO`, persistidos directamente con `@Enumerated(EnumType.STRING)`.
-- Sesión HTTP persistida mediante `HttpSessionSecurityContextRepository`; almacena identidad y autoridad del rol, nunca credenciales ni entidades de negocio.
-- Renovación del ID al autenticar una sesión existente, cookie `HttpOnly`/`SameSite=Lax` y expiración por inactividad (30 minutos).
-- `SESSION_COOKIE_SECURE=true` en HTTPS; en HTTP local el valor por defecto es `false`.
-- Se conserva `permitAll()` y CSRF temporalmente desactivado; no se activa JWT ni se migra globalmente la configuración.
-
-Este flujo de login **no deja la autorización lista para producción**. Antes de proteger operaciones mediante cookies, activar CSRF y definir logout, revocación, permisos y limitación de intentos. El escenario de recuperación de acceso requiere un contrato posterior y no se considera implementado.
+CSRF está desactivado a propósito: sin cookies de sesión no hay petición de otro sitio que pueda reutilizar la autenticación del navegador.
 
 ## Roles del modelo oficial
 
 - Persistencia: `COACH` y `PRACTICANTE`; no hay `ADMIN` en `oficial.erd`.
 - Java/HTTP implementado: `COACH` y `PRACTICANTE`, iguales a SQL y sin conversores; las autoridades son `ROLE_COACH`/`ROLE_PRACTICANTE`.
-- Las autoridades de sesión deben derivarse del rol validado y almacenado, no de un rol suministrado al login.
-- Las cuentas `ADMIN` existentes requieren tratamiento aprobado; no reclasificarlas ni mantener privilegios silenciosamente. Invalidar sesiones previas al desplegar el cambio de nombres de roles/autoridades.
+- Las autoridades se derivan del rol validado y almacenado, no de un rol suministrado al login ni del contenido del token.
+- Las cuentas `ADMIN` existentes requieren tratamiento aprobado; no reclasificarlas ni mantener privilegios silenciosamente.
 - El ERD no define una verificación adicional del coach ni datos suficientes para crear su perfil durante el registro base; no inventar esa política en la adaptación de auth.
 
-## Pendientes de seguridad
+## Pruebas
 
-- Implementar generación de JWT en login.
-- Implementar validación de JWT por request.
-- Implementar filtro JWT.
-- Definir roles y permisos.
-- Proteger endpoints por rol si la historia lo requiere.
+- `JwtServiceTests`: emisión, vencimiento, manipulación, otra clave, otro emisor, `alg=none`, claims faltantes, secretos inválidos y que el secreto no aparezca en `toString`.
+- `JwtAuthenticationFilterTests`: autenticación, rol tomado de la base de datos, token inválido, cuenta inexistente o suspendida y endpoints públicos.
+- `SecurityIntegrationTests` (PostgreSQL en schema aislado, `SECURITY_TEST_DB_URL`): `401` en todos los endpoints protegidos sin token, tokens inválidos, `403` por rol en cada endpoint exclusivo, rol del token no confiable, cuenta suspendida o eliminada, ausencia de sesión/cookie, OpenAPI, Swagger y CORS.
+- Los tests de integración de cada módulo inician sesión por HTTP real y usan el token.
+- Postman: `tests/SEC-jwt-roles.postman_collection.json`. Ver `tests/README.md`.
+
+## Recuperación de acceso sin correo
+
+Escenario alternativo de US-02. El sistema no envía correos (no hay cliente de correo en el diagrama de componentes): el titular verifica la titularidad con un **código de recuperación** y define una contraseña nueva.
+
+- **Código:** `ABCD-EFGH-IJKL-MNOP-QRST-UVWX` (120 bits). Se entrega en la respuesta del registro y de cada recuperación. No se guarda en ninguna tabla (el ERD no cambia): es `HMAC-SHA256(clave derivada de JWT_SECRET, correo + hash vigente de la contraseña)`.
+- **Un solo uso:** al cambiar la contraseña cambia el hash y, con él, el código. Una actualización con comparación del hash anterior (`UPDATE ... WHERE password_hash = :actual`) hace que, con dos solicitudes simultáneas, solo una gane.
+- **Cuentas anteriores:** `POST /auth/recovery-code` (token + contraseña actual) devuelve el código vigente de cualquier cuenta.
+- **Sin filtrar información:** código incorrecto, correo inexistente, cuenta suspendida y código ya usado responden el mismo `401 Datos de recuperación inválidos`.
+- **Efectos:** BCrypt para la contraseña nueva, tokens anteriores inválidos y nuevo intento de inicio de sesión habilitado.
+- **Límites:** rotar `JWT_SECRET` cambia los códigos; falta limitación de intentos.
+
+Contrato: `03-api-contracts.md`. Pruebas: `RecoveryCodeServiceTests`, `AccountRecoveryServiceTests`, `RecoveryControllerTests` y `RecoveryIntegrationTests`; Postman: bloque final de `US02-login`.
+
+## Pendientes antes de producción
+
+- **Logout y revocación:** el token vale hasta su vencimiento o hasta un cambio de contraseña; cerrar sesión consiste en descartarlo en el cliente. Una lista de revocación o tokens de corta vida con refresco requieren una política acordada.
+- **Limitación de intentos** de login, registro y recuperación.
+- **HTTPS** y cabeceras de seguridad en el despliegue; el secreto real solo en variables de entorno del servidor.

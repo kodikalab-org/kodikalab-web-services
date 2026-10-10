@@ -2,6 +2,8 @@ package com.kodika.kodikalab.competitions;
 
 import com.kodika.kodikalab.competitions.category.CategoryService;
 import com.kodika.kodikalab.competitions.competition.CompetitionService;
+import com.kodika.kodikalab.competitions.competition.dto.ChangeCompetitionStatusRequest;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionListResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblemService;
@@ -12,16 +14,20 @@ import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultRespon
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/competitions")
+@Tag(name = "Competencias", description = "Competencias y resultados oficiales (US-13).")
 public class CompetitionController {
     private final CompetitionService competitionService;
     private final CompetitionProblemService competitionProblemService;
@@ -45,6 +51,17 @@ public class CompetitionController {
     @ResponseStatus(HttpStatus.CREATED)
     public CompetitionResponse create(@RequestBody CreateCompetitionRequest request) {
         return competitionService.create(request);
+    }
+
+    @GetMapping
+    public CompetitionListResponse list(@RequestParam(required = false) Integer teamId) {
+        return competitionService.listByTeam(teamId);
+    }
+
+    @PatchMapping("/{competitionId}/status")
+    public CompetitionResponse changeStatus(@PathVariable Integer competitionId,
+                                            @RequestBody ChangeCompetitionStatusRequest request) {
+        return competitionService.changeStatus(competitionId, request);
     }
 
     @PostMapping("/{competitionId}/official-result")

@@ -3,6 +3,7 @@ package com.kodika.kodikalab.competitions.problemresolution;
 import com.kodika.kodikalab.competitions.problemresolution.dto.MemberAttempt;
 import com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData;
 import com.kodika.kodikalab.competitions.problemresolution.dto.ManualResolutionRequest;
+import com.kodika.kodikalab.competitions.competition.CompetitionStatus;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblem;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblemRepository;
 import com.kodika.kodikalab.common.exception.BadRequestException;
@@ -89,6 +90,10 @@ public class ProblemResolutionServiceImpl implements ProblemResolutionService {
                 .orElseThrow(() -> new NotFoundException("El problema no está asignado a una competencia existente"));
         validateAssignment(teamId, competitionProblemId, assignment);
         validateRequest(request);
+        if (assignment.getCompetition().getStatus() == CompetitionStatus.PROGRAMADA) {
+            throw new ConflictException(
+                    "La competencia aún no ha comenzado: el coach debe iniciarla antes de registrar resoluciones");
+        }
         if (problemResolutionRepository.existsByMembershipIdAndCompetitionProblemIdAndVerdict(
                 membership.getId(), competitionProblemId, Verdict.ACCEPTED)) {
             throw new ConflictException("Ya existe una resolución ACCEPTED para esta membresía y problema de competencia");

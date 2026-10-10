@@ -14,7 +14,7 @@ Las consultas permanecen en los módulos propietarios y se exponen por sus servi
 - `GroupMembershipService.findMembersByTeamId`: todas las membresías, incluidas las inactivas, con usuario, nombre y estado.
 - `ProblemResolutionService.findResolutionsByTeamId`: resoluciones, membresía, competencia, problema de catálogo y equipos de ambos extremos.
 
-Se permite consultar al coach responsable o a un practicante con membresía `ACTIVO` en el equipo. La cuenta debe estar `ACTIVO`. La identidad procede de la sesión HTTP existente, nunca de parámetros del cliente. Las resoluciones se leen después de autorizar al solicitante.
+Se permite consultar al coach responsable o a un practicante con membresía `ACTIVO` en el equipo. La cuenta debe estar `ACTIVO`. La identidad procede del token Bearer, nunca de parámetros del cliente. Las resoluciones se leen después de autorizar al solicitante.
 
 La consulta de resoluciones incluye filas cuya membresía **o** competencia pertenece al equipo solicitado. Antes del cálculo, ambas relaciones deben coincidir con ese equipo. Así se detectan referencias cruzadas desde cualquiera de los equipos afectados, en lugar de ocultarlas mediante un filtro que produciría resultados parciales. Los `left join` permiten detectar relaciones incompletas; no hay joins a colecciones que multipliquen filas.
 

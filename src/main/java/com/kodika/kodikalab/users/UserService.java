@@ -43,6 +43,15 @@ public class UserService {
         }
     }
 
+    /**
+     * Reemplaza el hash de la contraseña solo si sigue siendo {@code expectedHash}. Devuelve {@code false} si otra
+     * operación lo cambió antes: así un código de recuperación se usa una sola vez aunque lleguen dos solicitudes a la vez.
+     */
+    @Transactional
+    public boolean replacePasswordHash(Integer userId, String expectedHash, String newHash) {
+        return userRepository.updatePasswordHashIfCurrent(userId, expectedHash, newHash) == 1;
+    }
+
     @Transactional(readOnly = true)
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmailIgnoreCase(email);

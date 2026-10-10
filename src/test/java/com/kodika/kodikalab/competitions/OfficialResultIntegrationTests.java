@@ -22,7 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
+import com.kodika.kodikalab.support.Bearer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -47,7 +47,7 @@ class OfficialResultIntegrationTests {
     Account coach;
     int teamId;
     int competitionId;
-    MockHttpSession session;
+    String session;
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(System.getenv("OFFICIAL_RESULT_TEST_DB_URL"),
@@ -91,7 +91,7 @@ class OfficialResultIntegrationTests {
     @Test
     void confirmedResultAppearsInHistoryWithoutCreatingIndividualResolutions() throws Exception {
         create(competitionId, "{\"finalPosition\":2,\"solvedProblems\":0,\"confirm\":true}", session, 201);
-        mvc.perform(get(history(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].competitionId").value(competitionId))
                 .andExpect(jsonPath("$[0].teamId").value(teamId))
@@ -103,23 +103,23 @@ class OfficialResultIntegrationTests {
     @Test
     void partialPendingIsPrivateToCoachUntilCompletedAndConfirmed() throws Exception {
         create(competitionId, "{\"solvedProblems\":2}", session, 201);
-        mvc.perform(get(history(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-        mvc.perform(get(path(competitionId)).contextPath("/api").session(session))
+        mvc.perform(get(path(competitionId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDIENTE"))
                 .andExpect(jsonPath("$.finalPosition").isEmpty()).andExpect(jsonPath("$.confirmedAt").isEmpty());
-        mvc.perform(put(path(competitionId)).contextPath("/api").session(session)
+        mvc.perform(put(path(competitionId)).contextPath("/api").with(Bearer.of(session))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"confirm\":true}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.finalPosition").exists())
                 .andExpect(jsonPath("$.errors.solvedProblems").exists());
         assertThat(jdbc.queryForObject("SELECT problemas_resueltos FROM resultado_oficial_competencia WHERE competencia_id = ?",
                 Integer.class, competitionId)).isEqualTo(2);
-        mvc.perform(put(path(competitionId)).contextPath("/api").session(session)
+        mvc.perform(put(path(competitionId)).contextPath("/api").with(Bearer.of(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"finalPosition\":4,\"solvedProblems\":3,\"confirm\":true}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CONFIRMADO"))
                 .andExpect(jsonPath("$.confirmedAt").exists());
-        mvc.perform(get(history(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
         assertThat(countResults()).isEqualTo(1);
     }
@@ -128,10 +128,10 @@ class OfficialResultIntegrationTests {
     void duplicateAndUpdateCannotOverwriteConfirmedInformation() throws Exception {
         create(competitionId, "{\"finalPosition\":1,\"solvedProblems\":5,\"confirm\":true}", session, 201);
         create(competitionId, "{\"finalPosition\":9,\"solvedProblems\":1,\"confirm\":true}", session, 409);
-        mvc.perform(put(path(competitionId)).contextPath("/api").session(session)
+        mvc.perform(put(path(competitionId)).contextPath("/api").with(Bearer.of(session))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"finalPosition\":9}"))
                 .andExpect(status().isConflict());
-        mvc.perform(get(path(competitionId)).contextPath("/api").session(session))
+        mvc.perform(get(path(competitionId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.finalPosition").value(1))
                 .andExpect(jsonPath("$.solvedProblems").value(5)).andExpect(jsonPath("$.status").value("CONFIRMADO"));
         assertThat(countResults()).isEqualTo(1);
@@ -145,7 +145,7 @@ class OfficialResultIntegrationTests {
         jdbc.update("UPDATE competencia SET estado = 'EN_CURSO' WHERE id = ?", competitionId);
         create(competitionId, "{\"finalPosition\":1,\"solvedProblems\":2,\"confirm\":true}", session, 400);
         create(competitionId, "{}", session, 201);
-        mvc.perform(put(path(competitionId)).contextPath("/api").session(session)
+        mvc.perform(put(path(competitionId)).contextPath("/api").with(Bearer.of(session))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"finalPosition\":1,\"solvedProblems\":2,\"confirm\":true}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors['competition.status']").exists());
@@ -161,11 +161,11 @@ class OfficialResultIntegrationTests {
             create(id, "{\"finalPosition\":2,\"solvedProblems\":3,\"confirm\":true}", session, 201);
         }
         create(pending, "{\"finalPosition\":1,\"solvedProblems\":5}", session, 201);
-        mvc.perform(get(history(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].competitionId").value(competitionId))
                 .andExpect(jsonPath("$[1].competitionId").value(older));
-        mvc.perform(get(history(otherTeam)).contextPath("/api").session(session))
+        mvc.perform(get(history(otherTeam)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].competitionId").value(otherCompetition));
     }
@@ -173,15 +173,15 @@ class OfficialResultIntegrationTests {
     @ParameterizedTest
     @ValueSource(strings = {"COACH", "PRACTICANTE"})
     void unrelatedCoachAndPractitionerCannotReadOrWriteResults(String role) throws Exception {
-        MockHttpSession other = login(account(role));
+        String other = login(account(role));
         create(competitionId, "{}", session, 201);
         create(competitionId, "{}", other, 403);
-        mvc.perform(put(path(competitionId)).contextPath("/api").session(other)
+        mvc.perform(put(path(competitionId)).contextPath("/api").with(Bearer.of(other))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"finalPosition\":1}"))
                 .andExpect(status().isForbidden());
-        mvc.perform(get(path(competitionId)).contextPath("/api").session(other).param("userId", "" + coach.id()))
+        mvc.perform(get(path(competitionId)).contextPath("/api").with(Bearer.of(other)).param("userId", "" + coach.id()))
                 .andExpect(status().isForbidden());
-        mvc.perform(get(history(teamId)).contextPath("/api").session(other))
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(other)))
                 .andExpect(status().isForbidden());
     }
 
@@ -192,17 +192,17 @@ class OfficialResultIntegrationTests {
         mvc.perform(get(history(teamId)).contextPath("/api")).andExpect(status().isUnauthorized());
         jdbc.update("UPDATE usuario SET estado_cuenta = 'SUSPENDIDO' WHERE id = ?", coach.id());
         create(competitionId, "{}", session, 403);
-        mvc.perform(get(history(teamId)).contextPath("/api").session(session)).andExpect(status().isForbidden());
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(session))).andExpect(status().isForbidden());
         assertThat(countResults()).isZero();
     }
 
     @Test
     void missingCompetitionTeamAndResultReturn404() throws Exception {
         create(Integer.MAX_VALUE, "{}", session, 404);
-        mvc.perform(get(history(Integer.MAX_VALUE)).contextPath("/api").session(session))
+        mvc.perform(get(history(Integer.MAX_VALUE)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isNotFound());
-        mvc.perform(get(path(competitionId)).contextPath("/api").session(session)).andExpect(status().isNotFound());
-        mvc.perform(put(path(competitionId)).contextPath("/api").session(session)
+        mvc.perform(get(path(competitionId)).contextPath("/api").with(Bearer.of(session))).andExpect(status().isNotFound());
+        mvc.perform(put(path(competitionId)).contextPath("/api").with(Bearer.of(session))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
     }
@@ -221,14 +221,14 @@ class OfficialResultIntegrationTests {
         assertThatThrownBy(() -> jdbc.update("""
                 UPDATE resultado_oficial_competencia SET posicion_final = -1 WHERE competencia_id = ?
                 """, competitionId)).isInstanceOf(DataIntegrityViolationException.class);
-        mvc.perform(get(path(competitionId)).contextPath("/api").session(session))
+        mvc.perform(get(path(competitionId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PENDIENTE"));
     }
 
     @Test
     void concurrentCreationKeepsOneResult() throws Exception {
         List<Integer> statuses = concurrently(() -> mvc.perform(post(path(competitionId)).contextPath("/api")
-                        .session(session).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                        .with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andReturn().getResponse().getStatus());
         assertThat(statuses).containsExactlyInAnyOrder(201, 409);
         assertThat(countResults()).isEqualTo(1);
@@ -238,7 +238,7 @@ class OfficialResultIntegrationTests {
     void concurrentConfirmationCannotOverwriteConfirmedResult() throws Exception {
         create(competitionId, "{}", session, 201);
         List<Integer> statuses = concurrently(() -> mvc.perform(put(path(competitionId)).contextPath("/api")
-                        .session(session).contentType(MediaType.APPLICATION_JSON)
+                        .with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"finalPosition\":1,\"solvedProblems\":3,\"confirm\":true}"))
                 .andReturn().getResponse().getStatus());
         assertThat(statuses).containsExactlyInAnyOrder(200, 409);
@@ -277,7 +277,7 @@ class OfficialResultIntegrationTests {
         int createdId = JsonPath.read(body, "$.id");
 
         create(createdId, "{\"finalPosition\":4,\"solvedProblems\":6,\"confirm\":true}", session, 201);
-        mvc.perform(get(history(teamId)).contextPath("/api").session(session))
+        mvc.perform(get(history(teamId)).contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].competitionId").value(createdId))
                 .andExpect(jsonPath("$[0].eventName").value("ICPC Regional"))
@@ -339,12 +339,12 @@ class OfficialResultIntegrationTests {
         assertThat(countCompetitionsNamed("Repetida")).isEqualTo(1);
     }
 
-    private org.springframework.test.web.servlet.ResultActions postCompetition(String body, MockHttpSession requester)
+    private org.springframework.test.web.servlet.ResultActions postCompetition(String body, String requester)
             throws Exception {
         var request = post("/api/competitions").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
                 .content(body);
         if (requester != null) {
-            request.session(requester);
+            request.with(Bearer.of(requester));
         }
         return mvc.perform(request);
     }
@@ -366,8 +366,8 @@ class OfficialResultIntegrationTests {
                 Integer.class, competitionId);
     }
 
-    private void create(int id, String body, MockHttpSession requester, int statusCode) throws Exception {
-        mvc.perform(post(path(id)).contextPath("/api").session(requester)
+    private void create(int id, String body, String requester, int statusCode) throws Exception {
+        mvc.perform(post(path(id)).contextPath("/api").with(Bearer.of(requester))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().is(statusCode));
     }
@@ -403,13 +403,13 @@ class OfficialResultIntegrationTests {
                 """, Integer.class, groupId, daysAgo, daysAgo, state);
     }
 
-    private MockHttpSession login(Account account) throws Exception {
+    private String login(Account account) throws Exception {
         var result = mvc.perform(post("/api/auth/login").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + account.email() + "\",\"password\":\"Password123\"}"))
                 .andExpect(status().isOk()).andReturn();
-        MockHttpSession authenticated = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(authenticated).isNotNull();
-        return authenticated;
+        String token = Bearer.tokenFrom(result.getResponse().getContentAsString());
+        assertThat(token).isNotBlank();
+        return token;
     }
 
     private String path(int id) {

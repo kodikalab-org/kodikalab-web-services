@@ -23,7 +23,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
+import com.kodika.kodikalab.support.Bearer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -33,8 +33,11 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -63,8 +66,8 @@ class AssignmentsIntegrationTests {
     Account retired;
     Account outsider;
     int teamId;
-    MockHttpSession coachSession;
-    MockHttpSession memberSession;
+    String coachSession;
+    String memberSession;
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(System.getenv("ASSIGNMENT_TEST_DB_URL"),
@@ -134,7 +137,7 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.assigned[1].score").value(1)));
         int firstAssignment = JsonPath.read(assigned, "$.assigned[0].competitionProblemId");
 
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2))
@@ -146,12 +149,20 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.items[0].problem.topics.length()").value(2))
                 .andExpect(jsonPath("$.items[1].problem.topics[0]").value("dp"));
 
-        mvc.perform(post("/api/competitions/teams/" + teamId + "/problems/" + firstAssignment + "/resolutions")
-                        .contextPath("/api").session(memberSession).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}"))
+        // Mientras la competencia está PROGRAMADA el practicante ve el problema pero no puede registrar nada.
+        resolve(memberSession, firstAssignment, "{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("aún no ha comenzado")));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM resolucion_problema WHERE competencia_problema_id = ?",
+                Integer.class, firstAssignment)).isZero();
+
+        // El coach inicia la competencia y entonces el practicante puede registrar su resolución.
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("EN_CURSO"));
+        resolve(memberSession, firstAssignment, "{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}")
                 .andExpect(status().isCreated());
 
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId).param("status", "RESUELTO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
@@ -160,7 +171,7 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.items[0].attemptCount").value(1))
                 .andExpect(jsonPath("$.items[0].lastAttempt.language").value("Java"));
 
-        mvc.perform(get("/api/problems/assigned/" + firstAssignment).contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned/" + firstAssignment).contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assignment.status").value("RESUELTO"))
                 .andExpect(jsonPath("$.attempts.length()").value(1))
@@ -168,7 +179,7 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.attempts[0].evidenceUrl").value("https://codeforces.com/s/1"));
 
         // El avance de un compañero es independiente: no ve el intento de otro integrante.
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(login(secondMember))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(login(secondMember)))
                         .param("teamId", "" + teamId))
                 .andExpect(jsonPath("$.items[0].status").value("SIN_INTENTOS"));
     }
@@ -238,37 +249,37 @@ class AssignmentsIntegrationTests {
         createProblem(tag + " Sumas", "S-" + tag + "-3", "800");
         int topicId = jdbc.queryForObject("SELECT id FROM tema WHERE nombre = ?", Integer.class, "Matemática " + tag);
 
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(2))
                 .andExpect(jsonPath("$.totalItems").value(3))
                 .andExpect(jsonPath("$.totalPages").value(2))
                 .andExpect(jsonPath("$.items[0].title").value(tag + " Interés 100% compuesto"));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("size", "2").param("page", "1"))
                 .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.page").value(1));
         // % y _ se buscan como texto, no como comodines.
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", "100%"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", "100%"))
                 .andExpect(jsonPath("$.totalItems").value(1));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag + " snake_c"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag + " snake_c"))
                 .andExpect(jsonPath("$.totalItems").value(1));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag + "_"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag + "_"))
                 .andExpect(jsonPath("$.totalItems").value(0));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", "s-" + tag + "-3"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", "s-" + tag + "-3"))
                 .andExpect(jsonPath("$.totalItems").value(1));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("difficulty", "800"))
                 .andExpect(jsonPath("$.totalItems").value(2));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("topicId", "" + topicId))
                 .andExpect(jsonPath("$.totalItems").value(2))
                 .andExpect(jsonPath("$.items[1].topics.length()").value(2));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("platform", "CSES"))
                 .andExpect(jsonPath("$.totalItems").value(0));
         mvc.perform(get("/api/problems").contextPath("/api").param("q", tag)).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("size", "101"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("size", "101"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.size").exists());
     }
 
@@ -355,33 +366,33 @@ class AssignmentsIntegrationTests {
         String team = "" + teamId;
 
         for (Account denied : List.of(outsider, retired, outsiderCoach)) {
-            MockHttpSession session = login(denied);
-            mvc.perform(get("/api/problems/assigned").contextPath("/api").session(session).param("teamId", team))
+            String session = login(denied);
+            mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(session)).param("teamId", team))
                     .andExpect(status().isForbidden());
-            mvc.perform(get("/api/problems/assigned/" + assignmentId).contextPath("/api").session(session))
+            mvc.perform(get("/api/problems/assigned/" + assignmentId).contextPath("/api").with(Bearer.of(session)))
                     .andExpect(status().isForbidden());
         }
         mvc.perform(get("/api/problems/assigned").contextPath("/api").param("teamId", team))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", "2147483000"))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", "2147483000"))
                 .andExpect(status().isNotFound());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.teamId").exists());
-        mvc.perform(get("/api/problems/assigned/2147483000").contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned/2147483000").contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isNotFound());
 
         // El coach responsable ve la asignación del equipo, sin avance personal.
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(coachSession).param("teamId", team))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(coachSession)).param("teamId", team))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.items[0].status").doesNotExist())
                 .andExpect(jsonPath("$.items[0].attemptCount").doesNotExist());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(coachSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(coachSession)).param("teamId", team)
                         .param("status", "RESUELTO"))
                 .andExpect(status().isBadRequest());
 
         // Una suspensión posterior corta el acceso aunque la sesión siga abierta.
         jdbc.update("UPDATE usuario SET estado_cuenta = 'SUSPENDIDO' WHERE id = ?", member.id());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team))
                 .andExpect(status().isForbidden());
     }
 
@@ -396,20 +407,20 @@ class AssignmentsIntegrationTests {
         int attemptsBefore = jdbc.queryForObject("SELECT count(*) FROM resolucion_problema", Integer.class);
 
         String team = "" + teamId;
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("sort", "title").param("order", "asc"))
                 .andExpect(jsonPath("$.items[0].problem.title").value("Orden alfa"))
                 .andExpect(jsonPath("$.items[1].problem.title").value("Orden Zeta"));
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("sort", "difficulty").param("order", "desc"))
                 .andExpect(jsonPath("$.items[0].problem.difficultyRating").value("1400"));
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("q", "ZETA").param("status", "SIN_INTENTOS"))
                 .andExpect(jsonPath("$.total").value(1));
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("sort", "azar")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.sort").exists());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("status", "INVENTADO")).andExpect(status().isBadRequest());
 
         assertThat(countAssignments(competitionId)).isEqualTo(before);
@@ -419,7 +430,7 @@ class AssignmentsIntegrationTests {
 
     @Test
     void aPractitionerCannotReadAnotherTeamsAssignmentsEvenKnowingItsId() throws Exception {
-        MockHttpSession otherCoach = login(outsiderCoach);
+        String otherCoach = login(outsiderCoach);
         int otherTeam = jdbc.queryForObject("""
                 INSERT INTO grupo_estudio(coach_id, nombre, nivel_esperado, codigo_invitacion)
                 VALUES (?, 'Equipo Ajeno', 'Div3', ?) RETURNING id
@@ -433,11 +444,11 @@ class AssignmentsIntegrationTests {
         int foreignAssignment = JsonPath.read(body(assign(otherCoach, competitionId, "[{\"problemId\":" + problem + "}]")),
                 "$.assigned[0].competitionProblemId");
 
-        mvc.perform(get("/api/problems/assigned/" + foreignAssignment).contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned/" + foreignAssignment).contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + otherTeam)).andExpect(status().isForbidden());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId)).andExpect(jsonPath("$.total").value(0));
     }
 
@@ -451,7 +462,7 @@ class AssignmentsIntegrationTests {
         int competitionId = JsonPath.read(created, "$.id");
         assign(coachSession, competitionId, "[{\"problemId\":" + problem + "}]").andExpect(status().isCreated());
 
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].competition.accessType").value("PRIVADO_PASS"))
@@ -459,14 +470,236 @@ class AssignmentsIntegrationTests {
                 .andExpect(content().string(not(containsString("$2a"))));
     }
 
+    // ---- ciclo de vida de la competencia
+
+    @Test
+    void onlyTheResponsibleCoachMovesTheCompetitionThroughItsLifecycle() throws Exception {
+        int competitionId = createCompetition("Simulacro ciclo de vida", "PROGRAMADA");
+
+        changeStatus(memberSession, competitionId, "EN_CURSO").andExpect(status().isForbidden());
+        changeStatus(login(outsiderCoach), competitionId, "EN_CURSO").andExpect(status().isForbidden());
+        mvc.perform(patch("/api/competitions/" + competitionId + "/status").contextPath("/api")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"EN_CURSO\"}"))
+                .andExpect(status().isUnauthorized());
+        changeStatus(coachSession, Integer.MAX_VALUE, "EN_CURSO").andExpect(status().isNotFound());
+        changeStatus(coachSession, competitionId, "INVENTADO").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.status").exists());
+        assertThat(statusInDatabase(competitionId)).isEqualTo("PROGRAMADA");
+
+        // El estado avanza un paso a la vez y nunca retrocede.
+        changeStatus(coachSession, competitionId, "FINALIZADA").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(containsString("PROGRAMADA")));
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(competitionId))
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.status").value("EN_CURSO"))
+                .andExpect(jsonPath("$.accessKey").doesNotExist());
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isConflict());
+        changeStatus(coachSession, competitionId, "PROGRAMADA").andExpect(status().isConflict());
+        changeStatus(coachSession, competitionId, "FINALIZADA").andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FINALIZADA"));
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isConflict());
+        assertThat(statusInDatabase(competitionId)).isEqualTo("FINALIZADA");
+
+        // Una competencia finalizada ya no admite nuevos problemas.
+        int problem = createProblem("Tras finalizar", null, null);
+        assign(coachSession, competitionId, "[{\"problemId\":" + problem + "}]").andExpect(status().isConflict());
+        assertThat(countAssignments(competitionId)).isZero();
+    }
+
+    @Test
+    void twoSimultaneousStartsChangeTheStatusOnlyOnce() throws Exception {
+        int competitionId = createCompetition("Simulacro inicio concurrente", "PROGRAMADA");
+
+        List<Integer> statuses = concurrently(
+                () -> statusOf(changeStatus(coachSession, competitionId, "EN_CURSO")),
+                () -> statusOf(changeStatus(coachSession, competitionId, "EN_CURSO")));
+
+        assertThat(statuses).containsExactly(200, 409);
+        assertThat(statusInDatabase(competitionId)).isEqualTo("EN_CURSO");
+    }
+
+    @Test
+    void theWholeCycleWorksThroughTheApiFromCreationToTheOfficialResultAndTheTopicReport() throws Exception {
+        int graphs = createProblem("Ciclo Grafos", "CF-CICLO-1", "1400", "Grafos");
+        int dp = createProblem("Ciclo DP", "CF-CICLO-2", "800", "dp");
+        int competitionId = createCompetition("Simulacro ciclo completo", "PROGRAMADA");
+        int solved = JsonPath.read(body(assign(coachSession, competitionId,
+                "[{\"problemId\":" + graphs + "},{\"problemId\":" + dp + "}]").andExpect(status().isCreated())),
+                "$.assigned[0].competitionProblemId");
+        String result = "{\"finalPosition\":2,\"solvedProblems\":1,\"confirm\":true}";
+        String resolution = "{\"language\":\"Java\"}";
+
+        // PROGRAMADA: ni resoluciones ni resultado oficial confirmado.
+        resolve(memberSession, solved, resolution).andExpect(status().isConflict());
+        send("/api/competitions/" + competitionId + "/official-result", coachSession, result)
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors['competition.status']").exists());
+
+        // EN_CURSO: el practicante registra; el resultado oficial todavía no se puede confirmar.
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk());
+        resolve(memberSession, solved, resolution).andExpect(status().isCreated());
+        send("/api/competitions/" + competitionId + "/official-result", coachSession, result)
+                .andExpect(status().isBadRequest());
+
+        // FINALIZADA: se confirma el resultado oficial y el reporte de temas ya se puede generar.
+        changeStatus(coachSession, competitionId, "FINALIZADA").andExpect(status().isOk());
+        send("/api/competitions/" + competitionId + "/official-result", coachSession, result)
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.status").value("CONFIRMADO"))
+                .andExpect(jsonPath("$.finalPosition").value(2));
+        mvc.perform(get("/api/analytics/teams/" + teamId + "/weaknesses").contextPath("/api")
+                        .with(Bearer.of(coachSession)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.topics.length()").value(2));
+        // Una vez finalizada la competencia el practicante todavía puede registrar su avance (repaso).
+        int other = JsonPath.read(body(mvc.perform(get("/api/problems/assigned").contextPath("/api")
+                        .with(Bearer.of(memberSession)).param("teamId", "" + teamId).param("status", "SIN_INTENTOS"))
+                .andExpect(status().isOk())), "$.items[0].competitionProblemId");
+        resolve(memberSession, other, resolution).andExpect(status().isCreated());
+    }
+
+    // ---- US-10: progreso por tema
+
+    @Test
+    void practitionerSeesTheirProgressByTopicWeakestFirstWhileOthersStartFromScratch() throws Exception {
+        int graphs = createProblem("Tema Grafos", "CF-TEMA-1", "1400", "Grafos", "BFS");
+        int dp = createProblem("Tema DP", "CF-TEMA-2", "800", "Programación dinámica");
+        int moreGraphs = createProblem("Tema Grafos 2", "CF-TEMA-3", "1200", "Grafos");
+        int competitionId = createCompetition("Simulacro por tema", "PROGRAMADA");
+        int first = JsonPath.read(body(assign(coachSession, competitionId, "[{\"problemId\":" + graphs
+                + "},{\"problemId\":" + dp + "},{\"problemId\":" + moreGraphs + "}]")
+                .andExpect(status().isCreated())), "$.assigned[0].competitionProblemId");
+        changeStatus(coachSession, competitionId, "EN_CURSO").andExpect(status().isOk());
+
+        // Sin intentos: todos los temas salen en su estado inicial y empatados con cobertura 0, así que todos se marcan.
+        progress(memberSession, teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedProblems").value(3))
+                .andExpect(jsonPath("$.solvedProblems").value(0))
+                .andExpect(jsonPath("$.topics.length()").value(3))
+                .andExpect(jsonPath("$.topics[*].status", everyItem(is("SIN_ACTIVIDAD"))))
+                .andExpect(jsonPath("$.topics[*].needsReinforcement", everyItem(is(true))));
+
+        resolve(memberSession, first, "{\"language\":\"Java\"}").andExpect(status().isCreated());
+
+        progress(memberSession, teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.teamId").value(teamId))
+                .andExpect(jsonPath("$.membershipId").isNumber())
+                .andExpect(jsonPath("$.solvedProblems").value(1))
+                .andExpect(jsonPath("$.unclassifiedProblems").value(0))
+                .andExpect(jsonPath("$.topics[0].topicName").value("Programación dinámica"))
+                .andExpect(jsonPath("$.topics[0].coveragePercentage").value(0.0))
+                .andExpect(jsonPath("$.topics[0].status").value("SIN_ACTIVIDAD"))
+                .andExpect(jsonPath("$.topics[0].needsReinforcement").value(true))
+                .andExpect(jsonPath("$.topics[1].topicName").value("Grafos"))
+                .andExpect(jsonPath("$.topics[1].assignedProblems").value(2))
+                .andExpect(jsonPath("$.topics[1].solvedProblems").value(1))
+                .andExpect(jsonPath("$.topics[1].unsolvedProblems").value(1))
+                .andExpect(jsonPath("$.topics[1].coveragePercentage").value(50.0))
+                .andExpect(jsonPath("$.topics[1].status").value("EN_PROGRESO"))
+                .andExpect(jsonPath("$.topics[1].needsReinforcement").value(false))
+                .andExpect(jsonPath("$.topics[2].topicName").value("BFS"))
+                .andExpect(jsonPath("$.topics[2].coveragePercentage").value(100.0))
+                .andExpect(jsonPath("$.topics[2].status").value("COMPLETADO"))
+                .andExpect(jsonPath("$.topics[2].needsReinforcement").value(false));
+
+        // El avance de un compañero es independiente: no hereda el intento de otro integrante.
+        progress(login(secondMember), teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.solvedProblems").value(0))
+                .andExpect(jsonPath("$.topics[*].status", everyItem(is("SIN_ACTIVIDAD"))));
+    }
+
+    @Test
+    void onlyAnActiveMemberOfTheTeamSeesItsProgressByTopic() throws Exception {
+        progress(coachSession, teamId).andExpect(status().isForbidden());
+        progress(login(outsiderCoach), teamId).andExpect(status().isForbidden());
+        progress(login(retired), teamId).andExpect(status().isForbidden());
+        progress(login(outsider), teamId).andExpect(status().isForbidden());
+        mvc.perform(get("/api/analytics/teams/" + teamId + "/progress/me/topics").contextPath("/api"))
+                .andExpect(status().isUnauthorized());
+        progress(memberSession, Integer.MAX_VALUE).andExpect(status().isNotFound());
+        mvc.perform(get("/api/analytics/teams/abc/progress/me/topics").contextPath("/api")
+                        .with(Bearer.of(memberSession)))
+                .andExpect(status().isBadRequest());
+        // Un equipo sin problemas asignados devuelve un progreso vacío, no un error.
+        progress(memberSession, teamId).andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedProblems").value(0))
+                .andExpect(jsonPath("$.topics.length()").value(0));
+    }
+
+    // ---- competencias de un equipo
+
+    @Test
+    void competitionsOfATeamAreListedForItsCoachAndActiveMembersOnly() throws Exception {
+        int problem = createProblem("Listado", null, null);
+        int first = createCompetition("Simulacro listado uno", "PROGRAMADA");
+        int second = createCompetition("Simulacro listado dos", "EN_CURSO");
+        assign(coachSession, second, "[{\"problemId\":" + problem + "}]").andExpect(status().isCreated());
+        int third = JsonPath.read(body(send("/api/competitions", coachSession, "{\"teamId\":" + teamId
+                + ",\"eventName\":\"Listado privado\",\"accessType\":\"PRIVADO_PASS\","
+                + "\"accessKey\":\"clave-secreta-9\",\"startsAt\":\"2026-11-01T09:00:00-05:00\","
+                + "\"endsAt\":\"2026-11-01T14:00:00-05:00\"}").andExpect(status().isCreated())), "$.id");
+
+        for (String session : List.of(coachSession, memberSession)) {
+            mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(session)).param("teamId", "" + teamId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.teamId").value(teamId))
+                    .andExpect(jsonPath("$.total").value(3))
+                    // La de inicio más reciente primero; con el mismo inicio, la creada después.
+                    .andExpect(jsonPath("$.items[0].id").value(second))
+                    .andExpect(jsonPath("$.items[0].status").value("EN_CURSO"))
+                    .andExpect(jsonPath("$.items[0].problemsCount").value(1))
+                    .andExpect(jsonPath("$.items[1].id").value(first))
+                    .andExpect(jsonPath("$.items[1].problemsCount").value(0))
+                    .andExpect(jsonPath("$.items[2].id").value(third))
+                    .andExpect(jsonPath("$.items[2].accessType").value("PRIVADO_PASS"))
+                    .andExpect(content().string(not(containsString("clave-secreta"))))
+                    .andExpect(content().string(not(containsString("$2a"))));
+        }
+
+        for (Account denied : List.of(retired, outsider, outsiderCoach)) {
+            mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(login(denied)))
+                            .param("teamId", "" + teamId))
+                    .andExpect(status().isForbidden());
+        }
+        mvc.perform(get("/api/competitions").contextPath("/api").param("teamId", "" + teamId))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(coachSession)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.teamId").exists());
+        mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(coachSession)).param("teamId", "abc"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/competitions").contextPath("/api").with(Bearer.of(coachSession))
+                        .param("teamId", "" + Integer.MAX_VALUE))
+                .andExpect(status().isNotFound());
+    }
+
     // ---- utilidades
 
-    private ResultActions send(String path, MockHttpSession session, String json) throws Exception {
-        return mvc.perform(post(path).contextPath("/api").session(session)
+    private ResultActions changeStatus(String session, int competitionId, String state) throws Exception {
+        return mvc.perform(patch("/api/competitions/" + competitionId + "/status").contextPath("/api")
+                .with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":\"" + state + "\"}"));
+    }
+
+    private ResultActions progress(String session, int team) throws Exception {
+        return mvc.perform(get("/api/analytics/teams/" + team + "/progress/me/topics").contextPath("/api")
+                .with(Bearer.of(session)));
+    }
+
+    private ResultActions resolve(String session, int assignmentId, String json) throws Exception {
+        return mvc.perform(post("/api/competitions/teams/" + teamId + "/problems/" + assignmentId + "/resolutions")
+                .contextPath("/api").with(Bearer.of(session)).contentType(MediaType.APPLICATION_JSON).content(json));
+    }
+
+    private String statusInDatabase(int competitionId) {
+        return jdbc.queryForObject("SELECT estado FROM competencia WHERE id = ?", String.class, competitionId);
+    }
+
+    private ResultActions send(String path, String session, String json) throws Exception {
+        return mvc.perform(post(path).contextPath("/api").with(Bearer.of(session))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
-    private ResultActions assign(MockHttpSession session, int competitionId, String problemsJson) throws Exception {
+    private ResultActions assign(String session, int competitionId, String problemsJson) throws Exception {
         return send("/api/problems/assign", session,
                 "{\"competitionId\":" + competitionId + ",\"problems\":" + problemsJson + "}");
     }
@@ -565,13 +798,13 @@ class AssignmentsIntegrationTests {
                 state);
     }
 
-    private MockHttpSession login(Account account) throws Exception {
+    private String login(Account account) throws Exception {
         var result = mvc.perform(post("/api/auth/login").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + account.email() + "\",\"password\":\"Password123\"}"))
                 .andExpect(status().isOk()).andReturn();
-        MockHttpSession authenticated = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(authenticated).isNotNull();
-        return authenticated;
+        String token = Bearer.tokenFrom(result.getResponse().getContentAsString());
+        assertThat(token).isNotBlank();
+        return token;
     }
 
     private record Account(int id, String email) {

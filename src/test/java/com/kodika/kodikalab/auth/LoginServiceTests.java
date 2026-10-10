@@ -2,6 +2,8 @@ package com.kodika.kodikalab.auth;
 
 import com.kodika.kodikalab.auth.dto.LoginRequest;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.security.JwtService;
+import com.kodika.kodikalab.support.TestJwt;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserService;
@@ -25,6 +27,7 @@ import static org.mockito.Mockito.*;
 class LoginServiceTests {
     UserService users;
     PasswordEncoder encoder;
+    JwtService jwt = TestJwt.service();
     AuthService service;
     User user;
 
@@ -32,7 +35,7 @@ class LoginServiceTests {
     void setUp() {
         users = mock(UserService.class);
         encoder = mock(PasswordEncoder.class);
-        service = new AuthServiceImpl(users, encoder);
+        service = new AuthServiceImpl(users, encoder, jwt, TestJwt.recoveryCodes());
         user = new User();
         user.setEmail("test@gmail.com");
         user.setPasswordHash("HASH");
@@ -50,6 +53,12 @@ class LoginServiceTests {
         assertThat(result.message()).isEqualTo("Inicio de sesión exitoso");
         assertThat(result.email()).isEqualTo(user.getEmail());
         assertThat(result.role()).isEqualTo(role);
+        assertThat(result.tokenType()).isEqualTo("Bearer");
+        assertThat(result.expiresIn()).isEqualTo(TestJwt.EXPIRATION_MILLIS / 1000);
+        assertThat(jwt.parse(result.token())).get().satisfies(claims -> {
+            assertThat(claims.email()).isEqualTo(user.getEmail());
+            assertThat(claims.role()).isEqualTo(role.name());
+        });
         verify(encoder, never()).encode(anyString());
         verify(users, never()).createUser(any(), any(), any(), any());
     }
@@ -106,7 +115,7 @@ class LoginServiceTests {
         String password = " Password123 ";
         user.setPasswordHash(bcrypt.encode(password));
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        AuthService realService = new AuthServiceImpl(users, bcrypt);
+        AuthService realService = new AuthServiceImpl(users, bcrypt, jwt, TestJwt.recoveryCodes());
         assertThat(realService.login(new LoginRequest(user.getEmail(), password)).role()).isEqualTo(Role.PRACTICANTE);
         assertThatThrownBy(() -> realService.login(new LoginRequest(user.getEmail(), password.strip())))
                 .isInstanceOf(UnauthorizedException.class).hasMessage("Credenciales inválidas");

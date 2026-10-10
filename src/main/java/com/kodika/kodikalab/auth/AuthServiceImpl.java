@@ -5,6 +5,7 @@ import com.kodika.kodikalab.auth.dto.RegisterRequest;
 import com.kodika.kodikalab.auth.dto.LoginRequest;
 import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.security.JwtService;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserService;
 import com.kodika.kodikalab.users.UserStatus;
@@ -22,10 +23,15 @@ public class AuthServiceImpl implements AuthService {
     private static final String INVALID_CREDENTIALS = "Credenciales inválidas";
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final RecoveryCodeService recoveryCodes;
 
-    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder) {
+    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService,
+                           RecoveryCodeService recoveryCodes) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.recoveryCodes = recoveryCodes;
     }
 
     @Override
@@ -40,7 +46,9 @@ public class AuthServiceImpl implements AuthService {
         }
         String passwordHash = passwordEncoder.encode(request.password());
         userService.createUser(fullName, request.email(), passwordHash, request.role());
-        return new AuthResponse("Registro exitoso", request.email(), request.role());
+        // El código de recuperación se entrega una sola vez; después se consulta con la contraseña (ver AccountRecoveryService).
+        return new AuthResponse("Registro exitoso", request.email(), request.role(), null, null, null,
+                recoveryCodes.codeFor(request.email(), passwordHash));
     }
 
     @Override
@@ -56,6 +64,8 @@ public class AuthServiceImpl implements AuthService {
                 || user.getStatus() != UserStatus.ACTIVO || user.getRole() == null) {
             throw new UnauthorizedException(INVALID_CREDENTIALS);
         }
-        return new AuthResponse("Inicio de sesión exitoso", user.getEmail(), user.getRole());
+        JwtService.IssuedToken issued = jwtService.issue(user);
+        return new AuthResponse("Inicio de sesión exitoso", user.getEmail(), user.getRole(),
+                issued.token(), issued.tokenType(), issued.expiresInSeconds());
     }
 }

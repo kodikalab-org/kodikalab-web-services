@@ -56,7 +56,7 @@ catálogo usa `problema`, `tema` y `problema_tema`; una asignación es una fila 
   los valores por defecto del ERD.
 - **Autorización.** Solo el coach responsable del equipo de la competencia, con cuenta activa. Las validaciones de
   forma se informan juntas (`400`); los conflictos con lo ya asignado, también juntos (`409`).
-- **Competencias finalizadas.** No admiten nuevos problemas (`409`); `PROGRAMADA` y `EN_CURSO` sí.
+- **Competencias finalizadas.** No admiten nuevos problemas (`409`); `PROGRAMADA` y `EN_CURSO` sí. El coach cambia el estado con `PATCH /api/competitions/{id}/status`.
 - **Concurrencia.** La competencia se bloquea (`SELECT … FOR UPDATE`) durante la asignación: dos solicitudes
   simultáneas no eligen la misma letra ni asignan dos veces el mismo problema (la segunda recibe `409`). Las
   restricciones únicas del ERD (`uq_competencia_problema`, `uq_competencia_orden_letra`) son la última defensa.

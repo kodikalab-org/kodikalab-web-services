@@ -30,6 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -111,6 +112,34 @@ class ManualResolutionServiceTests {
         order.verify(memberships).findForUpdate(1, 10);
         order.verify(repository).existsByMembershipIdAndCompetitionProblemIdAndVerdict(20, 50, Verdict.ACCEPTED);
         order.verify(repository).saveAndFlush(any());
+    }
+
+    @Test
+    void competitionThatHasNotStartedRejectsTheRegistrationAndWritesNothing() {
+        assignment.getCompetition().setStatus(CompetitionStatus.PROGRAMADA);
+
+        assertThatThrownBy(() -> service.registerManualAccepted(1, 50, request))
+                .isInstanceOf(ConflictException.class).hasMessageContaining("aún no ha comenzado");
+        verify(repository, never()).existsByMembershipIdAndCompetitionProblemIdAndVerdict(any(), any(), any());
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CompetitionStatus.class, names = {"EN_CURSO", "FINALIZADA"})
+    void competitionThatStartedOrFinishedAcceptsTheRegistration(CompetitionStatus status) {
+        assignment.getCompetition().setStatus(status);
+
+        assertThat(service.registerManualAccepted(1, 50, request).verdict()).isEqualTo(Verdict.ACCEPTED);
+        verify(repository).saveAndFlush(any());
+    }
+
+    @Test
+    void invalidFieldsAreReportedBeforeTheCompetitionStateIsChecked() {
+        assignment.getCompetition().setStatus(CompetitionStatus.PROGRAMADA);
+
+        assertThatThrownBy(() -> service.registerManualAccepted(1, 50, new ManualResolutionRequest(null, null)))
+                .isInstanceOf(ResolutionValidationException.class);
+        verify(repository, never()).saveAndFlush(any());
     }
 
     @Test

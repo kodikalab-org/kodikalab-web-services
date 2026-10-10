@@ -20,13 +20,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.CreateStudyGroupResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.PendingMembershipResponse;
 import com.kodika.kodikalab.common.exception.BadRequestException;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/teams")
+@Tag(name = "Equipos", description = "Grupos de entrenamiento, solicitudes de ingreso y membresías (US-04 a US-06).")
 public class StudyGroupController {
 
     private final StudyGroupService studyGroupService;
@@ -49,6 +52,12 @@ public class StudyGroupController {
                         .map(StudyGroupResponse::from)
                         .toList()
         );
+    }
+
+    // US05 / US06 - Mis equipos: los grupos del coach o las membresías (con su estado) del practicante
+    @GetMapping("/me")
+    public ResponseEntity<List<MyTeamResponse>> getMyTeams() {
+        return ResponseEntity.ok(studyGroupService.findMyTeams());
     }
 
     // US04 - Crear grupo

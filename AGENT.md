@@ -16,7 +16,7 @@ Antes de modificar este proyecto, revisar:
 - No ejecutar `git add`, `git commit`, `git push` ni cambios de rama sin autorización explícita.
 - No modificar `.env` ni exponer secretos.
 - No cambiar el context path `/api` sin aprobación.
-- No activar seguridad JWT mientras el equipo esté desarrollando endpoints base, salvo solicitud explícita.
+- JWT y la autorización por rol están activos (`config.SecurityConfig`). Todo endpoint nuevo exige token Bearer; si es exclusivo de `COACH` o `PRACTICANTE`, declarar su regla en `SecurityConfig` y conservar en el servicio las verificaciones de pertenencia/propiedad. No usar sesión HTTP ni cookies.
 - Mantener Java 21 y Spring Boot 3.5.6.
 - Respetar la arquitectura de **monolito modular simple** definida en el SDD.
 - Usar el ERD del SDD como referencia de diseño de datos y separación de módulos.
@@ -48,7 +48,7 @@ com.kodika.kodikalab
 
 | Módulo | Responsabilidad |
 | --- | --- |
-| `auth` | Registro, login, autenticación y JWT futuro. |
+| `auth` | Registro, login y emisión del token JWT. |
 | `users` | Cuenta base `usuario`, correo, hash, rol y estado. |
 | `profiles` | Perfiles `coach`/`practicante`, datos académicos/competitivos y handles del ERD. |
 | `teams` | Equipos, coach, membresías, solicitudes de ingreso y horarios. |

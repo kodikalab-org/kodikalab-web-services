@@ -45,7 +45,9 @@
       "t_material",
       "t_tema",
       "t_problema_tema",
-      "xqI0Y224rco0ts20q7sSH"
+      "xqI0Y224rco0ts20q7sSH",
+      "t_ranking_equipo_actual",
+      "t_resultado_oficial_competencia"
     ],
     "relationshipIds": [
       "rel_usr_coa",
@@ -61,7 +63,9 @@
       "rel_tema_problema_tema",
       "rel_cmp_cpp",
       "_sV7OqJzssR3loW4PSNws",
-      "xeaG--WQjGdCAeLxi0mYB"
+      "xeaG--WQjGdCAeLxi0mYB",
+      "rel_ret_grp",
+      "rel_cmp_roc"
     ],
     "indexIds": [
       "ix_pg_unique",
@@ -230,7 +234,7 @@
       "t_miembro_grupo": {
         "id": "t_miembro_grupo",
         "name": "practicante_grupo",
-        "comment": "Pertenencia efectiva del practicante al grupo. UNIQUE(grupo_id, practicante_id); al reingresar se reactiva el registro para conservar el progreso.",
+        "comment": "Pertenencia efectiva del practicante al grupo. UNIQUE(grupo_id, practicante_id); al reingresar se reactiva el registro para conservar el progreso. Una solicitud de ingreso es una fila en estado PENDIENTE; no existe tabla solicitud_grupo.",
         "columnIds": [
           "c_mbg_id",
           "c_mbg_gid",
@@ -254,11 +258,11 @@
           "y": 346.044,
           "zIndex": 5,
           "widthName": 98,
-          "widthComment": 754,
+          "widthComment": 1209,
           "color": ""
         },
         "meta": {
-          "updateAt": 1790989719816,
+          "updateAt": 1791609606566,
           "createAt": 1790924582549
         }
       },
@@ -573,6 +577,68 @@
         "meta": {
           "updateAt": 1791083382990,
           "createAt": 1791078395588
+        }
+      },
+      "t_ranking_equipo_actual": {
+        "id": "t_ranking_equipo_actual",
+        "name": "ranking_equipo_actual",
+        "comment": "Extensión aprobada US-11: último ranking válido de cada equipo (una fila por equipo, se reemplaza).",
+        "columnIds": [
+          "c_ret_gid",
+          "c_ret_cal",
+          "c_ret_res"
+        ],
+        "seqColumnIds": [
+          "c_ret_gid",
+          "c_ret_cal",
+          "c_ret_res"
+        ],
+        "ui": {
+          "x": 1051.2171,
+          "y": -400.0,
+          "zIndex": 24,
+          "widthName": 126,
+          "widthComment": 505,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "t_resultado_oficial_competencia": {
+        "id": "t_resultado_oficial_competencia",
+        "name": "resultado_oficial_competencia",
+        "comment": "Extensión aprobada US-13: resultado oficial (posición y problemas resueltos) de una competencia del equipo.",
+        "columnIds": [
+          "c_roc_id",
+          "c_roc_cid",
+          "c_roc_pos",
+          "c_roc_pro",
+          "c_roc_est",
+          "c_roc_reg",
+          "c_roc_con"
+        ],
+        "seqColumnIds": [
+          "c_roc_id",
+          "c_roc_cid",
+          "c_roc_pos",
+          "c_roc_pro",
+          "c_roc_est",
+          "c_roc_reg",
+          "c_roc_con"
+        ],
+        "ui": {
+          "x": 2000.591,
+          "y": -430.0,
+          "zIndex": 25,
+          "widthName": 172,
+          "widthComment": 546,
+          "color": ""
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
         }
       }
     },
@@ -1261,19 +1327,19 @@
         "id": "c_mbg_est",
         "tableId": "t_miembro_grupo",
         "name": "estado",
-        "comment": "ACTIVO / RETIRADO / EXPULSADO",
+        "comment": "PENDIENTE / ACTIVO / RECHAZADO / RETIRADO / EXPULSADO",
         "dataType": "VARCHAR(20)",
         "default": "'ACTIVO'",
         "options": 8,
         "ui": {
           "keys": 0,
           "widthName": 60,
-          "widthComment": 186,
+          "widthComment": 292,
           "widthDataType": 75,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1790924582549,
+          "updateAt": 1791609606566,
           "createAt": 1790924582549
         }
       },
@@ -2581,19 +2647,19 @@
         "id": "evVbhAQBFmDOon-saq9oz",
         "tableId": "xqI0Y224rco0ts20q7sSH",
         "name": "idGrupo",
-        "comment": "PK",
-        "dataType": "SERIAL",
+        "comment": "FK a grupo_estudio.id",
+        "dataType": "INT",
         "default": "",
         "options": 8,
         "ui": {
           "keys": 2,
           "widthName": 60,
-          "widthComment": 60,
+          "widthComment": 116,
           "widthDataType": 60,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1791083387070,
+          "updateAt": 1791609606566,
           "createAt": 1791083382990
         }
       },
@@ -2601,20 +2667,220 @@
         "id": "IJkt8hREWfSCiWLPerHT8",
         "tableId": "t_resolucion_problema",
         "name": "practicante_grupo_id",
-        "comment": "PK",
-        "dataType": "SERIAL",
+        "comment": "FK a practicante_grupo.id",
+        "dataType": "INT",
         "default": "",
         "options": 8,
         "ui": {
           "keys": 2,
           "widthName": 113,
+          "widthComment": 138,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791157870740
+        }
+      },
+      "c_ret_gid": {
+        "id": "c_ret_gid",
+        "tableId": "t_ranking_equipo_actual",
+        "name": "grupo_id",
+        "comment": "PK, FK a grupo_estudio.id (una fila por equipo)",
+        "dataType": "INT",
+        "default": "",
+        "options": 10,
+        "ui": {
+          "keys": 3,
+          "widthName": 60,
+          "widthComment": 258,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_ret_cal": {
+        "id": "c_ret_cal",
+        "tableId": "t_ranking_equipo_actual",
+        "name": "calculado_en",
+        "comment": "Inicio de la consulta cuyo cálculo fue válido",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 70,
+          "widthComment": 248,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_ret_res": {
+        "id": "c_ret_res",
+        "tableId": "t_ranking_equipo_actual",
+        "name": "resultado",
+        "comment": "TeamRankingResponse completo",
+        "dataType": "JSONB",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 154,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_id": {
+        "id": "c_roc_id",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "id",
+        "comment": "PK",
+        "dataType": "SERIAL",
+        "default": "",
+        "options": 11,
+        "ui": {
+          "keys": 1,
+          "widthName": 60,
           "widthComment": 60,
           "widthDataType": 60,
           "widthDefault": 60
         },
         "meta": {
-          "updateAt": 1791157893166,
-          "createAt": 1791157870740
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_cid": {
+        "id": "c_roc_cid",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "competencia_id",
+        "comment": "FK a competencia.id; única (un resultado por competencia)",
+        "dataType": "INT",
+        "default": "",
+        "options": 12,
+        "ui": {
+          "keys": 2,
+          "widthName": 82,
+          "widthComment": 314,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_pos": {
+        "id": "c_roc_pos",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "posicion_final",
+        "comment": "Nulo si está pendiente; mayor que 0 al confirmar",
+        "dataType": "INT",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 82,
+          "widthComment": 264,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_pro": {
+        "id": "c_roc_pro",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "problemas_resueltos",
+        "comment": "Nulo si está pendiente; mayor o igual que 0 al confirmar",
+        "dataType": "INT",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 110,
+          "widthComment": 308,
+          "widthDataType": 60,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_est": {
+        "id": "c_roc_est",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "estado",
+        "comment": "PENDIENTE / CONFIRMADO",
+        "dataType": "VARCHAR(20)",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 60,
+          "widthComment": 121,
+          "widthDataType": 75,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_reg": {
+        "id": "c_roc_reg",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "registrado_en",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 8,
+        "ui": {
+          "keys": 0,
+          "widthName": 76,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "c_roc_con": {
+        "id": "c_roc_con",
+        "tableId": "t_resultado_oficial_competencia",
+        "name": "confirmado_en",
+        "comment": "Nulo si está pendiente; obligatorio al confirmar",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 76,
+          "widthComment": 264,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
         }
       }
     },
@@ -3157,6 +3423,66 @@
         "meta": {
           "updateAt": 1791157870742,
           "createAt": 1791157870742
+        }
+      },
+      "rel_ret_grp": {
+        "id": "rel_ret_grp",
+        "identification": true,
+        "relationshipType": 8,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_grupo_estudio",
+          "columnIds": [
+            "c_grp_id"
+          ],
+          "x": 1151.2171,
+          "y": -47.8998,
+          "direction": 4
+        },
+        "end": {
+          "tableId": "t_ranking_equipo_actual",
+          "columnIds": [
+            "c_ret_gid"
+          ],
+          "x": 1151.2171,
+          "y": -230.0,
+          "direction": 8
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
+        }
+      },
+      "rel_cmp_roc": {
+        "id": "rel_cmp_roc",
+        "identification": false,
+        "relationshipType": 8,
+        "startRelationshipType": 2,
+        "onDelete": 1,
+        "onUpdate": 1,
+        "start": {
+          "tableId": "t_competencia",
+          "columnIds": [
+            "c_cmp_id"
+          ],
+          "x": 2100.591,
+          "y": -62.0075,
+          "direction": 4
+        },
+        "end": {
+          "tableId": "t_resultado_oficial_competencia",
+          "columnIds": [
+            "c_roc_cid"
+          ],
+          "x": 2100.591,
+          "y": -110.0,
+          "direction": 8
+        },
+        "meta": {
+          "updateAt": 1791609606566,
+          "createAt": 1791609606566
         }
       }
     },

@@ -22,6 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Compara el esquema que Hibernate genera desde las entidades con las tablas visibles de
  * {@code docs/sdd/assets/oficial.erd}: columnas, tipos, longitudes, nulos, defaults, FKs y unicidades.
  * Usa un schema aleatorio en una base exclusiva de pruebas y lo elimina al terminar.
+ *
+ * <p>{@link #ERD} y {@link #FOREIGN_KEYS} son el modelo esperado: {@code OficialErdFileTests} comprueba que el archivo
+ * {@code oficial.erd} los cumple, para que el ERD gráfico y las entidades no se desalineen.
  */
 @SpringBootTest
 @EnabledIfEnvironmentVariable(named = "ERD_TEST_DB_URL", matches = ".+")
@@ -37,7 +40,7 @@ class ErdSchemaIntegrationTests {
     private static final boolean NOT_NULL = false;
 
     /** tabla -> columnas en el orden del ERD: nombre, tipo, longitud, nullable, default esperado (fragmento). */
-    private static final Map<String, List<Col>> ERD = new LinkedHashMap<>();
+    static final Map<String, List<Col>> ERD = new LinkedHashMap<>();
 
     static {
         ERD.put("usuario", List.of(
@@ -121,7 +124,7 @@ class ErdSchemaIntegrationTests {
     }
 
     /** Relaciones visibles del ERD: tabla.columna -> tabla_referenciada.columna. */
-    private static final List<String> FOREIGN_KEYS = List.of(
+    static final List<String> FOREIGN_KEYS = List.of(
             "coach.usuario_id -> usuario.id",
             "practicante.usuario_id -> usuario.id",
             "grupo_estudio.coach_id -> coach.usuario_id",
@@ -287,6 +290,6 @@ class ErdSchemaIntegrationTests {
         return new Col(name, type, length, nullable, defaultFragment);
     }
 
-    private record Col(String name, String type, Integer length, boolean nullable, String defaultFragment) {
+    record Col(String name, String type, Integer length, boolean nullable, String defaultFragment) {
     }
 }

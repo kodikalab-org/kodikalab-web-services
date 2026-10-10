@@ -2,7 +2,7 @@
   "info": {
     "name": "KodikaLab - US04 US05 US06 Teams",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Flujo secuencial de Teams. Ejecutar con Collection Runner, cookie jar habilitado y servidor local activo. Crea usuarios, perfiles y grupos de prueba en la base conectada al servidor. No ejecutar en producción."
+    "description": "Flujo secuencial de Teams. Ejecutar en orden con Collection Runner y servidor local activo; cada login guarda el token JWT en la variable de colección token y las demás solicitudes lo envían como Bearer. Crea usuarios, perfiles y grupos de prueba en la base conectada al servidor. No ejecutar en producción."
   },
   "variable": [
     {
@@ -32,6 +32,11 @@
     },
     {
       "key": "otherCoachEmail",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token",
       "value": "",
       "type": "string"
     }
@@ -65,6 +70,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -122,6 +130,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -132,7 +143,8 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
@@ -403,6 +415,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -446,6 +461,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -456,7 +474,8 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
@@ -595,7 +614,36 @@
       ]
     },
     {
-      "name": "15 Registrar PRACTICANTE B",
+      "name": "15 Mis equipos del PRACTICANTE A: PENDIENTE y ACTIVO",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Dos membresías con su estado y sin campos de coach', () => { const mine = pm.response.json(); const of = (key) => mine.find((x) => x.groupId === Number(pm.collectionVariables.get(key))); pm.expect(mine).to.have.lengthOf(2); pm.expect(of('groupA').membership.status).to.eql('PENDIENTE'); pm.expect(of('groupPublic').membership.status).to.eql('ACTIVO'); pm.expect(of('groupPublic').membership.teamRole).to.eql('MIEMBRO'); for (const team of mine) { pm.expect(team).not.to.have.property('invitationCode'); pm.expect(team).not.to.have.property('activeMembers'); pm.expect(team).not.to.have.property('pendingRequests'); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Registrar PRACTICANTE B",
       "request": {
         "method": "POST",
         "header": [
@@ -622,6 +670,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -638,7 +689,7 @@
       ]
     },
     {
-      "name": "16 Login PRACTICANTE B",
+      "name": "17 Login PRACTICANTE B",
       "request": {
         "method": "POST",
         "header": [
@@ -665,6 +716,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -675,14 +729,15 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "17 Completar perfil PRACTICANTE",
+      "name": "18 Completar perfil PRACTICANTE",
       "request": {
         "method": "PUT",
         "header": [
@@ -724,7 +779,7 @@
       ]
     },
     {
-      "name": "18 Cupo público lleno -> 409",
+      "name": "19 Cupo público lleno -> 409",
       "request": {
         "method": "POST",
         "header": [],
@@ -753,7 +808,7 @@
       ]
     },
     {
-      "name": "19 Registrar COACH ajeno",
+      "name": "20 Registrar COACH ajeno",
       "request": {
         "method": "POST",
         "header": [
@@ -780,6 +835,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -796,7 +854,7 @@
       ]
     },
     {
-      "name": "20 Login COACH ajeno",
+      "name": "21 Login COACH ajeno",
       "request": {
         "method": "POST",
         "header": [
@@ -823,6 +881,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -833,14 +894,15 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "21 Completar perfil COACH",
+      "name": "22 Completar perfil COACH",
       "request": {
         "method": "PUT",
         "header": [
@@ -882,7 +944,7 @@
       ]
     },
     {
-      "name": "22 Coach ajeno no puede aprobar -> 403",
+      "name": "23 Coach ajeno no puede aprobar -> 403",
       "request": {
         "method": "PATCH",
         "header": [
@@ -926,7 +988,7 @@
       ]
     },
     {
-      "name": "23 Login COACH dueño",
+      "name": "24 Login COACH dueño",
       "request": {
         "method": "POST",
         "header": [
@@ -953,6 +1015,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -963,14 +1028,15 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "24 Consultar solicitudes pendientes A",
+      "name": "25 Consultar solicitudes pendientes A",
       "request": {
         "method": "GET",
         "header": [],
@@ -993,14 +1059,15 @@
             "type": "text/javascript",
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('La solicitud sigue pendiente', () => {const xs=pm.response.json(); pm.expect(xs).to.be.an('array'); pm.expect(xs.some(x=>x.membershipId===Number(pm.collectionVariables.get('membershipA'))&&x.status==='PENDIENTE')).to.be.true;});"
+              "pm.test('La solicitud sigue pendiente', () => {const xs=pm.response.json(); pm.expect(xs).to.be.an('array'); pm.expect(xs.some(x=>x.membershipId===Number(pm.collectionVariables.get('membershipA'))&&x.status==='PENDIENTE')).to.be.true;});",
+              "pm.test('La solicitud trae el perfil del postulante, sin correo', () => { const xs = pm.response.json(); const request = xs.find((x) => x.membershipId === Number(pm.collectionVariables.get('membershipA'))); const p = request.practitioner; pm.expect(p.fullName).to.eql('PRACTICANTE A Teams'); pm.expect(p.studentCode).to.eql(pm.collectionVariables.get('studentCodeA')); pm.expect(p.career).to.eql('Ingenieria de Software'); pm.expect(p.academicCycle).to.eql(5); pm.expect(p.competitiveLevel).to.eql('INTERMEDIO'); pm.expect(pm.response.text()).not.to.include(pm.collectionVariables.get('practitionerEmail')); });"
             ]
           }
         }
       ]
     },
     {
-      "name": "25 Aceptar solicitud A -> ACTIVO",
+      "name": "26 Aceptar solicitud A -> ACTIVO",
       "request": {
         "method": "PATCH",
         "header": [
@@ -1045,7 +1112,7 @@
       ]
     },
     {
-      "name": "26 Pendientes A ahora vacío",
+      "name": "27 Pendientes A ahora vacío",
       "request": {
         "method": "GET",
         "header": [],
@@ -1075,7 +1142,7 @@
       ]
     },
     {
-      "name": "27 Login PRACTICANTE A nuevamente",
+      "name": "28 Login PRACTICANTE A nuevamente",
       "request": {
         "method": "POST",
         "header": [
@@ -1102,6 +1169,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -1112,14 +1182,15 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "28 Solicitar grupo protegido B -> PENDIENTE",
+      "name": "29 Solicitar grupo protegido B -> PENDIENTE",
       "request": {
         "method": "POST",
         "header": [],
@@ -1149,7 +1220,7 @@
       ]
     },
     {
-      "name": "29 Login COACH dueño nuevamente",
+      "name": "30 Login COACH dueño nuevamente",
       "request": {
         "method": "POST",
         "header": [
@@ -1176,6 +1247,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -1186,14 +1260,44 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión COACH', () => pm.expect(pm.response.json().role).to.eql('COACH'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "30 Rechazar solicitud B -> RECHAZADO",
+      "name": "31 Mis equipos del COACH: código de invitación y contadores",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sus tres grupos con código de invitación y contadores', () => { const mine = pm.response.json(); const of = (key) => mine.find((x) => x.groupId === Number(pm.collectionVariables.get(key))); pm.expect(mine).to.have.lengthOf(3); pm.expect(of('groupA').invitationCode).to.eql(pm.collectionVariables.get('inviteA')); pm.expect([of('groupA').activeMembers, of('groupA').pendingRequests]).to.eql([1, 0]); pm.expect([of('groupB').activeMembers, of('groupB').pendingRequests]).to.eql([0, 1]); pm.expect([of('groupPublic').activeMembers, of('groupPublic').pendingRequests]).to.eql([1, 0]); for (const team of mine) { pm.expect(team.invitationCode).to.be.a('string'); pm.expect(team).not.to.have.property('membership'); } });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "32 Rechazar solicitud B -> RECHAZADO",
       "request": {
         "method": "PATCH",
         "header": [
@@ -1238,7 +1342,7 @@
       ]
     },
     {
-      "name": "31 Login PRACTICANTE A de nuevo",
+      "name": "33 Login PRACTICANTE A de nuevo",
       "request": {
         "method": "POST",
         "header": [
@@ -1265,6 +1369,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -1275,14 +1382,44 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "32 Reintentar solicitud B tras rechazo -> PENDIENTE",
+      "name": "34 Mis equipos del PRACTICANTE A: ACTIVO, RECHAZADO y ACTIVO",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('La solicitud rechazada figura como RECHAZADO', () => { const mine = pm.response.json(); const of = (key) => mine.find((x) => x.groupId === Number(pm.collectionVariables.get(key))); pm.expect(mine).to.have.lengthOf(3); pm.expect(of('groupA').membership.status).to.eql('ACTIVO'); pm.expect(of('groupB').membership.status).to.eql('RECHAZADO'); pm.expect(of('groupPublic').membership.status).to.eql('ACTIVO'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "35 Reintentar solicitud B tras rechazo -> PENDIENTE",
       "request": {
         "method": "POST",
         "header": [],
@@ -1312,7 +1449,7 @@
       ]
     },
     {
-      "name": "33 Login PRACTICANTE B nuevamente",
+      "name": "36 Login PRACTICANTE B nuevamente",
       "request": {
         "method": "POST",
         "header": [
@@ -1339,6 +1476,9 @@
               "language": "json"
             }
           }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
@@ -1349,14 +1489,15 @@
             "exec": [
               "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
               "pm.test('Sesión PRACTICANTE', () => pm.expect(pm.response.json().role).to.eql('PRACTICANTE'));",
-              "pm.test('Cookie JSESSIONID presente', () => pm.expect(pm.cookies.get('JSESSIONID')).to.be.ok);"
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); });",
+              "const issuedToken = pm.response.json().token; if (issuedToken) pm.collectionVariables.set('token', issuedToken);"
             ]
           }
         }
       ]
     },
     {
-      "name": "34 Invitación correcta a protegido A -> ACTIVO",
+      "name": "37 Invitación correcta a protegido A -> ACTIVO",
       "request": {
         "method": "POST",
         "header": [],
@@ -1384,6 +1525,48 @@
           }
         }
       ]
+    },
+    {
+      "name": "38 Mis equipos sin token → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "pm.test('Cuerpo de error {message, errors}', () => { const b = pm.response.json(); pm.expect(b.message).to.be.a('string').and.not.empty; pm.expect(b).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
     }
-  ]
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  }
 }

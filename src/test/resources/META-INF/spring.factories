@@ -1,0 +1,2 @@
+# La clave de firma JWT de los tests tiene prioridad sobre cualquier JWT_SECRET del entorno (por ejemplo, vacio en .env).
+org.springframework.context.ApplicationContextInitializer=com.kodika.kodikalab.support.TestJwtSecretInitializer

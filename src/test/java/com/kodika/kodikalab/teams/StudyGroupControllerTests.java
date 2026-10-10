@@ -5,8 +5,13 @@ import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
+import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
+import com.kodika.kodikalab.teams.groupmembership.TeamRole;
+import com.kodika.kodikalab.teams.studygroup.GroupStatus;
+import com.kodika.kodikalab.teams.studygroup.GroupVisibility;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
+import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -14,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -82,6 +88,49 @@ class StudyGroupControllerTests {
         mvc.perform(get("/teams"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
+    }
+
+    @Test
+    void myTeamsOfACoachIncludeTheInvitationCodeAndOmitTheMembershipFields() throws Exception {
+        when(studyGroupService.findMyTeams()).thenReturn(List.of(new MyTeamResponse(1, "Grafos", null, "Div3", 15,
+                "Lunes", GroupStatus.ACTIVO, GroupVisibility.PROTEGIDO, "ABC123DEF456", 3L, 2L, null)));
+
+        mvc.perform(get("/teams/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].groupId").value(1))
+                .andExpect(jsonPath("$[0].visibility").value("PROTEGIDO"))
+                .andExpect(jsonPath("$[0].invitationCode").value("ABC123DEF456"))
+                .andExpect(jsonPath("$[0].activeMembers").value(3))
+                .andExpect(jsonPath("$[0].pendingRequests").value(2))
+                .andExpect(jsonPath("$[0].membership").doesNotExist());
+    }
+
+    @Test
+    void myTeamsOfAPractitionerShowTheMembershipStatusAndOmitTheCoachFields() throws Exception {
+        var joined = OffsetDateTime.parse("2026-10-09T19:00:00-05:00");
+        when(studyGroupService.findMyTeams()).thenReturn(List.of(new MyTeamResponse(1, "Grafos", null, "Div3", 15,
+                "Lunes", GroupStatus.ACTIVO, GroupVisibility.PROTEGIDO, null, null, null,
+                new MyTeamResponse.Membership(7, MembershipStatus.PENDIENTE, TeamRole.MIEMBRO, joined, null))));
+
+        mvc.perform(get("/teams/me"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].groupId").value(1))
+                .andExpect(jsonPath("$[0].membership.membershipId").value(7))
+                .andExpect(jsonPath("$[0].membership.status").value("PENDIENTE"))
+                .andExpect(jsonPath("$[0].membership.teamRole").value("MIEMBRO"))
+                .andExpect(jsonPath("$[0].invitationCode").doesNotExist())
+                .andExpect(jsonPath("$[0].activeMembers").doesNotExist())
+                .andExpect(jsonPath("$[0].pendingRequests").doesNotExist());
+    }
+
+    @Test
+    void myTeamsRejectsAnAnonymousAndASuspendedAccount() throws Exception {
+        when(studyGroupService.findMyTeams()).thenThrow(new UnauthorizedException("Debe iniciar sesión"));
+        mvc.perform(get("/teams/me")).andExpect(status().isUnauthorized());
+
+        doThrow(new ForbiddenException("La cuenta no está activa")).when(studyGroupService).findMyTeams();
+        mvc.perform(get("/teams/me")).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("La cuenta no está activa"));
     }
 
     @Test
