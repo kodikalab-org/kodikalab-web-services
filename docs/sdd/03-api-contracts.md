@@ -488,10 +488,176 @@ Las instalaciones existentes de PostgreSQL deben admitir los estados `PENDIENTE`
 
 Las pruebas de integración verifican creación de grupos, solicitudes pendientes, aceptación, rechazo, autorización del coach, duplicados y capacidad.
 
+## Analytics — US-11
+
+`GET /api/analytics/teams/{teamId}/standings` consulta resoluciones persistidas del equipo. Requiere sesión HTTP y cuenta `ACTIVO`: se autoriza al coach responsable o al practicante con membresía `ACTIVO`. La identidad se obtiene desde la sesión; el cliente no elige el usuario solicitante.
+
+Respuesta `200 OK`:
+
+```json
+{
+  "teamId": 1,
+  "status": "CALCULATED",
+  "orderingCriterion": "DISTINCT_ACCEPTED_PROBLEMS_DESC",
+  "tieCriterion": "SHARED_POSITION_1_1_3",
+  "members": [
+    { "membershipId": 1, "userId": 10, "fullName": "Usuario Prueba", "acceptedProblems": 2, "position": 1 }
+  ]
+}
+```
+
+Cada problema de catálogo aceptado cuenta una vez por membresía y equipo, incluso entre competencias. Solo se muestran integrantes activos, con orden descendente y empates `1, 1, 3`; el ID de membresía estabiliza el orden de presentación. Sin resoluciones, `status` es `NO_ACTIVITY` y `members` es `[]`. Con intentos válidos sin aceptaciones, se muestran puntuaciones cero compartidas.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin sesión, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por datos inconsistentes (campos o índices en `errors`), `503` por fallo de persistencia/transacción y `500` por error inesperado. Nunca se devuelven posiciones parciales del cálculo fallido.
+
+En `409` o `503` se añade opcionalmente `lastValidRanking: { "calculatedAt": "...", "ranking": { ... } }`, con el último resultado completo guardado en PostgreSQL para ese equipo. Se conserva el código de error: ese ranking corresponde a la fecha indicada y no se presenta como un cálculo actualizado. Solo se recupera después de verificar nuevamente los permisos actuales. Si no existe, no se puede leer o no se puede verificar la autorización, se omite. Una caída total de PostgreSQL impide recuperarlo durante la caída; el registro permanece almacenado. Cada cálculo válido reemplaza una sola fila por equipo, sin historial.
+
+Detalle de reglas y verificación: [US-11](13-us11-ranking-interno.md).
+
+## Analytics — US-12
+
+`GET /api/analytics/teams/{teamId}/weaknesses` consulta la cobertura por tema. Requiere sesión HTTP, cuenta `ACTIVO`, rol `COACH` y ser el coach responsable del equipo. Un integrante no puede consultar este reporte, aunque pueda acceder al ranking. La identidad se resuelve desde la sesión; los parámetros del cliente no conceden permisos.
+
+Se consideran competencias `FINALIZADA`, integrantes actualmente `ACTIVO` y problemas distintos del catálogo. Por tema, la cobertura es `100 × problemas aceptados / problemas asignados`. Una aceptación de cualquier integrante incluido resuelve el problema para el equipo. Repeticiones entre intentos o competencias no aumentan el indicador. Un problema con varios temas se cuenta una vez en cada tema.
+
+Respuesta `200 OK`:
+
+```json
+{
+  "teamId": 1,
+  "metric": "DISTINCT_SOLVED_PROBLEMS_OVER_ASSIGNED_PROBLEMS",
+  "comparisonCriterion": "EXACT_PROPORTION_MINIMUM_ALL_TIES",
+  "comparisonExplanation": "Se comparan proporciones exactas de problemas distintos aceptados sobre asignados; todos los temas con la proporción mínima comparten menor cobertura. El porcentaje se redondea solo para mostrarlo.",
+  "activeMembers": 2,
+  "pendingResolutions": 1,
+  "topics": [
+    {
+      "topicId": 10,
+      "topicName": "Grafos",
+      "assignedProblems": 3,
+      "solvedProblems": 1,
+      "unsolvedProblems": 2,
+      "solvingMembers": 1,
+      "pendingResolutions": 1,
+      "coveragePercentage": 33.33,
+      "lowestCoverage": true
+    }
+  ]
+}
+```
+
+Se devuelven todos los temas del universo analizado, ordenados por proporción ascendente; `lowestCoverage` identifica **todos** los empatados en el mínimo exacto, antes del redondeo. Dentro del empate, el ID de tema estabiliza la presentación sin establecer prioridades. Los recuentos de problemas sin aceptación y de integrantes con aceptaciones permiten al coach decidir el refuerzo.
+
+`PENDIENTE` no suma al numerador y se informa como recuento de resoluciones únicas, global y por tema; no invalida automáticamente el reporte. Sin ninguna resolución definitiva de integrantes activos en competencias finalizadas, hay información insuficiente y se indica el número de pendientes en el error. Un tema sin aceptaciones permanece en el reporte cuando el conjunto sí tiene información suficiente.
+
+Errores `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin sesión, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por información insuficiente o inconsistente (identifica campos, índices o problemas sin clasificación), `503` por información no disponible debido a persistencia/transacción y `500` por error inesperado. Los errores no incluyen conclusiones parciales. Puede repetirse el mismo GET tras corregir los datos o recuperar su disponibilidad. US-12 no almacena reportes ni modifica el último ranking de US-11.
+
+Detalle y verificación: [US-12](14-us12-temas-menor-resolucion.md).
+
+## US-13 — Crear competencia
+
+`POST /api/competitions` crea una competencia (`competencia`) para un equipo y devuelve `201`. Solo puede usarla el
+coach responsable de ese equipo, con cuenta `ACTIVO` y sesión HTTP; el coach se obtiene de la sesión y el equipo
+de `teamId`. Es el paso previo para registrar su resultado oficial y para asignarle problemas.
+
+```json
+{
+  "teamId": 1,
+  "eventName": "ICPC Regional 2026",
+  "description": "Fase regional",
+  "accessType": "PUBLICO_GRUPO",
+  "penaltyRule": "ICPC_20_MIN",
+  "scoreboardFreezeMinutes": 60,
+  "status": "PROGRAMADA",
+  "startsAt": "2026-10-20T14:00:00-05:00",
+  "endsAt": "2026-10-20T19:00:00-05:00"
+}
+```
+
+| Campo | Regla |
+| --- | --- |
+| `teamId` | Obligatorio, entero positivo; el coach debe ser el responsable de ese equipo. |
+| `eventName` | Obligatorio, hasta 150 caracteres (se recortan los espacios externos). |
+| `description` | Opcional, hasta 500 caracteres; vacío se guarda como `null`. |
+| `accessType` | `PUBLICO_GRUPO` (por defecto) o `PRIVADO_PASS`. |
+| `accessKey` | Obligatoria con `PRIVADO_PASS` (máximo 72 bytes UTF-8); no se admite con `PUBLICO_GRUPO`. Se guarda solo como hash BCrypt y nunca se devuelve. |
+| `penaltyRule` | `ICPC_20_MIN` (por defecto) o `IOI_POINTS`. |
+| `scoreboardFreezeMinutes` | Opcional, entre 0 y la duración. Por defecto 60, o la duración si esta es menor. |
+| `status` | `PROGRAMADA` (por defecto), `EN_CURSO` o `FINALIZADA`. Se respeta el valor enviado; no se infiere de las fechas. Permite registrar eventos pasados. |
+| `startsAt`, `endsAt` | Obligatorias, ISO-8601 con zona; `endsAt` al menos un minuto posterior a `startsAt`. |
+
+`durationMinutes` no se envía: se calcula como los minutos entre `startsAt` y `endsAt`. La respuesta devuelve
+`id`, `teamId`, `eventName`, `description`, `accessType`, `penaltyRule`, `durationMinutes`,
+`scoreboardFreezeMinutes`, `status`, `startsAt` y `endsAt`. No se acepta un coach ni un rol enviados en el body.
+
+La lectura es estricta: un campo con tipo incorrecto (por ejemplo un número como cadena) se rechaza, y los errores
+de todos los campos se informan juntos. Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos
+inválidos o JSON inválido (`errors` indica los campos), `401` sin sesión, `403` cuenta no coach, suspendida o
+equipo de otro coach, `404` equipo inexistente, `409` ya existe una competencia del mismo equipo con el mismo
+nombre (sin distinguir mayúsculas) y la misma fecha de inicio, `503` persistencia no disponible. Una solicitud
+rechazada no crea ningún registro. El ERD no define una restricción única para el duplicado: la regla se verifica
+en el servicio, por lo que dos solicitudes simultáneas idénticas podrían crear ambas.
+
+## US-13 — Resultados oficiales de competencias
+
+Solo el coach responsable con cuenta activa y sesión puede utilizar estas rutas:
+
+```txt
+POST /competitions/{competitionId}/official-result
+PUT  /competitions/{competitionId}/official-result
+GET  /competitions/{competitionId}/official-result
+GET  /competitions/teams/{teamId}/official-results
+```
+
+POST devuelve `201`; PUT y GET devuelven `200`. Body de POST/PUT: `finalPosition` (entero positivo),
+`solvedProblems` (entero no negativo) y `confirm` (booleano, omitido equivale a `false`). Ambos números pueden
+faltar en un pendiente; confirmar exige ambos y una competencia `FINALIZADA`. PUT reemplaza todos los
+campos editables de un pendiente; un confirmado es inmutable. Solo se permite un registro por competencia.
+El equipo se deriva de la competencia, nunca de un `teamId` enviado en el body.
+
+El detalle devuelve `id`, `competitionId`, `teamId`, `eventName`, `competitionEndsAt`, `finalPosition`,
+`solvedProblems`, `status` (`PENDIENTE`/`CONFIRMADO`), `registeredAt` y `confirmedAt` (null en pendientes).
+El historial devuelve un array de estos DTOs, exclusivamente confirmados, por fecha de fin descendente e ID
+de competencia descendente en igualdad. Sin confirmados devuelve `[]`.
+
+Errores `{ "message": "...", "errors": {} }`: `400` identifica campos inválidos o faltantes al confirmar;
+`401` sesión ausente; `403` coach no autorizado; `404` equipo, competencia o resultado inexistente;
+`409` duplicado o modificación de confirmado; `503` datos/transacción no disponibles; `500` error inesperado.
+Ninguna operación rechazada reemplaza información válida. Ejemplos, tabla y límite de duplicados entre IDs
+distintos: [US-13](15-us13-resultados-oficiales.md).
+
+## US-14 — Avance personal por equipo
+
+```txt
+POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions
+GET  /analytics/teams/{teamId}/progress/me
+```
+
+Ambas rutas requieren sesión, cuenta `ACTIVO`, rol `PRACTICANTE` y membresía `ACTIVO` propia. La identidad
+se obtiene del contexto autenticado. El problema asignado y la membresía deben pertenecer al equipo de la ruta.
+`competitionProblemId` es el ID de `competencia_problema`, no el del catálogo.
+
+POST recibe `language` (texto obligatorio, máximo 30) y `evidenceUrl` (URL HTTP/HTTPS opcional, máximo 500).
+Registra un `ACCEPTED` manual provisional y devuelve `201` con `resolution` (DTO `TeamResolutionData`),
+`registrationMethod: "MANUAL_PROVISIONAL"` y `progress`. No constituye verificación automática: este `ACCEPTED`
+declarado cuenta igual en el ranking (US-11) y en el reporte de temas (US-12) hasta que US-09 lo sustituya por un
+registro verificado. Rechaza otro
+`ACCEPTED` para la misma membresía/asignación sin modificar los intentos anteriores. Otros equipos o
+competencias conservan registros independientes.
+
+GET devuelve `200` con `teamId`, `membershipId`, `userId` y `acceptedProblems`: problemas distintos aceptados
+del practicante en ese equipo, según US-11. Sin actividad, el conteo es cero. POST recalcula ese avance antes
+de completar la transacción; si hay un error no se conserva una escritura parcial. No se combinan equipos.
+
+Errores `{ "message": "...", "errors": {} }`: `400` campos/contexto/asignación cruzada inválidos;
+`401` sesión ausente; `403` rol/cuenta/membresía no autorizados; `404` equipo/asignación inexistente;
+`409` duplicado o datos inconsistentes; `503` información/transacción no disponible; `500` error inesperado.
+Detalles y limitaciones: [US-14](16-us14-avance-independiente.md).
 
 ## Rutas pendientes: no implementadas ni publicadas
 
-Las siguientes rutas todavía no están implementadas ni publicadas en Swagger. Aunque algunos módulos ya tienen funcionalidades operativas, los endpoints enumerados a continuación permanecen pendientes de desarrollo.
+Las siguientes rutas son propuestas para historias futuras: **no aparecen en Swagger y actualmente devuelven `404`**. Los controllers plantilla de `problems` no declaran endpoints. `teams` publica únicamente las rutas de US-04 a US-06 descritas arriba y `competitions`, las de US-13 descritas arriba.
+
 ## Teams
 
 ```txt
@@ -511,8 +677,6 @@ GET  /problems/{id}/resources
 
 ```txt
 GET  /analytics/teams/{teamId}/topics
-GET  /analytics/teams/{teamId}/standings
-GET  /analytics/teams/{teamId}/weaknesses
 POST /analytics/teams/{teamId}/competitions
 GET  /analytics/users/me/independent-progress
 ```

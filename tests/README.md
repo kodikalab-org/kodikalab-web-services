@@ -158,9 +158,103 @@ export ERD_TEST_DB_USER=postgres
 ./mvnw -Dtest=ErdSchemaIntegrationTests test
 ```
 
+## US-11 — Ranking interno
+
+Endpoint: `GET /api/analytics/teams/{teamId}/standings`, con sesión del coach responsable o de un integrante activo. Contrato y resultados de verificación: [US-11](../docs/sdd/13-us11-ranking-interno.md).
+
+Pruebas sin PostgreSQL (cálculo, autorización, adaptación de datos y HTTP):
+
+```powershell
+.\mvnw.cmd '-Dtest=RankingServiceTests,TeamRankingServiceTests,AnalyticsControllerTests,StoredTeamRankingServiceTests,RankingSnapshotServiceTests' test
+```
+
+`RankingIntegrationTests` requiere una base exclusiva de pruebas y permisos para crear/eliminar schemas:
+
+```powershell
+$env:RANKING_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:RANKING_TEST_DB_USER = 'postgres'
+# Configurar RANKING_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=RankingIntegrationTests' test
+```
+
+La suite crea `ranking_test_<uuid>`, carga fixtures únicamente en ese schema y utiliza login HTTP real antes de consultar el ranking. Verifica consolidación entre competencias, empates, ceros, ausencia de actividad, aislamiento por equipo, membresías inactivas, referencias cruzadas y permisos. También comprueba la recuperación del resultado guardado, su reemplazo tras corregir datos, una sola fila por equipo, rechazo de escrituras anteriores y que un miembro revocado no vea el resultado guardado. Elimina su schema al terminar; una interrupción puede requerir limpieza manual. Sin `RANKING_TEST_DB_URL`, se omite. No ha sido ejecutada contra PostgreSQL en esta entrega.
+
+## US-12 — Temas con menor resolución
+
+Endpoint: `GET /api/analytics/teams/{teamId}/weaknesses`, solo para el coach responsable con cuenta activa y sesión HTTP. Contrato, decisiones aprobadas y resultados: [US-12](../docs/sdd/14-us12-temas-menor-resolucion.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=TopicCoverageCalculatorTests,TeamTopicReportServiceTests,TopicReportControllerTests' test
+```
+
+Integración con una base exclusiva de pruebas y permisos para crear/eliminar schemas:
+
+```powershell
+$env:TOPIC_REPORT_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:TOPIC_REPORT_TEST_DB_USER = 'postgres'
+# Configurar TOPIC_REPORT_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=TopicReportIntegrationTests' test
+```
+
+La suite crea `topic_report_test_<uuid>`, utiliza login HTTP real, carga fixtures solo en ese schema y lo elimina al terminar. Comprueba consultas, temas sin aceptaciones, deduplicación entre competencias, problemas con múltiples temas, empates, intentos pendientes, aislamiento por equipo, autorización y reintento tras corregir datos. Sin `TOPIC_REPORT_TEST_DB_URL` se omite. Una interrupción puede requerir limpieza manual del schema. No ha sido ejecutada contra PostgreSQL en esta entrega.
+
+## US-13 — Resultados oficiales
+
+Rutas de registro, detalle, actualización de pendientes e historial en `competitions`, solo para el coach
+responsable activo. Reglas, contratos y DDL: [US-13](../docs/sdd/15-us13-resultados-oficiales.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=OfficialResultServiceTests,OfficialResultControllerTests' test
+```
+
+Integración con una base exclusiva de pruebas y permisos para crear/eliminar schemas:
+
+```powershell
+$env:OFFICIAL_RESULT_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:OFFICIAL_RESULT_TEST_DB_USER = 'postgres'
+# Configurar OFFICIAL_RESULT_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=OfficialResultIntegrationTests' test
+```
+
+La suite crea `official_result_test_<uuid>`, carga datos ficticios, utiliza login HTTP real y elimina el schema
+al terminar. Verifica autorización, registro, validación, pendientes excluidos del historial, confirmación,
+conservación de datos, aislamiento por equipo, orden del historial, restricciones SQL y solicitudes concurrentes.
+Sin `OFFICIAL_RESULT_TEST_DB_URL` se omite. Una interrupción puede requerir limpieza manual del schema.
+No ha sido ejecutada contra PostgreSQL en esta entrega.
+
+## US-14 — Avance independiente por equipo
+
+Registro manual provisional y consulta personal sobre membresías/asignaciones existentes, sin juez ni flujo
+completo de US-09. Contrato y reglas: [US-14](../docs/sdd/16-us14-avance-independiente.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=ManualResolutionServiceTests,IndependentProgressServiceTests,IndependentProgressControllerTests' test
+```
+
+Integración en una base exclusiva de pruebas, con permisos para crear/eliminar schemas:
+
+```powershell
+$env:INDEPENDENT_PROGRESS_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:INDEPENDENT_PROGRESS_TEST_DB_USER = 'postgres'
+# Configurar INDEPENDENT_PROGRESS_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=IndependentProgressIntegrationTests' test
+```
+
+La suite crea `independent_progress_test_<uuid>`, utiliza login HTTP real y datos ficticios en ese schema,
+y lo elimina al terminar. Verifica múltiples membresías, mismo problema en distintos equipos/competencias,
+autorización, ausencia de escrituras ante errores, duplicados concurrentes, rollback si falla el cálculo y
+regresión conjunta de US-11/US-12/US-13. Sin `INDEPENDENT_PROGRESS_TEST_DB_URL` se omite. Una interrupción
+puede requerir limpieza manual del schema. No ha sido ejecutada contra PostgreSQL en esta entrega.
+
 ## Alcance y datos existentes
 
-- Sin JWT ni cambios a `/api`; los endpoints de desarrollo siguen públicos.
+- Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.
 - No se inventan dominios institucionales autorizados ni perfiles incompletos.
 - Scaffolding legacy sin lógica retirado; se conserva `auth/dto` y toda la funcionalidad de registro/login.
 - `RuntimeBoundaryTests` verifica una sola entidad/repository de cuenta, solo rutas de negocio implementadas y `404` para las antiguas rutas ficticias. Actualizar esos límites al implementar un nuevo módulo real.

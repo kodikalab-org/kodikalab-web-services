@@ -1,8 +1,8 @@
 package com.kodika.kodikalab.competitions.competitionproblem;
 
-/**
- * Plantilla del servicio de problemas de una competencia (competencia_problema).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import com.kodika.kodikalab.competitions.competitionproblem.dto.TeamAssignedProblem;
+import java.util.List;
+
 public interface CompetitionProblemService {
+    List<TeamAssignedProblem> findAssignedProblemsByTeamId(Integer teamId);
 }

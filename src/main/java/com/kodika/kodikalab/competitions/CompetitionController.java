@@ -2,16 +2,24 @@ package com.kodika.kodikalab.competitions;
 
 import com.kodika.kodikalab.competitions.category.CategoryService;
 import com.kodika.kodikalab.competitions.competition.CompetitionService;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
+import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblemService;
 import com.kodika.kodikalab.competitions.problemresolution.ProblemResolutionService;
+import com.kodika.kodikalab.competitions.officialresult.OfficialResultService;
+import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultRequest;
+import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultResponse;
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
-/**
- * Plantilla del controller de competitions en {@code /api/competitions}. Aún no expone endpoints:
- * agregar cada {@code @GetMapping}/{@code @PostMapping}... con su historia y su contrato en
- * {@code docs/sdd/03-api-contracts.md}, delegando en el servicio de la entidad.
- */
 @RestController
 @RequestMapping("/competitions")
 public class CompetitionController {
@@ -19,14 +27,46 @@ public class CompetitionController {
     private final CompetitionProblemService competitionProblemService;
     private final ProblemResolutionService problemResolutionService;
     private final CategoryService categoryService;
+    private final OfficialResultService officialResultService;
 
     public CompetitionController(CompetitionService competitionService,
                                  CompetitionProblemService competitionProblemService,
                                  ProblemResolutionService problemResolutionService,
-                                 CategoryService categoryService) {
+                                 CategoryService categoryService,
+                                 OfficialResultService officialResultService) {
         this.competitionService = competitionService;
         this.competitionProblemService = competitionProblemService;
         this.problemResolutionService = problemResolutionService;
         this.categoryService = categoryService;
+        this.officialResultService = officialResultService;
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public CompetitionResponse create(@RequestBody CreateCompetitionRequest request) {
+        return competitionService.create(request);
+    }
+
+    @PostMapping("/{competitionId}/official-result")
+    @ResponseStatus(HttpStatus.CREATED)
+    public OfficialResultResponse createResult(@PathVariable Integer competitionId,
+                                               @RequestBody OfficialResultRequest request) {
+        return officialResultService.create(competitionId, request);
+    }
+
+    @PutMapping("/{competitionId}/official-result")
+    public OfficialResultResponse updateResult(@PathVariable Integer competitionId,
+                                               @RequestBody OfficialResultRequest request) {
+        return officialResultService.update(competitionId, request);
+    }
+
+    @GetMapping("/{competitionId}/official-result")
+    public OfficialResultResponse getResult(@PathVariable Integer competitionId) {
+        return officialResultService.get(competitionId);
+    }
+
+    @GetMapping("/teams/{teamId}/official-results")
+    public List<OfficialResultResponse> history(@PathVariable Integer teamId) {
+        return officialResultService.history(teamId);
     }
 }

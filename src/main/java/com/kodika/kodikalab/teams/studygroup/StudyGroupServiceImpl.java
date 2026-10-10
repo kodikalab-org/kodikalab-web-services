@@ -6,13 +6,15 @@ import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.profiles.coach.CoachProfile;
 import com.kodika.kodikalab.profiles.coach.CoachProfileService;
+import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupSummary;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
 
 @Service
 public class StudyGroupServiceImpl implements StudyGroupService {
@@ -76,9 +78,16 @@ public class StudyGroupServiceImpl implements StudyGroupService {
 
         return studyGroupRepository.save(group);
     }
+
     @Override
     @Transactional(readOnly = true)
     public List<StudyGroup> getAvailableGroups() {
         return studyGroupRepository.findByStatusOrderByIdAsc(GroupStatus.ACTIVO);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<StudyGroupSummary> findSummaryById(Integer teamId) {
+        return studyGroupRepository.findSummaryById(teamId);
     }
 }

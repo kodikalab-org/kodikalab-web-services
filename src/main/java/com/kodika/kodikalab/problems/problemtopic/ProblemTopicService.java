@@ -1,8 +1,9 @@
 package com.kodika.kodikalab.problems.problemtopic;
 
-/**
- * Plantilla del servicio de relación problema-tema (problema_tema).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import com.kodika.kodikalab.problems.problemtopic.dto.ProblemTopicData;
+import java.util.List;
+import java.util.Set;
+
 public interface ProblemTopicService {
+    List<ProblemTopicData> findTopicsByProblemIds(Set<Integer> problemIds);
 }

@@ -11,7 +11,7 @@ docs/sdd/assets/oficial.erd
 docs/sdd/04-database-model.md
 ```
 
-`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD como plantilla sin lógica (ver "Estructura de los módulos plantilla"). `assignments`, `analytics` y `ai` siguen como diseño objetivo.
+`auth`/`users` implementa `usuario` y `profiles` implementa `coach`/`practicante` (US-03). `teams`, `problems` y `competitions` mapean el resto de tablas visibles del ERD (ver "Estructura de los módulos plantilla"); US-11 agrega consultas públicas en sus servicios. `analytics` implementa el ranking y conserva su último resultado válido en la extensión aprobada `ranking_equipo_actual`. `assignments` y `ai` siguen como diseño objetivo.
 
 ## Módulos y propiedad del modelo oficial
 
@@ -22,9 +22,9 @@ docs/sdd/04-database-model.md
 | `profiles` | `coach`, `practicante` | Perfiles de rol, datos académicos/competitivos y handles definidos por el ERD |
 | `teams` | `grupo_estudio`, `practicante_grupo` | Coach responsable, grupos, cupos, horario descriptivo, membresías y solicitudes |
 | `problems` | `problema`, `tema`, `problema_tema`, `material` | Catálogo, clasificación y biblioteca/recursos |
-| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria` | Evento del grupo, problemas del evento, resoluciones y datos de scoreboard |
+| `competitions` | `competencia`, `competencia_problema`, `resolucion_problema`, `Categoria`, `resultado_oficial_competencia` (extensión aprobada US-13) | Evento del grupo, problemas del evento, resoluciones, scoreboard y resultados oficiales confirmados/pendientes |
 | `assignments` | Capacidad funcional; sin tablas genéricas propias en este ERD | Coordinación de asignación/resolución según los agregados actuales; no recrear tablas retiradas sin diseño aprobado |
-| `analytics` | Lecturas derivadas de grupos, competencias y resoluciones | Progreso, rankings y métricas; no dueño de entidades transaccionales ajenas |
+| `analytics` | Lecturas derivadas y `ranking_equipo_actual` (extensión aprobada US-11) | Ranking, su último resultado válido y cobertura por tema (US-12); no dueño de entidades transaccionales ajenas |
 | `ai` | Capacidad funcional; sin tablas propias en este ERD | Asistencia inteligente; cualquier persistencia adicional requiere definición |
 | `security` | Sesión, contexto de seguridad, permisos | Componentes transversales; JWT sigue pendiente |
 | `config` | Beans Spring | Configuración general, sin lógica de negocio |
@@ -33,6 +33,17 @@ docs/sdd/04-database-model.md
 `Categoria` se mapea en `competitions` (como en `09-component-diagram.md`) y engloba únicamente al grupo de estudio: 1:1 con `grupo_estudio`, según `oficial.erd`. Las incidencias de metadatos del ERD están registradas en `04-database-model.md`.
 
 ## Nombres y estructura
+
+US-14 agrega `IndependentProgressService` como coordinador de registro y avance por equipo. Reutiliza el
+servicio público de resoluciones de `competitions`, el servicio de membresías de `teams` y el cálculo de US-11.
+`IndependentProgressController` y su handler tienen alcance propio. No agrega entidades, repositories,
+tablas ni relaciones, ni modifica cálculos de otras historias. Ver [US-14](16-us14-avance-independiente.md).
+
+US-13 incorpora `competitions.officialresult` con entidad, repository y Service/ServiceImpl, DTOs propios y
+endpoints en `CompetitionController`. El servicio consulta el repositorio de competencias del mismo módulo,
+`StudyGroupService` para autorizar al coach responsable y `CurrentUserResolver` para la sesión. El handler
+de errores tiene alcance exclusivo a ese controller. No modifica los cálculos ni componentes de US-11/US-12.
+Contrato y persistencia: [15-us13-resultados-oficiales.md](15-us13-resultados-oficiales.md).
 
 Las clases adoptan los **nombres en español del diagrama de clases** (página "CODIGO" del drawio). **Los valores de enums están en español en Java, HTTP y SQL** y se persisten con `@Enumerated(EnumType.STRING)`, sin conversores.
 
@@ -201,7 +212,8 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
 | `/teams/**` | Propuesta pendiente de `teams`; no publicada |
 | `/problems/**` | Propuesta pendiente de `problems` / asignación; no publicada |
-| `/analytics/**` | Propuesta pendiente de `analytics`; no publicada |
+| `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
+| `/analytics/teams/{teamId}/weaknesses` | US-12 implementada; requiere sesión del coach responsable con cuenta activa |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |
 
 Las rutas pendientes se conservan únicamente como contratos propuestos. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints, así que no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.

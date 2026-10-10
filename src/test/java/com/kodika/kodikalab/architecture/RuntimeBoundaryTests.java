@@ -1,10 +1,11 @@
-
 package com.kodika.kodikalab.architecture;
 
+import com.kodika.kodikalab.analytics.TeamRankingSnapshot;
 import com.kodika.kodikalab.competitions.category.Category;
 import com.kodika.kodikalab.competitions.competition.Competition;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblem;
 import com.kodika.kodikalab.competitions.problemresolution.ProblemResolution;
+import com.kodika.kodikalab.competitions.officialresult.OfficialResult;
 import com.kodika.kodikalab.problems.material.Material;
 import com.kodika.kodikalab.problems.problem.Problem;
 import com.kodika.kodikalab.problems.problemtopic.ProblemTopic;
@@ -30,107 +31,66 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * Update these boundaries deliberately. Template controllers of problems have no
+ * handler methods yet, so they must not publish any endpoint until their user story adds one.
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 class RuntimeBoundaryTests {
-
-    @Autowired
-    ApplicationContext context;
-
-    @Autowired
-    EntityManagerFactory entityManagerFactory;
-
-    @Autowired
-    RequestMappingHandlerMapping mappings;
-
-    @Autowired
-    MockMvc mvc;
+    @Autowired ApplicationContext context;
+    @Autowired EntityManagerFactory entityManagerFactory;
+    @Autowired RequestMappingHandlerMapping mappings;
+    @Autowired MockMvc mvc;
 
     @Test
     void onlyOfficialErdPersistenceIsRegistered() {
-
         assertThat(entityManagerFactory.getMetamodel().getEntities().stream()
                 .map(entity -> entity.getJavaType().getName()).toList())
-                .containsExactlyInAnyOrder(
-                        User.class.getName(),
-                        PractitionerProfile.class.getName(),
-                        CoachProfile.class.getName(),
-                        StudyGroup.class.getName(),
-                        GroupMembership.class.getName(),
-                        Competition.class.getName(),
-                        CompetitionProblem.class.getName(),
-                        ProblemResolution.class.getName(),
-                        Category.class.getName(),
-                        Problem.class.getName(),
-                        Topic.class.getName(),
-                        ProblemTopic.class.getName(),
-                        Material.class.getName()
-                );
-
+                .containsExactlyInAnyOrder(User.class.getName(), PractitionerProfile.class.getName(),
+                        CoachProfile.class.getName(), StudyGroup.class.getName(), GroupMembership.class.getName(),
+                        Competition.class.getName(), CompetitionProblem.class.getName(),
+                        ProblemResolution.class.getName(), Category.class.getName(), Problem.class.getName(),
+                        Topic.class.getName(), ProblemTopic.class.getName(), Material.class.getName(),
+                        TeamRankingSnapshot.class.getName(), OfficialResult.class.getName());
         assertThat(context.getBeansOfType(JpaRepository.class).keySet())
-                .containsExactlyInAnyOrder(
-                        "userRepository",
-                        "practitionerProfileRepository",
-                        "coachProfileRepository",
-                        "studyGroupRepository",
-                        "groupMembershipRepository",
-                        "competitionRepository",
-                        "competitionProblemRepository",
-                        "problemResolutionRepository",
-                        "categoryRepository",
-                        "problemRepository",
-                        "topicRepository",
-                        "problemTopicRepository",
-                        "materialRepository"
-                );
-
+                .containsExactlyInAnyOrder("userRepository", "practitionerProfileRepository",
+                        "coachProfileRepository", "studyGroupRepository", "groupMembershipRepository",
+                        "competitionRepository", "competitionProblemRepository", "problemResolutionRepository",
+                        "categoryRepository", "problemRepository", "topicRepository", "problemTopicRepository",
+                        "materialRepository", "teamRankingSnapshotRepository", "officialResultRepository");
         assertThat(context.containsBean("legacyAuthController")).isFalse();
         assertThat(context.containsBean("legacyAuthService")).isFalse();
     }
 
     @Test
     void onlyImplementedBusinessEndpointsArePublished() {
-
         assertThat(mappings.getHandlerMethods().entrySet().stream()
                 .filter(entry -> entry.getValue().getBeanType().getPackageName()
                         .startsWith("com.kodika.kodikalab"))
-                .flatMap(entry -> entry.getKey().getPatternValues().stream())
-                .toList())
-                .containsExactlyInAnyOrder(
-                        "/auth/register",
-                        "/auth/login",
-                        "/users/me",
-                        "/users/me",
-                        "/teams",
-                        "/teams",
-                        "/teams/{id}/join",
-                        "/teams/{id}/memberships",
-                        "/teams/{id}/memberships/{memberId}"
-                );
+                .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
+                .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
+                        "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
+                        "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
+                        "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
+                        "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
+                        "/analytics/teams/{teamId}/progress/me",
+                        "/teams", "/teams", "/teams/{id}/join", "/teams/{id}/memberships",
+                        "/teams/{id}/memberships/{memberId}");
     }
 
     @Test
-    void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess()
-            throws Exception {
-
-        // GET /teams ahora lista los grupos disponibles.
-        mvc.perform(get("/api/teams").contextPath("/api"))
-                .andExpect(status().isOk());
-
-        for (String path : new String[]{
-                "/teams/1/members",
-                "/problems",
-                "/problems/assigned",
-                "/competitions",
-                "/analytics/teams/1/topics"
-        }) {
-            mvc.perform(get("/api" + path).contextPath("/api"))
-                    .andExpect(status().isNotFound());
+    void removedPlaceholderEndpointsReturn404InsteadOfFakeSuccess() throws Exception {
+        // GET /teams lista los grupos disponibles (US-04/US-05).
+        mvc.perform(get("/api/teams").contextPath("/api")).andExpect(status().isOk());
+        for (String path : new String[]{"/teams/1/members", "/problems", "/problems/assigned",
+                "/analytics/teams/1/topics"}) {
+            mvc.perform(get("/api" + path).contextPath("/api")).andExpect(status().isNotFound());
         }
-
+        // Existe POST /competitions (US-13 T1); no hay listado público, por eso GET responde 405 y no 200.
+        mvc.perform(get("/api/competitions").contextPath("/api")).andExpect(status().isMethodNotAllowed());
         mvc.perform(post("/api/assistant/query").contextPath("/api")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
     }
 }

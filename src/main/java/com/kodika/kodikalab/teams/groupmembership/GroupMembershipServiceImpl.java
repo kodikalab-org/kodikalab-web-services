@@ -8,6 +8,7 @@ import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfile;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfileService;
+import com.kodika.kodikalab.teams.groupmembership.dto.GroupMemberData;
 import com.kodika.kodikalab.teams.studygroup.GroupStatus;
 import com.kodika.kodikalab.teams.studygroup.GroupVisibility;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
@@ -16,7 +17,9 @@ import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -180,6 +183,18 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
         }
 
         return membershipRepository.save(membership);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GroupMemberData> findMembersByTeamId(Integer teamId) {
+        return membershipRepository.findMembersByTeamId(teamId);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<GroupMembership> findForUpdate(Integer teamId, Integer userId) {
+        return membershipRepository.findForUpdate(teamId, userId);
     }
 
     private void ensureResponsibleCoach(StudyGroup group, User user) {
