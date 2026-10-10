@@ -98,7 +98,7 @@ El registro de cuenta base no recibe especialidad, código de estudiante ni carr
 
 ## Inventario del dominio y propiedad
 
-Todas las tablas visibles del ERD tienen entidad JPA. `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); el módulo teams implementa US04, US05 y US06; los módulos problems y competitions mantienen funcionalidades pendientes de desarrollo.*. FKs dibujadas como `SERIAL` (`resolucion_problema.practicante_grupo_id`, `Categoria.idGrupo`) se mapean como `INT`, porque una FK no se autogenera. Las antiguas entidades de scaffolding se retiraron; sus tablas (`teams`, `problems`, `submissions`...) pueden seguir en bases locales y no se eliminan sin migración aprobada.
+Todas las tablas visibles del ERD tienen entidad JPA. `usuario`, `coach` y `practicante` tienen lógica (US-01 a US-03); el módulo teams implementa US04, US05 y US06; los módulos problems y competitions mantienen funcionalidades pendientes de desarrollo.*. Las FKs `resolucion_problema.practicante_grupo_id` y `Categoria.idGrupo` se dibujaban `SERIAL` en el `.erd`; ahora están como `INT` (una FK no se autogenera), igual que en el código. Las antiguas entidades de scaffolding se retiraron; sus tablas (`teams`, `problems`, `submissions`...) pueden seguir en bases locales y no se eliminan sin migración aprobada.
 
 | Tabla oficial | Módulo dueño objetivo | Relaciones / observaciones |
 | --- | --- | --- |
@@ -115,6 +115,8 @@ Todas las tablas visibles del ERD tienen entidad JPA. `usuario`, `coach` y `prac
 | `problema_tema` | `problems` | PK compuesta problema/tema |
 | `material` | `problems` | `problema_id` nullable: también permite biblioteca libre |
 | `Categoria` | `competitions` | 1:1 con `grupo_estudio`; engloba únicamente al grupo |
+| `ranking_equipo_actual` | `analytics` | Extensión aprobada US-11: último ranking válido; PK y FK a `grupo_estudio` |
+| `resultado_oficial_competencia` | `competitions` | Extensión aprobada US-13: resultado oficial; 1:1 con `competencia` |
 
 `analytics` deriva métricas de estas tablas. `assignments` conserva su capacidad funcional, pero el ERD no define las antiguas tablas genéricas de asignaciones; su integración debe revisarse sobre competencias/problemas. `ai` permanece como capacidad funcional sin tablas propias documentadas en esta versión.
 
@@ -215,7 +217,7 @@ Para implementar US05 y US06 sin incorporar otra tabla, el enum Java `Membership
 
 Esto requiere ampliar la restricción CHECK de `practicante_grupo.estado` en bases PostgreSQL existentes.
 
-La ampliación de valores debe revisarse y aprobarse como diferencia respecto del ERD oficial. No se deben agregar columnas ni tablas para esta funcionalidad.
+La ampliación de valores debe revisarse y aprobarse como diferencia respecto del ERD oficial. No se deben agregar columnas ni tablas para esta funcionalidad. `oficial.erd` ya muestra los cinco estados en el comentario de `practicante_grupo.estado`.
 
 Hibernate puede generar los cinco valores en esquemas nuevos, pero `ddl-auto: update` no garantiza modificar correctamente las restricciones CHECK existentes.
 
@@ -231,7 +233,9 @@ longitudes y valores, salvo en lo siguiente, que debe corregirse **en el drawio*
 | --- | --- | --- |
 | `categoria` | `id SERIAL`, `grupo_id`, `nombre`, `descripcion`; un grupo **define** N categorías | 1:1 con `grupo_estudio`: `idcategoria`, `idgrupo`, `nombrecategoria`, `descripcioncategoria` |
 | `competencia.categoria_id` | FK a `categoria`; una categoría clasifica competencias | **No existe**: la categoría engloba únicamente al grupo |
-| `resolucion_problema.practicante_grupo_id` | `INT` FK | Dibujada `SERIAL`; se mapea `INT`, porque una FK no se autogenera |
+| `resolucion_problema.practicante_grupo_id` | `INT` FK | `INT`; en `oficial.erd` estaba dibujada `SERIAL` y se corrigió |
+| `ranking_equipo_actual`, `resultado_oficial_competencia` | No existen | Extensiones aprobadas (US-11, US-13), ya dibujadas en `oficial.erd`; agregarlas al drawio |
+| `practicante_grupo.estado` | Verificar que muestre los cinco estados | `PENDIENTE` / `ACTIVO` / `RECHAZADO` / `RETIRADO` / `EXPULSADO` |
 | `solicitud_grupo` | No existe | Restos ocultos en el `.erd`; no forma parte del modelo |
 
 El drawio no muestra obligatoriedad ni valores por defecto; se toman de `oficial.erd`.
@@ -256,15 +260,17 @@ Para datos manda el ERD; estas diferencias deben corregirse en el diagrama de cl
 
 ## Inconsistencias internas de `oficial.erd`
 
-1. Queda una relación oculta desde `competencia` hacia `Categoria` (columna `uTEAp_JY9tT3j_ANZEjrA`, fuera de los `columnIds`) que no forma parte del modelo: la categoría solo se relaciona con el grupo. `Categoria.idGrupo` está tipada `SERIAL` pese a ser FK y se mapea `INT`.
-2. `c_rsp_pg` está fuera de los `columnIds` de `resolucion_problema`, aunque una relación/índice la referencia; la columna visible está tipada `SERIAL`.
+1. Queda una relación oculta desde `competencia` hacia `Categoria` (columna `uTEAp_JY9tT3j_ANZEjrA`, fuera de los `columnIds`) que no forma parte del modelo: la categoría solo se relaciona con el grupo.
+2. `c_rsp_pg` está fuera de los `columnIds` de `resolucion_problema`, aunque una relación/índice oculta la referencia.
 3. Quedan elementos ocultos de `solicitud_grupo` (tabla, relaciones `rel_grp_sg`/`rel_pra_sg` e índices `ix_sg_busqueda`/`ix_fk_c_sg_practicante`) que ya no forman parte del modelo.
 
-Estos restos ocultos no afectan al modelo vigente. No corregir el archivo silenciosamente: cualquier limpieza del `.erd` se acuerda con el equipo.
+4. Corregido al actualizar el `.erd`: `Categoria.idGrupo` y `resolucion_problema.practicante_grupo_id` se dibujaban `SERIAL` pese a ser FK; ahora son `INT`.
+
+Los restos ocultos no afectan al modelo vigente y se dejaron sin tocar al actualizar el `.erd` (extensiones, estados y FKs); su limpieza se acuerda con el equipo.
 
 ## Extensión aprobada US-11 — último ranking válido
 
-`analytics.TeamRankingSnapshot` agrega `ranking_equipo_actual`, autorizada para US-11. Es una extensión documental al ERD gráfico actual, que aún no contiene esta tabla; no se modifican sus tablas ni sus relaciones anteriores. `ErdSchemaIntegrationTests` incluye explícitamente esta extensión.
+`analytics.TeamRankingSnapshot` agrega `ranking_equipo_actual`, autorizada para US-11. Está dibujada en `oficial.erd` (relación 1:1 identificadora con `grupo_estudio`); no se modifican sus tablas ni sus relaciones anteriores. `ErdSchemaIntegrationTests` y `OficialErdFileTests` la verifican.
 
 | Columna | Tipo | Restricción |
 | --- | --- | --- |
@@ -289,8 +295,7 @@ El entorno de desarrollo mantiene `ddl-auto=update`, que puede crear esta tabla 
 ## Extensión aprobada — US-13
 
 `competitions.officialresult.OfficialResult` agrega `resultado_oficial_competencia`, autorizada para registrar
-el resultado oficial de una competencia. El ERD gráfico aún no contiene esta extensión; las tablas y
-relaciones anteriores permanecen intactas. `ErdSchemaIntegrationTests` incluye la extensión explícitamente.
+el resultado oficial de una competencia. Está dibujada en `oficial.erd` (relación 1:1 con `competencia`); las tablas y relaciones anteriores permanecen intactas. `ErdSchemaIntegrationTests` y `OficialErdFileTests` la verifican.
 
 | Columna | Tipo | Restricción |
 | --- | --- | --- |
@@ -307,6 +312,10 @@ El check `ck_resultado_oficial_valido` exige ambos números y fecha de confirmac
 no se agrega un `grupo_id` redundante. Sin cascadas ni cambios en `competencia` o `resolucion_problema`.
 Las reglas, el DDL equivalente y el límite de equivalencia entre competencias con IDs distintos se detallan
 en [15-us13-resultados-oficiales.md](15-us13-resultados-oficiales.md). No se ejecutó DDL en una base existente.
+
+## Alineación del archivo `.erd` con el código
+
+`OficialErdFileTests` (sin base de datos) lee `docs/sdd/assets/oficial.erd` y comprueba que sus tablas visibles, columnas, tipos, longitudes, nulos, defaults y relaciones coinciden con el modelo que `ErdSchemaIntegrationTests` exige a las entidades JPA. Cambiar uno sin el otro rompe un test. Tras editar el ERD en el erd-editor, guardar el archivo y ejecutar `./mvnw -Dtest=OficialErdFileTests test`.
 
 ## Migración segura del modelo anterior
 
