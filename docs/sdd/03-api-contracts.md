@@ -306,6 +306,32 @@ Errores `{ "message": "...", "errors": {} }`: `400` identifica campos inválidos
 Ninguna operación rechazada reemplaza información válida. Ejemplos, tabla y límite de duplicados entre IDs
 distintos: [US-13](15-us13-resultados-oficiales.md).
 
+## US-14 — Avance personal por equipo
+
+```txt
+POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions
+GET  /analytics/teams/{teamId}/progress/me
+```
+
+Ambas rutas requieren sesión, cuenta `ACTIVO`, rol `PRACTICANTE` y membresía `ACTIVO` propia. La identidad
+se obtiene del contexto autenticado. El problema asignado y la membresía deben pertenecer al equipo de la ruta.
+`competitionProblemId` es el ID de `competencia_problema`, no el del catálogo.
+
+POST recibe `language` (texto obligatorio, máximo 30) y `evidenceUrl` (URL HTTP/HTTPS opcional, máximo 500).
+Registra un `ACCEPTED` manual provisional y devuelve `201` con `resolution` (DTO `TeamResolutionData`),
+`registrationMethod: "MANUAL_PROVISIONAL"` y `progress`. No constituye verificación automática. Rechaza otro
+`ACCEPTED` para la misma membresía/asignación sin modificar los intentos anteriores. Otros equipos o
+competencias conservan registros independientes.
+
+GET devuelve `200` con `teamId`, `membershipId`, `userId` y `acceptedProblems`: problemas distintos aceptados
+del practicante en ese equipo, según US-11. Sin actividad, el conteo es cero. POST recalcula ese avance antes
+de completar la transacción; si hay un error no se conserva una escritura parcial. No se combinan equipos.
+
+Errores `{ "message": "...", "errors": {} }`: `400` campos/contexto/asignación cruzada inválidos;
+`401` sesión ausente; `403` rol/cuenta/membresía no autorizados; `404` equipo/asignación inexistente;
+`409` duplicado o datos inconsistentes; `503` información/transacción no disponible; `500` error inesperado.
+Detalles y limitaciones: [US-14](16-us14-avance-independiente.md).
+
 ## Rutas pendientes: no implementadas ni publicadas
 
 Las siguientes rutas son propuestas para historias futuras: **no aparecen en Swagger y actualmente devuelven `404`**. Los controllers plantilla de `teams` y `problems` no declaran endpoints. US-13 implementa únicamente las rutas de resultados oficiales descritas arriba, dentro de `competitions`.

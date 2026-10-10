@@ -226,6 +226,32 @@ conservación de datos, aislamiento por equipo, orden del historial, restriccion
 Sin `OFFICIAL_RESULT_TEST_DB_URL` se omite. Una interrupción puede requerir limpieza manual del schema.
 No ha sido ejecutada contra PostgreSQL en esta entrega.
 
+## US-14 — Avance independiente por equipo
+
+Registro manual provisional y consulta personal sobre membresías/asignaciones existentes, sin juez ni flujo
+completo de US-09. Contrato y reglas: [US-14](../docs/sdd/16-us14-avance-independiente.md).
+
+Pruebas sin PostgreSQL:
+
+```powershell
+.\mvnw.cmd '-Dtest=ManualResolutionServiceTests,IndependentProgressServiceTests,IndependentProgressControllerTests' test
+```
+
+Integración en una base exclusiva de pruebas, con permisos para crear/eliminar schemas:
+
+```powershell
+$env:INDEPENDENT_PROGRESS_TEST_DB_URL = 'jdbc:postgresql://localhost:5432/kodikalab_test'
+$env:INDEPENDENT_PROGRESS_TEST_DB_USER = 'postgres'
+# Configurar INDEPENDENT_PROGRESS_TEST_DB_PASSWORD si se requiere.
+.\mvnw.cmd '-Dtest=IndependentProgressIntegrationTests' test
+```
+
+La suite crea `independent_progress_test_<uuid>`, utiliza login HTTP real y datos ficticios en ese schema,
+y lo elimina al terminar. Verifica múltiples membresías, mismo problema en distintos equipos/competencias,
+autorización, ausencia de escrituras ante errores, duplicados concurrentes, rollback si falla el cálculo y
+regresión conjunta de US-11/US-12/US-13. Sin `INDEPENDENT_PROGRESS_TEST_DB_URL` se omite. Una interrupción
+puede requerir limpieza manual del schema. No ha sido ejecutada contra PostgreSQL en esta entrega.
+
 ## Alcance y datos existentes
 
 - Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.

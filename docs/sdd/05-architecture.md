@@ -34,6 +34,11 @@ docs/sdd/04-database-model.md
 
 ## Nombres y estructura
 
+US-14 agrega `IndependentProgressService` como coordinador de registro y avance por equipo. Reutiliza el
+servicio público de resoluciones de `competitions`, el servicio de membresías de `teams` y el cálculo de US-11.
+`IndependentProgressController` y su handler tienen alcance propio. No agrega entidades, repositories,
+tablas ni relaciones, ni modifica cálculos de otras historias. Ver [US-14](16-us14-avance-independiente.md).
+
 US-13 incorpora `competitions.officialresult` con entidad, repository y Service/ServiceImpl, DTOs propios y
 endpoints en `CompetitionController`. El servicio consulta el repositorio de competencias del mismo módulo,
 `StudyGroupService` para autorizar al coach responsable y `CurrentUserResolver` para la sesión. El handler

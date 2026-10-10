@@ -7,6 +7,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface ProblemResolutionRepository extends JpaRepository<ProblemResolution, Integer> {
+    boolean existsByMembershipIdAndCompetitionProblemIdAndVerdict(Integer membershipId,
+                                                                  Integer competitionProblemId, Verdict verdict);
+
     @Query("""
             select new com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData(
                 r.id, m.id, mg.id, cp.id, c.id, cg.id, p.id, r.verdict)

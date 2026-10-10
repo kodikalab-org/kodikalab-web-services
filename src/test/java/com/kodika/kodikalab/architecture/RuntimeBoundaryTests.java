@@ -72,7 +72,9 @@ class RuntimeBoundaryTests {
                 .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/users/me", "/users/me",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
-                        "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results");
+                        "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
+                        "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",
+                        "/analytics/teams/{teamId}/progress/me");
     }
 
     @Test
