@@ -23,7 +23,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
+import com.kodika.kodikalab.support.Bearer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -63,8 +63,8 @@ class AssignmentsIntegrationTests {
     Account retired;
     Account outsider;
     int teamId;
-    MockHttpSession coachSession;
-    MockHttpSession memberSession;
+    String coachSession;
+    String memberSession;
 
     private static Connection connect() throws SQLException {
         return DriverManager.getConnection(System.getenv("ASSIGNMENT_TEST_DB_URL"),
@@ -134,7 +134,7 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.assigned[1].score").value(1)));
         int firstAssignment = JsonPath.read(assigned, "$.assigned[0].competitionProblemId");
 
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(2))
@@ -147,11 +147,11 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.items[1].problem.topics[0]").value("dp"));
 
         mvc.perform(post("/api/competitions/teams/" + teamId + "/problems/" + firstAssignment + "/resolutions")
-                        .contextPath("/api").session(memberSession).contentType(MediaType.APPLICATION_JSON)
+                        .contextPath("/api").with(Bearer.of(memberSession)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"language\":\"Java\",\"evidenceUrl\":\"https://codeforces.com/s/1\"}"))
                 .andExpect(status().isCreated());
 
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId).param("status", "RESUELTO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
@@ -160,7 +160,7 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.items[0].attemptCount").value(1))
                 .andExpect(jsonPath("$.items[0].lastAttempt.language").value("Java"));
 
-        mvc.perform(get("/api/problems/assigned/" + firstAssignment).contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned/" + firstAssignment).contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assignment.status").value("RESUELTO"))
                 .andExpect(jsonPath("$.attempts.length()").value(1))
@@ -168,7 +168,7 @@ class AssignmentsIntegrationTests {
                 .andExpect(jsonPath("$.attempts[0].evidenceUrl").value("https://codeforces.com/s/1"));
 
         // El avance de un compañero es independiente: no ve el intento de otro integrante.
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(login(secondMember))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(login(secondMember)))
                         .param("teamId", "" + teamId))
                 .andExpect(jsonPath("$.items[0].status").value("SIN_INTENTOS"));
     }
@@ -238,37 +238,37 @@ class AssignmentsIntegrationTests {
         createProblem(tag + " Sumas", "S-" + tag + "-3", "800");
         int topicId = jdbc.queryForObject("SELECT id FROM tema WHERE nombre = ?", Integer.class, "Matemática " + tag);
 
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items.length()").value(2))
                 .andExpect(jsonPath("$.totalItems").value(3))
                 .andExpect(jsonPath("$.totalPages").value(2))
                 .andExpect(jsonPath("$.items[0].title").value(tag + " Interés 100% compuesto"));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("size", "2").param("page", "1"))
                 .andExpect(jsonPath("$.items.length()").value(1)).andExpect(jsonPath("$.page").value(1));
         // % y _ se buscan como texto, no como comodines.
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", "100%"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", "100%"))
                 .andExpect(jsonPath("$.totalItems").value(1));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag + " snake_c"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag + " snake_c"))
                 .andExpect(jsonPath("$.totalItems").value(1));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag + "_"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag + "_"))
                 .andExpect(jsonPath("$.totalItems").value(0));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", "s-" + tag + "-3"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", "s-" + tag + "-3"))
                 .andExpect(jsonPath("$.totalItems").value(1));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("difficulty", "800"))
                 .andExpect(jsonPath("$.totalItems").value(2));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("topicId", "" + topicId))
                 .andExpect(jsonPath("$.totalItems").value(2))
                 .andExpect(jsonPath("$.items[1].topics.length()").value(2));
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("q", tag)
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("q", tag)
                         .param("platform", "CSES"))
                 .andExpect(jsonPath("$.totalItems").value(0));
         mvc.perform(get("/api/problems").contextPath("/api").param("q", tag)).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/problems").contextPath("/api").session(memberSession).param("size", "101"))
+        mvc.perform(get("/api/problems").contextPath("/api").with(Bearer.of(memberSession)).param("size", "101"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.size").exists());
     }
 
@@ -355,33 +355,33 @@ class AssignmentsIntegrationTests {
         String team = "" + teamId;
 
         for (Account denied : List.of(outsider, retired, outsiderCoach)) {
-            MockHttpSession session = login(denied);
-            mvc.perform(get("/api/problems/assigned").contextPath("/api").session(session).param("teamId", team))
+            String session = login(denied);
+            mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(session)).param("teamId", team))
                     .andExpect(status().isForbidden());
-            mvc.perform(get("/api/problems/assigned/" + assignmentId).contextPath("/api").session(session))
+            mvc.perform(get("/api/problems/assigned/" + assignmentId).contextPath("/api").with(Bearer.of(session)))
                     .andExpect(status().isForbidden());
         }
         mvc.perform(get("/api/problems/assigned").contextPath("/api").param("teamId", team))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", "2147483000"))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", "2147483000"))
                 .andExpect(status().isNotFound());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.teamId").exists());
-        mvc.perform(get("/api/problems/assigned/2147483000").contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned/2147483000").contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isNotFound());
 
         // El coach responsable ve la asignación del equipo, sin avance personal.
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(coachSession).param("teamId", team))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(coachSession)).param("teamId", team))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.items[0].status").doesNotExist())
                 .andExpect(jsonPath("$.items[0].attemptCount").doesNotExist());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(coachSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(coachSession)).param("teamId", team)
                         .param("status", "RESUELTO"))
                 .andExpect(status().isBadRequest());
 
         // Una suspensión posterior corta el acceso aunque la sesión siga abierta.
         jdbc.update("UPDATE usuario SET estado_cuenta = 'SUSPENDIDO' WHERE id = ?", member.id());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team))
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team))
                 .andExpect(status().isForbidden());
     }
 
@@ -396,20 +396,20 @@ class AssignmentsIntegrationTests {
         int attemptsBefore = jdbc.queryForObject("SELECT count(*) FROM resolucion_problema", Integer.class);
 
         String team = "" + teamId;
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("sort", "title").param("order", "asc"))
                 .andExpect(jsonPath("$.items[0].problem.title").value("Orden alfa"))
                 .andExpect(jsonPath("$.items[1].problem.title").value("Orden Zeta"));
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("sort", "difficulty").param("order", "desc"))
                 .andExpect(jsonPath("$.items[0].problem.difficultyRating").value("1400"));
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("q", "ZETA").param("status", "SIN_INTENTOS"))
                 .andExpect(jsonPath("$.total").value(1));
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("sort", "azar")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.sort").exists());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession).param("teamId", team)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession)).param("teamId", team)
                         .param("status", "INVENTADO")).andExpect(status().isBadRequest());
 
         assertThat(countAssignments(competitionId)).isEqualTo(before);
@@ -419,7 +419,7 @@ class AssignmentsIntegrationTests {
 
     @Test
     void aPractitionerCannotReadAnotherTeamsAssignmentsEvenKnowingItsId() throws Exception {
-        MockHttpSession otherCoach = login(outsiderCoach);
+        String otherCoach = login(outsiderCoach);
         int otherTeam = jdbc.queryForObject("""
                 INSERT INTO grupo_estudio(coach_id, nombre, nivel_esperado, codigo_invitacion)
                 VALUES (?, 'Equipo Ajeno', 'Div3', ?) RETURNING id
@@ -433,11 +433,11 @@ class AssignmentsIntegrationTests {
         int foreignAssignment = JsonPath.read(body(assign(otherCoach, competitionId, "[{\"problemId\":" + problem + "}]")),
                 "$.assigned[0].competitionProblemId");
 
-        mvc.perform(get("/api/problems/assigned/" + foreignAssignment).contextPath("/api").session(memberSession))
+        mvc.perform(get("/api/problems/assigned/" + foreignAssignment).contextPath("/api").with(Bearer.of(memberSession)))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + otherTeam)).andExpect(status().isForbidden());
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId)).andExpect(jsonPath("$.total").value(0));
     }
 
@@ -451,7 +451,7 @@ class AssignmentsIntegrationTests {
         int competitionId = JsonPath.read(created, "$.id");
         assign(coachSession, competitionId, "[{\"problemId\":" + problem + "}]").andExpect(status().isCreated());
 
-        mvc.perform(get("/api/problems/assigned").contextPath("/api").session(memberSession)
+        mvc.perform(get("/api/problems/assigned").contextPath("/api").with(Bearer.of(memberSession))
                         .param("teamId", "" + teamId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].competition.accessType").value("PRIVADO_PASS"))
@@ -461,12 +461,12 @@ class AssignmentsIntegrationTests {
 
     // ---- utilidades
 
-    private ResultActions send(String path, MockHttpSession session, String json) throws Exception {
-        return mvc.perform(post(path).contextPath("/api").session(session)
+    private ResultActions send(String path, String session, String json) throws Exception {
+        return mvc.perform(post(path).contextPath("/api").with(Bearer.of(session))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
-    private ResultActions assign(MockHttpSession session, int competitionId, String problemsJson) throws Exception {
+    private ResultActions assign(String session, int competitionId, String problemsJson) throws Exception {
         return send("/api/problems/assign", session,
                 "{\"competitionId\":" + competitionId + ",\"problems\":" + problemsJson + "}");
     }
@@ -565,13 +565,13 @@ class AssignmentsIntegrationTests {
                 state);
     }
 
-    private MockHttpSession login(Account account) throws Exception {
+    private String login(Account account) throws Exception {
         var result = mvc.perform(post("/api/auth/login").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + account.email() + "\",\"password\":\"Password123\"}"))
                 .andExpect(status().isOk()).andReturn();
-        MockHttpSession authenticated = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(authenticated).isNotNull();
-        return authenticated;
+        String token = Bearer.tokenFrom(result.getResponse().getContentAsString());
+        assertThat(token).isNotBlank();
+        return token;
     }
 
     private record Account(int id, String email) {

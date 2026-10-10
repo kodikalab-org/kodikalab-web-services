@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kodika.kodikalab.auth.dto.AuthResponse;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
-import com.kodika.kodikalab.security.LoginSessionService;
 import com.kodika.kodikalab.users.Role;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +25,6 @@ class LoginControllerTests {
             {"email":"test@gmail.com","password":"Password123"}
             """;
     AuthService service;
-    LoginSessionService sessions;
     MockMvc mvc;
     LocalValidatorFactoryBean validator;
     ObjectMapper mapper = new ObjectMapper();
@@ -34,10 +32,9 @@ class LoginControllerTests {
     @BeforeEach
     void setUp() {
         service = mock(AuthService.class);
-        sessions = mock(LoginSessionService.class);
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mvc = MockMvcBuilders.standaloneSetup(new AuthController(service, sessions))
+        mvc = MockMvcBuilders.standaloneSetup(new AuthController(service))
                 .setControllerAdvice(new AuthExceptionHandler()).setValidator(validator).build();
     }
 
@@ -47,14 +44,16 @@ class LoginControllerTests {
     }
 
     @Test
-    void loginReturns200AndCreatesSessionWithStoredRole() throws Exception {
-        when(service.login(any())).thenReturn(new AuthResponse("Inicio de sesión exitoso", "test@gmail.com", Role.PRACTICANTE));
+    void loginReturns200WithTokenAndStoredRole() throws Exception {
+        when(service.login(any())).thenReturn(new AuthResponse("Inicio de sesión exitoso", "test@gmail.com",
+                Role.PRACTICANTE, "token.firmado.jwt", "Bearer", 3600L));
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(VALID))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.message").value("Inicio de sesión exitoso"))
                 .andExpect(jsonPath("$.role").value("PRACTICANTE"))
+                .andExpect(jsonPath("$.token").value("token.firmado.jwt"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer")).andExpect(jsonPath("$.expiresIn").value(3600))
                 .andExpect(jsonPath("$.password").doesNotExist()).andExpect(jsonPath("$.passwordHash").doesNotExist())
-                .andExpect(jsonPath("$.token").doesNotExist());
-        verify(sessions).startSession(eq("test@gmail.com"), eq("PRACTICANTE"), any(), any());
+                .andExpect(header().doesNotExist("Set-Cookie"));
     }
 
     @Test
@@ -63,7 +62,6 @@ class LoginControllerTests {
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(VALID.replace("}", ",\"role\":\"ADMIN\"}")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.role").value("PRACTICANTE"));
-        verify(sessions).startSession(anyString(), eq("PRACTICANTE"), any(), any());
     }
 
     @ParameterizedTest
@@ -108,19 +106,18 @@ class LoginControllerTests {
     }
 
     @Test
-    void badCredentialsReturnGeneric401WithoutCreatingSession() throws Exception {
+    void badCredentialsReturnGeneric401WithoutToken() throws Exception {
         when(service.login(any())).thenThrow(new UnauthorizedException("Credenciales inválidas"));
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(VALID))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").value("Credenciales inválidas"))
                 .andExpect(jsonPath("$.email").doesNotExist()).andExpect(jsonPath("$.role").doesNotExist())
-                .andExpect(jsonPath("$.passwordHash").doesNotExist());
-        verifyNoInteractions(sessions);
+                .andExpect(jsonPath("$.passwordHash").doesNotExist()).andExpect(jsonPath("$.token").doesNotExist());
     }
 
     private void assertInvalid(String request) throws Exception {
         mvc.perform(post("/auth/login").contentType(MediaType.APPLICATION_JSON).content(request))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").isString())
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Password123"))));
-        verifyNoInteractions(service, sessions);
+        verifyNoInteractions(service);
     }
 }

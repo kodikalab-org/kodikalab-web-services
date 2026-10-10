@@ -20,7 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.mock.web.MockHttpSession;
+import com.kodika.kodikalab.support.Bearer;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -44,8 +44,8 @@ class IndependentProgressIntegrationTests {
     String passwordHash;
     Account coach;
     Account practitioner;
-    MockHttpSession practitionerSession;
-    MockHttpSession coachSession;
+    String practitionerSession;
+    String coachSession;
     int firstTeam;
     int secondTeam;
     int firstMembership;
@@ -111,7 +111,7 @@ class IndependentProgressIntegrationTests {
         var secondSnapshot = snapshot(secondTeam);
         Account other = account("PRACTICANTE");
         int otherMembership = membership(firstTeam, other.id());
-        mvc.perform(post(registerPath(firstTeam, firstAssigned)).contextPath("/api").session(practitionerSession)
+        mvc.perform(post(registerPath(firstTeam, firstAssigned)).contextPath("/api").with(Bearer.of(practitionerSession))
                         .contentType(MediaType.APPLICATION_JSON).content("""
                                 {"language":"Java 21","userId":%d,"membershipId":%d,"teamId":%d}
                                 """.formatted(other.id(), otherMembership, secondTeam)))
@@ -169,7 +169,7 @@ class IndependentProgressIntegrationTests {
     void revokedMembershipCannotWriteOrQueryPersonalProgress(String status) throws Exception {
         jdbc.update("UPDATE practicante_grupo SET estado = ? WHERE id = ?", status, firstMembership);
         register(firstTeam, firstAssigned, practitionerSession, 403);
-        mvc.perform(get(progressPath(firstTeam)).contextPath("/api").session(practitionerSession))
+        mvc.perform(get(progressPath(firstTeam)).contextPath("/api").with(Bearer.of(practitionerSession)))
                 .andExpect(status().isForbidden());
         assertThat(count(firstMembership)).isZero();
         register(secondTeam, secondAssigned, practitionerSession, 201);
@@ -181,7 +181,7 @@ class IndependentProgressIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"Java 21\"}"))
                 .andExpect(status().isUnauthorized());
         register(firstTeam, firstAssigned, coachSession, 403);
-        mvc.perform(get(progressPath(firstTeam)).contextPath("/api").session(coachSession))
+        mvc.perform(get(progressPath(firstTeam)).contextPath("/api").with(Bearer.of(coachSession)))
                 .andExpect(status().isForbidden());
         register(firstTeam, firstAssigned, login(account("PRACTICANTE")), 403);
         jdbc.update("UPDATE usuario SET estado_cuenta = 'SUSPENDIDO' WHERE id = ?", practitioner.id());
@@ -193,7 +193,7 @@ class IndependentProgressIntegrationTests {
     void invalidRequestFieldsDoNotChangeProgress() throws Exception {
         for (String body : new String[]{"{}", "{\"language\":21}", "{\"language\":\" \"}",
                 "{\"language\":\"Java 21\",\"evidenceUrl\":\"not a URL\"}"}) {
-            mvc.perform(post(registerPath(firstTeam, firstAssigned)).contextPath("/api").session(practitionerSession)
+            mvc.perform(post(registerPath(firstTeam, firstAssigned)).contextPath("/api").with(Bearer.of(practitionerSession))
                             .contentType(MediaType.APPLICATION_JSON).content(body))
                     .andExpect(status().isBadRequest());
         }
@@ -211,7 +211,7 @@ class IndependentProgressIntegrationTests {
         int affectedAssignment = assign(firstTeam, problem());
         int inconsistent = attempt(firstMembership, secondAssigned, "WRONG_ANSWER");
         int before = count(firstMembership);
-        mvc.perform(post(registerPath(firstTeam, affectedAssignment)).contextPath("/api").session(practitionerSession)
+        mvc.perform(post(registerPath(firstTeam, affectedAssignment)).contextPath("/api").with(Bearer.of(practitionerSession))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"Java 21\"}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.errors").isNotEmpty())
                 .andExpect(jsonPath("$.resolution").doesNotExist());
@@ -230,7 +230,7 @@ class IndependentProgressIntegrationTests {
     @Test
     void concurrentDuplicateRegistrationKeepsOnlyOneAcceptedAttempt() throws Exception {
         Callable<Integer> request = () -> mvc.perform(post(registerPath(firstTeam, firstAssigned)).contextPath("/api")
-                        .session(practitionerSession).contentType(MediaType.APPLICATION_JSON)
+                        .with(Bearer.of(practitionerSession)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"language\":\"Java 21\"}"))
                 .andReturn().getResponse().getStatus();
         assertThat(concurrently(request, request)).containsExactlyInAnyOrder(201, 409);
@@ -241,11 +241,11 @@ class IndependentProgressIntegrationTests {
     @Test
     void concurrentRegistrationsInDifferentTeamsRemainIndependent() throws Exception {
         Callable<Integer> first = () -> mvc.perform(post(registerPath(firstTeam, firstAssigned)).contextPath("/api")
-                        .session(practitionerSession).contentType(MediaType.APPLICATION_JSON)
+                        .with(Bearer.of(practitionerSession)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"language\":\"Java 21\"}"))
                 .andReturn().getResponse().getStatus();
         Callable<Integer> second = () -> mvc.perform(post(registerPath(secondTeam, secondAssigned)).contextPath("/api")
-                        .session(practitionerSession).contentType(MediaType.APPLICATION_JSON)
+                        .with(Bearer.of(practitionerSession)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"language\":\"Java 21\"}"))
                 .andReturn().getResponse().getStatus();
         assertThat(concurrently(first, second)).containsExactly(201, 201);
@@ -266,9 +266,9 @@ class IndependentProgressIntegrationTests {
         standings(secondTeam);
         var otherSnapshot = snapshot(secondTeam);
         register(firstTeam, addedAssignment, practitionerSession, 201);
-        mvc.perform(get("/api/analytics/teams/" + firstTeam + "/standings").contextPath("/api").session(coachSession))
+        mvc.perform(get("/api/analytics/teams/" + firstTeam + "/standings").contextPath("/api").with(Bearer.of(coachSession)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.members[0].acceptedProblems").value(2));
-        mvc.perform(get("/api/analytics/teams/" + firstTeam + "/weaknesses").contextPath("/api").session(coachSession))
+        mvc.perform(get("/api/analytics/teams/" + firstTeam + "/weaknesses").contextPath("/api").with(Bearer.of(coachSession)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.topics[0].solvedProblems").value(2))
                 .andExpect(jsonPath("$.topics[0].coveragePercentage").value(100.0));
         assertThat(topics(secondTeam)).isEqualTo(otherTopics);
@@ -289,21 +289,21 @@ class IndependentProgressIntegrationTests {
     }
 
     private void assertProgress(int groupId, int memberId, int accepted) throws Exception {
-        mvc.perform(get(progressPath(groupId)).contextPath("/api").session(practitionerSession))
+        mvc.perform(get(progressPath(groupId)).contextPath("/api").with(Bearer.of(practitionerSession)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.teamId").value(groupId))
                 .andExpect(jsonPath("$.membershipId").value(memberId))
                 .andExpect(jsonPath("$.userId").value(practitioner.id()))
                 .andExpect(jsonPath("$.acceptedProblems").value(accepted));
     }
 
-    private void register(int groupId, int assignedId, MockHttpSession session, int statusCode) throws Exception {
-        mvc.perform(post(registerPath(groupId, assignedId)).contextPath("/api").session(session)
+    private void register(int groupId, int assignedId, String session, int statusCode) throws Exception {
+        mvc.perform(post(registerPath(groupId, assignedId)).contextPath("/api").with(Bearer.of(session))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"language\":\"Java 21\"}"))
                 .andExpect(status().is(statusCode));
     }
 
     private void standings(int groupId) throws Exception {
-        mvc.perform(get("/api/analytics/teams/" + groupId + "/standings").contextPath("/api").session(coachSession))
+        mvc.perform(get("/api/analytics/teams/" + groupId + "/standings").contextPath("/api").with(Bearer.of(coachSession)))
                 .andExpect(status().isOk());
     }
 
@@ -312,19 +312,19 @@ class IndependentProgressIntegrationTests {
     }
 
     private String topics(int groupId) throws Exception {
-        return mvc.perform(get("/api/analytics/teams/" + groupId + "/weaknesses").contextPath("/api").session(coachSession))
+        return mvc.perform(get("/api/analytics/teams/" + groupId + "/weaknesses").contextPath("/api").with(Bearer.of(coachSession)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
 
     private void confirmedOfficialResult(int assignedId) throws Exception {
         int competition = jdbc.queryForObject("SELECT competencia_id FROM competencia_problema WHERE id = ?", Integer.class, assignedId);
-        mvc.perform(post("/api/competitions/" + competition + "/official-result").contextPath("/api").session(coachSession)
+        mvc.perform(post("/api/competitions/" + competition + "/official-result").contextPath("/api").with(Bearer.of(coachSession))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"finalPosition\":1,\"solvedProblems\":1,\"confirm\":true}"))
                 .andExpect(status().isCreated());
     }
 
     private String officialHistory(int groupId) throws Exception {
-        return mvc.perform(get("/api/competitions/teams/" + groupId + "/official-results").contextPath("/api").session(coachSession))
+        return mvc.perform(get("/api/competitions/teams/" + groupId + "/official-results").contextPath("/api").with(Bearer.of(coachSession)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
 
@@ -386,13 +386,13 @@ class IndependentProgressIntegrationTests {
                 """, Integer.class, memberId, assignedId, verdict);
     }
 
-    private MockHttpSession login(Account account) throws Exception {
+    private String login(Account account) throws Exception {
         var result = mvc.perform(post("/api/auth/login").contextPath("/api").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"" + account.email() + "\",\"password\":\"Password123\"}"))
                 .andExpect(status().isOk()).andReturn();
-        MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
-        assertThat(session).isNotNull();
-        return session;
+        String token = Bearer.tokenFrom(result.getResponse().getContentAsString());
+        assertThat(token).isNotBlank();
+        return token;
     }
 
     private String progressPath(int groupId) {

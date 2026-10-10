@@ -53,7 +53,7 @@ Respuesta pública, sin contraseña, hash ni JWT:
 - `role` acepta únicamente `PRACTICANTE` o `COACH`, idénticos en Java/HTTP/SQL y sin ordinales numéricos. **`PRACTITIONER` y `ADMIN` se rechazan con `400`**, con mensaje `El rol debe ser PRACTICANTE o COACH`.
 - La cuenta nueva utiliza `ACTIVO` en Java y SQL (`estado_cuenta`).
 
-Los clientes deben enviar `PRACTICANTE` en lugar de `PRACTITIONER` y utilizar la autoridad de sesión `ROLE_PRACTICANTE`. Reiniciar o invalidar sesiones previas al desplegar este cambio. La persistencia SQL ya usaba los valores españoles y no requiere traducir filas por este ajuste.
+Los clientes deben enviar `PRACTICANTE` en lugar de `PRACTITIONER` y utilizar la autoridad `ROLE_PRACTICANTE`. Descartar las sesiones y tokens previos al desplegar este cambio. La persistencia SQL ya usaba los valores españoles y no requiere traducir filas por este ajuste.
 
 La conservación de las claves JSON es una decisión de compatibilidad del SDD, no una afirmación de que el ERD contenga columnas `first_name`/`last_name`. Un cambio futuro a un campo HTTP `fullName` debe coordinarse expresamente con el cliente.
 
@@ -65,7 +65,7 @@ Errores con cuerpo `{ "message": "...", "errors": {} }`:
 
 No se incluyen contraseñas, valores rechazados ni detalles SQL en errores. El ERD no define una lista de dominios institucionales permitidos ni exige generar perfiles con datos académicos ficticios. Crear la cuenta base no equivale a completar `coach`/`practicante`; su contrato pertenece al flujo de perfiles. La autorización de coach y las reglas de incorporación siguen siendo decisiones de seguridad posteriores.
 
-El registro no emite una sesión de login. La colección `tests/US01-register.postman_collection.json` y `tests/README.md` están actualizadas al modelo de `usuario`; incluyen rechazo de `ADMIN` y límites de nombre/correo.
+El registro no inicia sesión ni entrega token. La colección `tests/US01-register.postman_collection.json` y `tests/README.md` están actualizadas al modelo de `usuario`; incluyen rechazo de `ADMIN` y límites de nombre/correo.
 
 ### US-02 — Inicio de sesión
 
@@ -84,25 +84,57 @@ Una cuenta `usuario.estado_cuenta = ACTIVO` (enum Java `ACTIVO`) con credenciale
 {
   "message": "Inicio de sesión exitoso",
   "email": "test@gmail.com",
-  "role": "PRACTICANTE"
+  "role": "PRACTICANTE",
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": 86400
 }
 ```
 
-El rol se obtiene de la cuenta, nunca de un valor suministrado por el cliente. La respuesta guarda una sesión HTTP mediante cookie `JSESSIONID` (`HttpOnly`, `SameSite=Lax`, `Secure` configurable para HTTPS); no devuelve JWT, contraseña, hash ni ID de sesión en el JSON. Al autenticar una sesión existente, se renueva su ID. Expira tras 30 minutos de inactividad.
+El rol se obtiene de la cuenta, nunca de un valor suministrado por el cliente. `token` es un JWT firmado; `tokenType` es siempre `Bearer` y `expiresIn` la vigencia en segundos (`JWT_EXPIRATION`). No se crea sesión ni cookie, y el JSON no incluye contraseña ni hash. Cada login emite un token nuevo; los anteriores siguen válidos hasta su vencimiento.
 
 - `400`: correo ausente/mal formado/superior a 100 caracteres, contraseña ausente/vacía o JSON inválido.
 - `401`: correo no registrado, contraseña incorrecta, contraseña superior a 72 bytes UTF-8 o cuenta `SUSPENDIDO` (enum Java `SUSPENDIDO`). Todos usan `{ "message": "Credenciales inválidas", "errors": {} }` sin revelar existencia ni estado.
 - Los estados anteriores `INACTIVE`/`BLOCKED` requieren una decisión de migración; no siguen siendo valores oficiales.
 - El correo se normaliza; la contraseña no se recorta ni se valida de nuevo contra la política de fortaleza de registro.
-- Un intento fallido no crea sesión ni reemplaza una identidad ya autenticada; puede reintentarse.
+- Un intento fallido no emite token ni invalida uno vigente; puede reintentarse.
 
-Los demás endpoints siguen públicos (`permitAll()`) durante el desarrollo. Devolver el rol no equivale a protegerlos por rol. La recuperación de acceso descrita en `tarea.md` queda pendiente: no se definió su contrato técnico ni se implementan endpoints de recuperación.
+### Autenticación y autorización (Spring Security + JWT)
 
-La sesión y el formato de respuesta se conservan. La colección `tests/US02-login.postman_collection.json`, su fixture SQL y `tests/US02-login.md` usan el modelo oficial; un `401` con un correo ausente no prueba una cuenta suspendida existente. Diseño: `10-us02-login.md`. Secuencia de alineación: `11-erd-oficial-alignment.md`.
+La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/login` el cliente envía
+`Authorization: Bearer <token>` en cada petición.
+
+| Acceso | Endpoints |
+| --- | --- |
+| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `/swagger-ui.html`, `/v3/api-docs` |
+| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
+| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
+| Cualquier cuenta autenticada | El resto: `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
+
+Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
+dependen de datos (coach responsable del equipo, membresía activa, cuenta `ACTIVO`).
+
+Errores de seguridad, con el cuerpo `{ "message": "...", "errors": {} }`:
+
+- `401`, token ausente: `Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)`.
+- `401`, token inválido, manipulado, vencido, firmado con otra clave o de una cuenta inexistente:
+  `El token es inválido o expiró: inicie sesión nuevamente`. Ambos incluyen `WWW-Authenticate: Bearer`.
+- `403`, rol sin permiso: `No tiene permisos para realizar esta acción`.
+- `403`, cuenta que dejó de estar `ACTIVO` después de iniciar sesión: `La cuenta no está habilitada`.
+
+El token es un JWT firmado con HMAC-SHA256 que contiene `sub` (correo), `uid`, `role`, `iat`, `exp`, `jti` e
+`iss=kodikalab`; nunca contraseñas ni hashes. El rol efectivo se lee siempre de la base de datos, no del token.
+Configuración: `JWT_SECRET` (obligatorio, mínimo 32 caracteres), `JWT_EXPIRATION` (milisegundos, por defecto 24 h) y
+`CORS_ALLOWED_ORIGINS`. Detalle y decisiones: `06-security-strategy.md`.
+
+La recuperación de acceso descrita en `tarea.md` queda pendiente: no se definió su contrato técnico ni se implementan
+endpoints de recuperación.
+
+La colección `tests/US02-login.postman_collection.json`, su fixture SQL y `tests/US02-login.md` usan el modelo oficial; un `401` con un correo ausente no prueba una cuenta suspendida existente. Diseño: `10-us02-login.md`. Secuencia de alineación: `11-erd-oficial-alignment.md`.
 
 ## Users/Profile
 
-`GET /api/users/me` y `PUT /api/users/me` operan sobre el perfil del usuario autenticado y **dependen del rol de la sesión**: `PRACTICANTE` gestiona la tabla `practicante` y `COACH` gestiona la tabla `coach`. Requieren sesión HTTP iniciada por `POST /api/auth/login`. El cliente no envía `usuarioId` ni rol; ambos se resuelven desde la sesión. Un body con los campos del otro rol se rechaza con `400` (faltan los campos obligatorios del rol propio) y nunca escribe en la tabla del otro rol.
+`GET /api/users/me` y `PUT /api/users/me` operan sobre el perfil del usuario autenticado y **dependen del rol de la cuenta autenticada**: `PRACTICANTE` gestiona la tabla `practicante` y `COACH` gestiona la tabla `coach`. Requieren el token Bearer obtenido con `POST /api/auth/login`. El cliente no envía `usuarioId` ni rol; ambos se resuelven desde el token. Un body con los campos del otro rol se rechaza con `400` (faltan los campos obligatorios del rol propio) y nunca escribe en la tabla del otro rol.
 
 ### US-03 — Perfil competitivo del practicante
 
@@ -217,7 +249,7 @@ Errores con cuerpo `{ "message": "...", "errors": {} }`:
 
 Las funcionalidades de creación de grupos, solicitud de ingreso y revisión de membresías están implementadas.
 
-Los endpoints utilizan la sesión HTTP creada mediante `POST /api/auth/login`.
+Los endpoints exigen el token Bearer obtenido con `POST /api/auth/login`.
 
 Las operaciones de Teams utilizan las tablas oficiales `grupo_estudio` y `practicante_grupo`. No se utiliza una tabla adicional `solicitud_grupo`.
 
@@ -490,7 +522,7 @@ Las pruebas de integración verifican creación de grupos, solicitudes pendiente
 
 ## Analytics — US-11
 
-`GET /api/analytics/teams/{teamId}/standings` consulta resoluciones persistidas del equipo. Requiere sesión HTTP y cuenta `ACTIVO`: se autoriza al coach responsable o al practicante con membresía `ACTIVO`. La identidad se obtiene desde la sesión; el cliente no elige el usuario solicitante.
+`GET /api/analytics/teams/{teamId}/standings` consulta resoluciones persistidas del equipo. Requiere token Bearer y cuenta `ACTIVO`: se autoriza al coach responsable o al practicante con membresía `ACTIVO`. La identidad se obtiene desde la sesión; el cliente no elige el usuario solicitante.
 
 Respuesta `200 OK`:
 
@@ -508,7 +540,7 @@ Respuesta `200 OK`:
 
 Cada problema de catálogo aceptado cuenta una vez por membresía y equipo, incluso entre competencias. Solo se muestran integrantes activos, con orden descendente y empates `1, 1, 3`; el ID de membresía estabiliza el orden de presentación. Sin resoluciones, `status` es `NO_ACTIVITY` y `members` es `[]`. Con intentos válidos sin aceptaciones, se muestran puntuaciones cero compartidas.
 
-Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin sesión, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por datos inconsistentes (campos o índices en `errors`), `503` por fallo de persistencia/transacción y `500` por error inesperado. Nunca se devuelven posiciones parciales del cálculo fallido.
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin token válido, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por datos inconsistentes (campos o índices en `errors`), `503` por fallo de persistencia/transacción y `500` por error inesperado. Nunca se devuelven posiciones parciales del cálculo fallido.
 
 En `409` o `503` se añade opcionalmente `lastValidRanking: { "calculatedAt": "...", "ranking": { ... } }`, con el último resultado completo guardado en PostgreSQL para ese equipo. Se conserva el código de error: ese ranking corresponde a la fecha indicada y no se presenta como un cálculo actualizado. Solo se recupera después de verificar nuevamente los permisos actuales. Si no existe, no se puede leer o no se puede verificar la autorización, se omite. Una caída total de PostgreSQL impide recuperarlo durante la caída; el registro permanece almacenado. Cada cálculo válido reemplaza una sola fila por equipo, sin historial.
 
@@ -516,7 +548,7 @@ Detalle de reglas y verificación: [US-11](13-us11-ranking-interno.md).
 
 ## Analytics — US-12
 
-`GET /api/analytics/teams/{teamId}/weaknesses` consulta la cobertura por tema. Requiere sesión HTTP, cuenta `ACTIVO`, rol `COACH` y ser el coach responsable del equipo. Un integrante no puede consultar este reporte, aunque pueda acceder al ranking. La identidad se resuelve desde la sesión; los parámetros del cliente no conceden permisos.
+`GET /api/analytics/teams/{teamId}/weaknesses` consulta la cobertura por tema. Requiere token Bearer, cuenta `ACTIVO`, rol `COACH` y ser el coach responsable del equipo. Un integrante no puede consultar este reporte, aunque pueda acceder al ranking. La identidad se resuelve desde la sesión; los parámetros del cliente no conceden permisos.
 
 Se consideran competencias `FINALIZADA`, integrantes actualmente `ACTIVO` y problemas distintos del catálogo. Por tema, la cobertura es `100 × problemas aceptados / problemas asignados`. Una aceptación de cualquier integrante incluido resuelve el problema para el equipo. Repeticiones entre intentos o competencias no aumentan el indicador. Un problema con varios temas se cuenta una vez en cada tema.
 
@@ -550,14 +582,14 @@ Se devuelven todos los temas del universo analizado, ordenados por proporción a
 
 `PENDIENTE` no suma al numerador y se informa como recuento de resoluciones únicas, global y por tema; no invalida automáticamente el reporte. Sin ninguna resolución definitiva de integrantes activos en competencias finalizadas, hay información insuficiente y se indica el número de pendientes en el error. Un tema sin aceptaciones permanece en el reporte cuando el conjunto sí tiene información suficiente.
 
-Errores `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin sesión, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por información insuficiente o inconsistente (identifica campos, índices o problemas sin clasificación), `503` por información no disponible debido a persistencia/transacción y `500` por error inesperado. Los errores no incluyen conclusiones parciales. Puede repetirse el mismo GET tras corregir los datos o recuperar su disponibilidad. US-12 no almacena reportes ni modifica el último ranking de US-11.
+Errores `{ "message": "...", "errors": {} }`: `400` por ID inválido, `401` sin token válido, `403` sin autorización/cuenta suspendida, `404` por equipo inexistente, `409` por información insuficiente o inconsistente (identifica campos, índices o problemas sin clasificación), `503` por información no disponible debido a persistencia/transacción y `500` por error inesperado. Los errores no incluyen conclusiones parciales. Puede repetirse el mismo GET tras corregir los datos o recuperar su disponibilidad. US-12 no almacena reportes ni modifica el último ranking de US-11.
 
 Detalle y verificación: [US-12](14-us12-temas-menor-resolucion.md).
 
 ## US-13 — Crear competencia
 
 `POST /api/competitions` crea una competencia (`competencia`) para un equipo y devuelve `201`. Solo puede usarla el
-coach responsable de ese equipo, con cuenta `ACTIVO` y sesión HTTP; el coach se obtiene de la sesión y el equipo
+coach responsable de ese equipo, con cuenta `ACTIVO` y token Bearer; el coach se obtiene del token y el equipo
 de `teamId`. Es el paso previo para registrar su resultado oficial y para asignarle problemas.
 
 ```json
@@ -592,7 +624,7 @@ de `teamId`. Es el paso previo para registrar su resultado oficial y para asigna
 
 La lectura es estricta: un campo con tipo incorrecto (por ejemplo un número como cadena) se rechaza, y los errores
 de todos los campos se informan juntos. Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos
-inválidos o JSON inválido (`errors` indica los campos), `401` sin sesión, `403` cuenta no coach, suspendida o
+inválidos o JSON inválido (`errors` indica los campos), `401` sin token válido, `403` cuenta no coach, suspendida o
 equipo de otro coach, `404` equipo inexistente, `409` ya existe una competencia del mismo equipo con el mismo
 nombre (sin distinguir mayúsculas) y la misma fecha de inicio, `503` persistencia no disponible. Una solicitud
 rechazada no crea ningún registro. El ERD no define una restricción única para el duplicado: la regla se verifica
@@ -687,7 +719,7 @@ origen, sin distinguir mayúsculas; `%` y `_` se buscan como texto), `topicId`, 
 ```
 
 Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos o criterios inválidos (`errors` por campo) o tipo
-incorrecto en el JSON, `401` sin sesión, `403` cuenta no coach (al registrar) o suspendida, `409` la `url` o el
+incorrecto en el JSON, `401` sin token válido, `403` cuenta no coach (al registrar) o suspendida, `409` la `url` o el
 `sourceCode` de la plataforma ya existen (`errors` indica cuál) y `503`. Detalle: [US-07/US-08](17-us07-us08-asignacion-problemas.md).
 
 ## US-07 — Asignar problemas a una competencia
@@ -721,7 +753,7 @@ se asigna sola si falta: la primera libre de `A`, `B`, ..., `Z`, `AA`...; `score
 ```
 
 Es todo o nada. Errores con cuerpo `{ "message": "...", "errors": {} }` y rutas de campo como
-`problems[1].problemId`: `400` datos inválidos o problema inexistente en el catálogo, `401` sin sesión, `403` no es
+`problems[1].problemId`: `400` datos inválidos o problema inexistente en el catálogo, `401` sin token válido, `403` no es
 un coach activo o no es el responsable del equipo, `404` competencia inexistente, `409` la competencia ya
 `FINALIZADA`, un problema ya asignado o una letra ya usada (las asignaciones existentes se mantienen) y `503`. El
 escenario de asignar solo a parte del equipo no está soportado por el ERD; las notificaciones tampoco están
@@ -765,7 +797,7 @@ quedan al final al ordenar por ella.
 `GET /api/problems/assigned/{competitionProblemId}` devuelve `{ "assignment": { ...igual que un elemento... },
 "attempts": [ ... ] }` con el historial de intentos propios, el más reciente primero (vacío para el coach).
 
-Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` `teamId` ausente o criterios inválidos, `401` sin sesión,
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` `teamId` ausente o criterios inválidos, `401` sin token válido,
 `403` cuenta suspendida, practicante que no pertenece al equipo (o con membresía retirada) o coach que no es el
 responsable, `404` equipo o asignación inexistente y `503` si no se pudo recuperar la información (el mensaje invita
 a reintentar). Detalle y decisiones: [US-07/US-08](17-us07-us08-asignacion-problemas.md).

@@ -12,7 +12,7 @@ El objetivo de este repositorio es centralizar los servicios web necesarios para
 - **Spring Boot 3**.
 - **PostgreSQL 15+**.
 - **Maven** mediante Maven Wrapper (`./mvnw`).
-- **Spring Security** con sesión HTTP; JWT futuro, sin activar.
+- **Spring Security** con **JWT** (token Bearer, sin sesión) y autorización por rol (`COACH` / `PRACTICANTE`).
 - **SpringDoc OpenAPI** para documentación Swagger.
 
 ---
@@ -181,7 +181,8 @@ DB_PORT=5432
 DB_NAME=kodikalab_db
 DB_USER=postgres
 DB_PASSWORD=postgres
-JWT_SECRET=CHANGE_ME_SUPER_SECRET_KEY_FOR_LOCAL_DEVELOPMENT
+# Obligatorio: minimo 32 caracteres, sin valor por defecto (generar con: openssl rand -hex 32)
+JWT_SECRET=
 JWT_EXPIRATION=86400000
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
@@ -198,8 +199,9 @@ Descripción:
 | `DB_NAME` | Nombre de la base de datos local. Debe ser `kodikalab_db`. |
 | `DB_USER` | Usuario local de PostgreSQL. |
 | `DB_PASSWORD` | Contraseña local de PostgreSQL. |
-| `JWT_SECRET` | Clave secreta usada para firmar tokens JWT. En desarrollo puede ser una clave dummy. |
-| `JWT_EXPIRATION` | Tiempo de expiración del JWT en milisegundos. |
+| `JWT_SECRET` | Clave secreta que firma los tokens JWT. **Obligatoria y sin valor por defecto**: mínimo 32 caracteres (por ejemplo, `openssl rand -hex 32`). Si falta o es corta, la aplicación no arranca. No usar el valor de ejemplo. |
+| `JWT_EXPIRATION` | Vigencia del JWT en milisegundos (por defecto `86400000`, 24 horas). |
+| `CORS_ALLOWED_ORIGINS` | Opcional. Orígenes del frontend autorizados, separados por comas (por defecto `http://localhost:3000,http://localhost:4200,http://localhost:5173`). |
 | `MAIL_HOST` | Host SMTP para correo. |
 | `MAIL_PORT` | Puerto SMTP. |
 | `MAIL_USERNAME` | Usuario del servicio de correo. |
@@ -287,6 +289,8 @@ http://localhost:8080/api/swagger-ui/index.html
 ```
 
 Para validar los endpoints durante el desarrollo, el equipo puede utilizar **Swagger UI**. Desde esa interfaz se pueden revisar las rutas disponibles, probar requests y confirmar las respuestas sin necesidad de Postman.
+
+Para probar endpoints protegidos: ejecutar `POST /auth/login`, copiar el valor de `token` de la respuesta, pulsar el botón **Authorize** y pegarlo (sin la palabra `Bearer`). Registro e inicio de sesión no requieren token; sin token o con un token inválido los demás responden `401`, y con un rol sin permiso, `403`.
 
 > Nota: el prefijo `/api` se configura mediante `server.servlet.context-path` en `src/main/resources/application.yaml`.
 
@@ -444,7 +448,7 @@ Módulos principales:
 
 | Módulo | Responsabilidad |
 | --- | --- |
-| `auth` | Registro, login, autenticación y JWT futuro. |
+| `auth` | Registro, login y emisión del token JWT. |
 | `users` | Cuenta base `usuario`, correo, hash, rol y estado. |
 | `profiles` | Perfiles `coach`/`practicante` y handles del ERD. |
 | `teams` | Equipos, coach, membresías, solicitudes y horarios. |

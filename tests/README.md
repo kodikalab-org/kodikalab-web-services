@@ -15,11 +15,11 @@ Ejecutar las **26 solicitudes en orden**. El primer caso genera correos únicos;
 - Campos obligatorios, formato del correo y JSON mal formado.
 - Fortaleza de contraseña y límite BCrypt de 72 bytes ASCII/UTF-8.
 - Nombre completo de 150 admitido / 151 rechazado y correo de 100 admitido / 101 rechazado.
-- Mensajes públicos y ausencia de contraseñas, hashes o JWT.
+- Mensajes públicos y ausencia de contraseñas y hashes; el registro no inicia sesión ni entrega token.
 
 **Efecto sobre datos:** crea cuatro cuentas de prueba por corrida; no elimina ni modifica otras. Los correos son ejemplos `test.us01.*@gmail.com` o un subdominio de prueba usado para el límite de 100. No enviar correos reales ni ejecutar en producción.
 
-Regeneración reproducible de ambas colecciones (Node.js, sin dependencias):
+Regeneración reproducible de las colecciones US-01, US-02 y de seguridad (Node.js, sin dependencias):
 
 ```bash
 node tests/generate-auth-collections.mjs
@@ -78,7 +78,7 @@ Cuatro filas nuevas por corrida, `ACTIVO`, rol `PRACTICANTE`/`COACH` y `bcrypt_h
 
 ```bash
 ./mvnw clean compile
-./mvnw -Dtest=AuthServiceTests,AuthControllerTests,UserServiceTests,ErdEnumsTests,LoginServiceTests,LoginControllerTests,LoginSessionServiceTests test
+./mvnw -Dtest=AuthServiceTests,AuthControllerTests,UserServiceTests,ErdEnumsTests,LoginServiceTests,LoginControllerTests,JwtServiceTests,JwtAuthenticationFilterTests test
 ```
 
 ## Integración HTTP + PostgreSQL
@@ -96,15 +96,61 @@ La URL es un ejemplo: requiere un servidor activo. La suite crea un schema aleat
 
 Verifica esquema físico, límites exactos, defaults, BCrypt, rechazo de `ADMIN`, duplicados/concurrencia y registro único de entidad/rutas de autenticación.
 
-Para `./mvnw test` completo, configurar además `LOGIN_TEST_DB_*` y `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` contra la base exclusiva: `KodikalabApplicationTests` y `RuntimeBoundaryTests` usan `DB_*` con `ddl-auto=update`. No modificar `.env` para estas pruebas.
+Para `./mvnw test` completo, configurar además `LOGIN_TEST_DB_*`, `SECURITY_TEST_DB_*` y `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` contra la base exclusiva: `KodikalabApplicationTests` y `RuntimeBoundaryTests` usan `DB_*` con `ddl-auto=update`. No modificar `.env` para estas pruebas.
 
-## US-03 — Perfil de practicante y coach
+## Seguridad — JWT y roles
 
-`GET/PUT /api/users/me` gestiona `practicante` o `coach` según el rol de la sesión. Contrato: `docs/sdd/03-api-contracts.md`.
+Autenticación con token Bearer y autorización por rol. Contrato y reglas: [06-security-strategy.md](../docs/sdd/06-security-strategy.md).
+
+**Antes de arrancar la app o los tests desde su entorno:** definir `JWT_SECRET` (mínimo 32 caracteres; por ejemplo `openssl rand -hex 32`). Sin ella, o con el valor de ejemplo, la aplicación no arranca. Los tests usan su propia clave y no la leen del entorno.
 
 ### Postman
 
-Con el backend arrancado y el cookie jar habilitado, ejecutar en orden:
+`SEC-jwt-roles.postman_collection.json` (27 solicitudes, sin fixtures): crea un COACH y un PRACTICANTE, inicia sesión con ambos y comprueba documentación OpenAPI pública con esquema Bearer, `401` sin token / con token manipulado / basura / esquema distinto de Bearer, `403` de cada rol en los endpoints del otro y los accesos permitidos.
+
+```bash
+npx --yes newman run tests/SEC-jwt-roles.postman_collection.json -e tests/local.postman_environment.json
+```
+
+Orden recomendado para pruebas manuales (base exclusiva de pruebas): `US01-register`, `US02-login` (requiere la fixture SQL), `SEC-jwt-roles`, `US03-profile`, `US03-coach`, `US04-06-teams`, `US07-US14-flujo`. Todas generan cuentas únicas por corrida y guardan el token en variables de colección.
+
+### Pruebas Java
+
+Sin PostgreSQL: `JwtServiceTests`, `JwtAuthenticationFilterTests`.
+
+```bash
+./mvnw -Dtest='JwtServiceTests,JwtAuthenticationFilterTests' test
+```
+
+`SecurityIntegrationTests` es opt-in (`SECURITY_TEST_DB_URL`, `SECURITY_TEST_DB_USER`, `SECURITY_TEST_DB_PASSWORD`) y crea el schema aleatorio `security_test_<uuid>`: `401` en todos los endpoints protegidos sin token, tokens inválidos, `403` por rol en cada endpoint exclusivo, rol del token no confiable, cuenta suspendida o eliminada, ausencia de sesión/cookie, OpenAPI, Swagger y CORS.
+
+## Flujo US-07 a US-14 (Postman)
+
+`US07-US14-flujo.postman_collection.json` (43 solicitudes, sin fixtures) recorre por la API los endpoints de problemas, competencias, avance y resultados: crea un COACH y dos PRACTICANTES (con perfil), un grupo público, tres problemas con temas, una competencia en curso y otra finalizada, asigna los problemas, registra una resolución y confirma un resultado oficial. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente.
+
+| Historia | Qué comprueba |
+| --- | --- |
+| US-07 | Catálogo (`POST`/`GET /problems`, duplicado por URL `409`), `POST /competitions`, asignación atómica con letras automáticas, reasignación `409` y asignación a una competencia FINALIZADA `409`. |
+| US-08 | Problemas asignados del practicante (`SIN_INTENTOS`), detalle, filtros por estado y texto, y la vista del coach sin avance personal. |
+| US-09 / US-14 | Registro de la resolución (`ACCEPTED`), duplicado `409`, lenguaje ausente `400`, avance por equipo independiente entre practicantes y estado `RESUELTO` solo para quien resolvió. |
+| US-11 | Ranking del equipo visto por el coach y por un integrante. |
+| US-12 | Escenario de error: sin problemas en competencias FINALIZADA, `409` con la causa. El cálculo completo no se alcanza solo con la API (no se asigna a una competencia ya finalizada) y lo cubre `TopicReportIntegrationTests`. |
+| US-13 | Resultado pendiente, duplicado `409`, confirmación, consulta, historial y rechazo de confirmar una competencia que no está FINALIZADA. |
+
+```bash
+node tests/generate-flow-collection.mjs   # regenera la colección
+npx --yes newman run tests/US07-US14-flujo.postman_collection.json -e tests/local.postman_environment.json
+```
+
+**Efecto sobre datos:** crea por corrida tres cuentas `test.flow.*@gmail.com`, sus perfiles, un grupo, tres problemas, dos competencias, las asignaciones, una resolución y un resultado oficial. No modifica ni elimina otros datos; usar una base exclusiva de pruebas.
+
+## US-03 — Perfil de practicante y coach
+
+`GET/PUT /api/users/me` gestiona `practicante` o `coach` según el rol del token. Contrato: `docs/sdd/03-api-contracts.md`.
+
+### Postman
+
+Con el backend arrancado, ejecutar en orden (cada login guarda el token Bearer en la variable de colección `token`):
 
 ```bash
 npx --yes newman run tests/US03-profile.postman_collection.json -e tests/local.postman_environment.json
@@ -134,7 +180,7 @@ Sin PostgreSQL ni internet (Codeforces se simula con un servidor HTTP local):
 ./mvnw -Dtest='Profile*Tests,CurrentUserResolverTests,*ProfileServiceTests,CodeforcesApiClientTests,ConstraintViolationsTests' test
 ```
 
-`ProfileIntegrationTests` es opt-in, con el mismo patrón que login/registro: schema aleatorio `profile_test_<uuid>` en una **base exclusiva de pruebas** (por ejemplo `kodikalab_test`), HTTP en puerto aleatorio, cookie de sesión real y stub de Codeforces. Elimina el schema al terminar.
+`ProfileIntegrationTests` es opt-in, con el mismo patrón que login/registro: schema aleatorio `profile_test_<uuid>` en una **base exclusiva de pruebas** (por ejemplo `kodikalab_test`), HTTP en puerto aleatorio, token Bearer real y stub de Codeforces. Elimina el schema al terminar.
 
 ```bash
 export PROFILE_TEST_DB_URL='jdbc:postgresql://localhost:5432/kodikalab_test'
@@ -143,7 +189,7 @@ export PROFILE_TEST_DB_USER=postgres
 ./mvnw -Dtest=ProfileIntegrationTests test
 ```
 
-Verifica los flujos completos de ambos roles, que un error no reemplace datos previos, el escenario alternativo de Codeforces, `409` por código duplicado (también con solicitudes concurrentes), que el body no elija usuario ni rol, que cada rol escriba solo su tabla, `401` sin sesión y el esquema físico de `practicante`/`coach` contra el ERD.
+Verifica los flujos completos de ambos roles, que un error no reemplace datos previos, el escenario alternativo de Codeforces, `409` por código duplicado (también con solicitudes concurrentes), que el body no elija usuario ni rol, que cada rol escriba solo su tabla, `401` sin token y el esquema físico de `practicante`/`coach` contra el ERD.
 
 ## Esquema del ERD
 
@@ -160,7 +206,7 @@ export ERD_TEST_DB_USER=postgres
 
 ## US-11 — Ranking interno
 
-Endpoint: `GET /api/analytics/teams/{teamId}/standings`, con sesión del coach responsable o de un integrante activo. Contrato y resultados de verificación: [US-11](../docs/sdd/13-us11-ranking-interno.md).
+Endpoint: `GET /api/analytics/teams/{teamId}/standings`, con el token del coach responsable o de un integrante activo. Contrato y resultados de verificación: [US-11](../docs/sdd/13-us11-ranking-interno.md).
 
 Pruebas sin PostgreSQL (cálculo, autorización, adaptación de datos y HTTP):
 
@@ -181,7 +227,7 @@ La suite crea `ranking_test_<uuid>`, carga fixtures únicamente en ese schema y 
 
 ## US-12 — Temas con menor resolución
 
-Endpoint: `GET /api/analytics/teams/{teamId}/weaknesses`, solo para el coach responsable con cuenta activa y sesión HTTP. Contrato, decisiones aprobadas y resultados: [US-12](../docs/sdd/14-us12-temas-menor-resolucion.md).
+Endpoint: `GET /api/analytics/teams/{teamId}/weaknesses`, solo para el coach responsable con cuenta activa y token Bearer. Contrato, decisiones aprobadas y resultados: [US-12](../docs/sdd/14-us12-temas-menor-resolucion.md).
 
 Pruebas sin PostgreSQL:
 
@@ -281,7 +327,7 @@ interrupción puede requerir limpieza manual del schema.
 
 ## Alcance y datos existentes
 
-- Sin JWT ni cambios a `/api`; perfiles y ranking comprueban la sesión en sus servicios sin modificar el `permitAll()` global.
+- JWT y reglas por rol en `SecurityConfig` (ver `docs/sdd/06-security-strategy.md`); sin cambios a `/api`.
 - No se inventan dominios institucionales autorizados ni perfiles incompletos.
 - Scaffolding legacy sin lógica retirado; se conserva `auth/dto` y toda la funcionalidad de registro/login.
 - `RuntimeBoundaryTests` verifica una sola entidad/repository de cuenta, solo rutas de negocio implementadas y `404` para las antiguas rutas ficticias. Actualizar esos límites al implementar un nuevo módulo real.

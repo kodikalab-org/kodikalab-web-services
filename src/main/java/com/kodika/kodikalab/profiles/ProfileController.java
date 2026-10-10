@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * "Mi perfil": el rol de la sesión decide si se gestiona {@code practicante} o {@code coach}.
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/users/me")
+@Tag(name = "Perfil", description = "Perfil de la cuenta autenticada: practicante o coach (US-03).")
 public class ProfileController {
     private final CurrentUserResolver currentUserResolver;
     private final ProfileRequestReader requestReader;

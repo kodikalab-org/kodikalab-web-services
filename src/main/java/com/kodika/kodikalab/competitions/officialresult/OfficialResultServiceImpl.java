@@ -54,7 +54,9 @@ public class OfficialResultServiceImpl implements OfficialResultService {
         try {
             return response(repository.saveAndFlush(result));
         } catch (DataIntegrityViolationException exception) {
-            if (ConstraintViolations.isUniqueViolationOf(exception, "uq_resultado_oficial_competencia")) {
+            // El DDL de @OneToOne crea dos índices únicos sobre la columna: PostgreSQL informa el que choque primero.
+            if (ConstraintViolations.isUniqueViolationOf(exception, "uq_resultado_oficial_competencia",
+                    "resultado_oficial_competencia_competencia_id_key")) {
                 throw duplicate();
             }
             throw exception;

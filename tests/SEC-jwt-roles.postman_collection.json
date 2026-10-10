@@ -1,0 +1,1335 @@
+{
+  "info": {
+    "name": "KodikaLab - Seguridad JWT y roles",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Ejecutar en orden en una base exclusiva de pruebas. Crea un COACH y un PRACTICANTE nuevos, inicia sesión con ambos y comprueba: documentación pública, 401 sin token o con token inválido, 403 por rol y acceso correcto. No requiere fixtures ni datos previos."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api",
+      "type": "string"
+    },
+    {
+      "key": "coachToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "practitionerToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tamperedToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName.startsWith('01 ') || !pm.collectionVariables.get('secCoachEmail')) {",
+          "  const id = pm.variables.replaceIn('{{$guid}}');",
+          "  pm.collectionVariables.set('secCoachEmail', `test.sec.coach.${id}@gmail.com`);",
+          "  pm.collectionVariables.set('secPractitionerEmail', `test.sec.practitioner.${id}@gmail.com`);",
+          "  pm.collectionVariables.unset('lastToken');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Registrar COACH",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{secCoachEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"COACH\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{secCoachEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Registrar PRACTICANTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"Usuario\",\n  \"lastName\": \"Prueba\",\n  \"email\": \"{{secPractitionerEmail}}\",\n  \"password\": \"Password123\",\n  \"role\": \"PRACTICANTE\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Registro exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{secPractitionerEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'message', 'role']));",
+              "pm.test('El registro no inicia sesión', () => { pm.expect(body).not.to.have.property('token'); pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Login COACH (guarda coachToken)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{secCoachEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"COACH\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{secCoachEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Login PRACTICANTE (guarda practitionerToken)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{secPractitionerEmail}}\",\n  \"password\": \"Password123\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin contraseñas ni hashes', () => { for (const key of ['password', 'passwordHash', 'password_hash']) pm.expect(body).not.to.have.property(key); });",
+              "pm.test('Mensaje público', () => pm.expect(body.message).to.be.a('string').and.not.empty);",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Inicio de sesión exitoso\"));",
+              "pm.test('Rol esperado', () => pm.expect(body.role).to.eql(\"PRACTICANTE\"));",
+              "pm.test('Correo normalizado', () => pm.expect(body.email).to.eql(pm.variables.replaceIn(\"{{secPractitionerEmail}}\").trim().toLowerCase()));",
+              "pm.test('Solo campos públicos', () => pm.expect(Object.keys(body).sort()).to.eql(['email', 'expiresIn', 'message', 'role', 'token', 'tokenType']));",
+              "pm.test('Token Bearer (JWT)', () => { pm.expect(body.tokenType).to.eql('Bearer'); pm.expect(body.token).to.be.a('string'); pm.expect(body.token.split('.')).to.have.lengthOf(3); pm.expect(body.expiresIn).to.be.above(0); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "const previous = pm.collectionVariables.get('lastToken');",
+              "pm.test('Cada login emite un token nuevo', () => { if (previous) pm.expect(body.token).not.to.eql(previous); });",
+              "pm.collectionVariables.set('lastToken', body.token);",
+              "pm.collectionVariables.set(body.role === 'COACH' ? 'coachToken' : 'practitionerToken', body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Documentación OpenAPI pública y con esquema Bearer",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v3/api-docs",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v3",
+            "api-docs"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "pm.test('Declara el esquema bearerAuth (JWT)', () => { const s = body.components.securitySchemes.bearerAuth; pm.expect(s.type).to.eql('http'); pm.expect(s.scheme).to.eql('bearer'); pm.expect(s.bearerFormat).to.eql('JWT'); });",
+              "pm.test('Título de la API', () => pm.expect(body.info.title).to.eql('KodikaLab API'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Sin token: GET /teams → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Sin token: GET /users/me → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/users/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "users",
+            "me"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Sin token: GET /problems → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Sin token: POST /teams → 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Sin token: GET /analytics/teams/1/standings → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/1/standings",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "1",
+            "standings"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Token manipulado → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{tamperedToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const t = pm.collectionVariables.get('practitionerToken') || '';",
+              "pm.collectionVariables.set('tamperedToken', t.slice(0, -4) + (t.endsWith('AAAA') ? 'BBBB' : 'AAAA'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El token es inválido o expiró: inicie sesión nuevamente\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Token basura → 401",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer esto.no.es-un-jwt"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"El token es inválido o expiró: inicie sesión nuevamente\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Esquema distinto de Bearer se ignora → 401",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Basic dGVzdDp0ZXN0"
+          }
+        ],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 PRACTICANTE no puede POST /teams → 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 PRACTICANTE no puede POST /problems → 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 PRACTICANTE no puede POST /problems/assign → 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems/assign",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems",
+            "assign"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 PRACTICANTE no puede POST /competitions → 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 PRACTICANTE no puede GET /teams/1/memberships → 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams/1/memberships?status=PENDIENTE",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "1",
+            "memberships"
+          ],
+          "query": [
+            {
+              "key": "status",
+              "value": "PENDIENTE"
+            }
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 PRACTICANTE no puede GET /analytics/teams/1/weaknesses → 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/1/weaknesses",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "1",
+            "weaknesses"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 PRACTICANTE no puede GET /competitions/teams/1/official-results → 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/1/official-results",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "1",
+            "official-results"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "21 COACH no puede POST /teams/1/join → 403",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams/1/join",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "1",
+            "join"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "22 COACH no puede GET /analytics/teams/1/progress/me → 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/1/progress/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "1",
+            "progress",
+            "me"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "23 COACH no puede POST /competitions/teams/1/problems/1/resolutions → 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/competitions/teams/1/problems/1/resolutions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "competitions",
+            "teams",
+            "1",
+            "problems",
+            "1",
+            "resolutions"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"language\": \"Java 21\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "24 COACH: GET /teams → 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "pm.test('Lista de grupos', () => pm.expect(body).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "25 PRACTICANTE: GET /teams → 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);",
+              "pm.test('Lista de grupos', () => pm.expect(body).to.be.an('array'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "26 PRACTICANTE: GET /problems → 200",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{practitionerToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/problems",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "problems"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "27 COACH con rol correcto llega al servicio: POST /teams vacío → 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

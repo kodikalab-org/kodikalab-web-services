@@ -3,9 +3,9 @@ package com.kodika.kodikalab.auth;
 import com.kodika.kodikalab.auth.dto.AuthResponse;
 import com.kodika.kodikalab.auth.dto.RegisterRequest;
 import com.kodika.kodikalab.auth.dto.LoginRequest;
-import com.kodika.kodikalab.security.LoginSessionService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,25 +16,27 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@Tag(name = "Autenticación", description = "Registro e inicio de sesión. Endpoints públicos: no requieren token.")
+@SecurityRequirements
 public class AuthController {
     private final AuthService authService;
-    private final LoginSessionService loginSessionService;
 
-    public AuthController(AuthService authService, LoginSessionService loginSessionService) {
+    public AuthController(AuthService authService) {
         this.authService = authService;
-        this.loginSessionService = loginSessionService;
     }
 
+    @Operation(summary = "Registrar una cuenta (US-01)",
+            description = "Crea una cuenta PRACTICANTE o COACH. El registro no inicia sesión.")
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
+    @Operation(summary = "Iniciar sesión (US-02)",
+            description = "Valida las credenciales y devuelve un token JWT (`token`, `tokenType`, `expiresIn` en "
+                    + "segundos) más el rol de la cuenta para que el cliente dirija al espacio correspondiente.")
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
-                                             HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
-        AuthResponse result = authService.login(request);
-        loginSessionService.startSession(result.email(), result.role().name(), servletRequest, servletResponse);
-        return ResponseEntity.ok(result);
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
     }
 }

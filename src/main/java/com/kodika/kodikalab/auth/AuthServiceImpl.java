@@ -5,6 +5,7 @@ import com.kodika.kodikalab.auth.dto.RegisterRequest;
 import com.kodika.kodikalab.auth.dto.LoginRequest;
 import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.security.JwtService;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserService;
 import com.kodika.kodikalab.users.UserStatus;
@@ -22,10 +23,12 @@ public class AuthServiceImpl implements AuthService {
     private static final String INVALID_CREDENTIALS = "Credenciales inválidas";
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder) {
+    public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
     }
 
     @Override
@@ -56,6 +59,8 @@ public class AuthServiceImpl implements AuthService {
                 || user.getStatus() != UserStatus.ACTIVO || user.getRole() == null) {
             throw new UnauthorizedException(INVALID_CREDENTIALS);
         }
-        return new AuthResponse("Inicio de sesión exitoso", user.getEmail(), user.getRole());
+        JwtService.IssuedToken issued = jwtService.issue(user);
+        return new AuthResponse("Inicio de sesión exitoso", user.getEmail(), user.getRole(),
+                issued.token(), issued.tokenType(), issued.expiresInSeconds());
     }
 }
