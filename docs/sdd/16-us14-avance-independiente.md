@@ -10,6 +10,7 @@ Decisiones aprobadas:
 
 - El registro es una declaración manual provisional del practicante y se guarda como `ACCEPTED`. No es una verificación automática. La respuesta lo identifica con `registrationMethod: "MANUAL_PROVISIONAL"`.
 - No se implementan juez, importación externa, ejecución de código, verificación de evidencia ni el flujo completo de US-09. El modelo existente no almacena un campo de procedencia/verificación; no se infiere que los registros históricos hayan sido verificados automáticamente.
+- **Limitación conocida:** al no existir verificación, un `ACCEPTED` declarado por el practicante cuenta igual que cualquier otro en el ranking (US-11) y en el reporte de temas (US-12); puede inflar ambos. Debe sustituirse por el flujo verificado de US-09 (o marcar su procedencia en el modelo) antes de usar esos resultados como oficiales.
 - Se rechaza otro `ACCEPTED` para la misma membresía y `competitionProblemId`. Los intentos `PENDIENTE`, rechazados y anteriores permanecen intactos.
 - El mismo problema puede tener registros independientes en diferentes equipos o competencias. Se reutiliza la regla de US-11: cada problema de catálogo aceptado cuenta una vez por membresía y equipo, incluso si aparece en varias competencias del mismo grupo.
 

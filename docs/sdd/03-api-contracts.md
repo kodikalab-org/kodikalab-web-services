@@ -319,7 +319,9 @@ se obtiene del contexto autenticado. El problema asignado y la membresía deben 
 
 POST recibe `language` (texto obligatorio, máximo 30) y `evidenceUrl` (URL HTTP/HTTPS opcional, máximo 500).
 Registra un `ACCEPTED` manual provisional y devuelve `201` con `resolution` (DTO `TeamResolutionData`),
-`registrationMethod: "MANUAL_PROVISIONAL"` y `progress`. No constituye verificación automática. Rechaza otro
+`registrationMethod: "MANUAL_PROVISIONAL"` y `progress`. No constituye verificación automática: este `ACCEPTED`
+declarado cuenta igual en el ranking (US-11) y en el reporte de temas (US-12) hasta que US-09 lo sustituya por un
+registro verificado. Rechaza otro
 `ACCEPTED` para la misma membresía/asignación sin modificar los intentos anteriores. Otros equipos o
 competencias conservan registros independientes.
 
