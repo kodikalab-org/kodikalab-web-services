@@ -206,6 +206,23 @@ add('Para B el mismo problema sigue SIN_INTENTOS', 'GET', '/problems/assigned/{{
   auth: 'practBToken', tests: ["pm.test('SIN_INTENTOS', () => pm.expect(body.assignment.status).to.eql('SIN_INTENTOS'));"],
 });
 
+// --- US-10: progreso por tema ------------------------------------------------------------------------------------------------
+add('Progreso por tema de PRACTICANTE A: los más débiles primero (US-10)', 'GET', '/analytics/teams/{{groupId}}/progress/me/topics', 200, {
+  auth: 'practAToken',
+  tests: [
+    "pm.test('3 problemas asignados y 1 resuelto', () => { pm.expect(body.assignedProblems).to.eql(3); pm.expect(body.solvedProblems).to.eql(1); pm.expect(body.unclassifiedProblems).to.eql(0); });",
+    "pm.test('Orden: de menor a mayor cobertura', () => pm.expect(body.topics.map((t) => t.topicName)).to.eql(['Programación dinámica', 'Grafos', 'BFS']));",
+    "pm.test('Programación dinámica: sin actividad y por reforzar', () => { const t = body.topics[0]; pm.expect(t.status).to.eql('SIN_ACTIVIDAD'); pm.expect(t.coveragePercentage).to.eql(0); pm.expect(t.needsReinforcement).to.eql(true); });",
+    "pm.test('Grafos: 1 de 2, en progreso', () => { const t = body.topics[1]; pm.expect(t.assignedProblems).to.eql(2); pm.expect(t.solvedProblems).to.eql(1); pm.expect(t.coveragePercentage).to.eql(50); pm.expect(t.status).to.eql('EN_PROGRESO'); pm.expect(t.needsReinforcement).to.eql(false); });",
+    "pm.test('BFS: completado', () => { const t = body.topics[2]; pm.expect(t.coveragePercentage).to.eql(100); pm.expect(t.status).to.eql('COMPLETADO'); pm.expect(t.needsReinforcement).to.eql(false); });",
+  ],
+});
+add('Progreso por tema de PRACTICANTE B: estado inicial, independiente del de A', 'GET', '/analytics/teams/{{groupId}}/progress/me/topics', 200, {
+  auth: 'practBToken',
+  tests: ["pm.test('Ningún problema resuelto, todos los temas sin actividad y por reforzar', () => { pm.expect(body.solvedProblems).to.eql(0); pm.expect(body.topics).to.have.lengthOf(3); for (const t of body.topics) { pm.expect(t.status).to.eql('SIN_ACTIVIDAD'); pm.expect(t.needsReinforcement).to.eql(true); } });"],
+});
+add('El COACH no consulta el progreso personal por tema → 403', 'GET', '/analytics/teams/{{groupId}}/progress/me/topics', 403, { auth: 'coachToken' });
+
 // --- US-11: ranking interno --------------------------------------------------------------------------------------------------
 add('Ranking del equipo (COACH)', 'GET', '/analytics/teams/{{groupId}}/standings', 200, {
   auth: 'coachToken',
@@ -267,6 +284,9 @@ add('El listado de competencias muestra la competencia FINALIZADA', 'GET', '/com
 add('Sin token no se ve el ranking → 401', 'GET', '/analytics/teams/{{groupId}}/standings', 401, {
   tests: [`pm.test('Mensaje', () => pm.expect(body.message).to.eql(${JSON.stringify(missingToken)}));`],
 });
+add('Sin token no se ve el progreso por tema → 401', 'GET', '/analytics/teams/{{groupId}}/progress/me/topics', 401, {
+  tests: [`pm.test('Mensaje', () => pm.expect(body.message).to.eql(${JSON.stringify(missingToken)}));`],
+});
 add('Sin token no se listan las competencias → 401', 'GET', '/competitions?teamId={{groupId}}', 401, {
   tests: [`pm.test('Mensaje', () => pm.expect(body.message).to.eql(${JSON.stringify(missingToken)}));`],
 });
@@ -279,7 +299,7 @@ const output = {
   info: {
     name: 'KodikaLab - US07 a US14 Flujo completo',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
-    description: 'Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas y una competencia, y la recorre completa: asignación, inicio y cierre por el coach, resoluciones, ranking, reporte de temas y resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí).',
+    description: 'Ejecutar en orden en una base exclusiva de pruebas. Crea por la API un COACH, dos PRACTICANTES, un grupo, tres problemas y una competencia, y la recorre completa: asignación, inicio y cierre por el coach, resoluciones, ranking, reporte de temas y resultado oficial; no requiere fixtures. Cada paso guarda en variables de colección los ids y tokens que usa el siguiente. Cubre US-07, US-08, US-09, US-10, US-11, US-12, US-13 y US-14 (más lo mínimo de US-01 a US-05 para llegar hasta ahí).',
   },
   variable: [
     { key: 'baseUrl', value: 'http://localhost:8080/api', type: 'string' },

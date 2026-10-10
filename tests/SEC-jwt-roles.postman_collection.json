@@ -639,7 +639,48 @@
       ]
     },
     {
-      "name": "14 Sin token: POST /auth/recovery-code → 401",
+      "name": "14 Sin token: GET /analytics/teams/1/progress/me/topics → 401",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "noauth"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/1/progress/me/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "1",
+            "progress",
+            "me",
+            "topics"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"Debe iniciar sesión: envíe el token en el encabezado Authorization (Bearer)\"));",
+              "pm.test('Desafío WWW-Authenticate: Bearer', () => pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer'));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Sin token: POST /auth/recovery-code → 401",
       "request": {
         "method": "POST",
         "header": [
@@ -690,7 +731,7 @@
       ]
     },
     {
-      "name": "15 POST /auth/recovery es público: sin token responde el error de recuperación, no el de token → 401",
+      "name": "16 POST /auth/recovery es público: sin token responde el error de recuperación, no el de token → 401",
       "request": {
         "method": "POST",
         "header": [
@@ -740,7 +781,7 @@
       ]
     },
     {
-      "name": "16 Token manipulado → 401",
+      "name": "17 Token manipulado → 401",
       "request": {
         "method": "GET",
         "header": [],
@@ -793,7 +834,7 @@
       ]
     },
     {
-      "name": "17 Token basura → 401",
+      "name": "18 Token basura → 401",
       "request": {
         "method": "GET",
         "header": [
@@ -834,7 +875,7 @@
       ]
     },
     {
-      "name": "18 Esquema distinto de Bearer se ignora → 401",
+      "name": "19 Esquema distinto de Bearer se ignora → 401",
       "request": {
         "method": "GET",
         "header": [
@@ -875,7 +916,7 @@
       ]
     },
     {
-      "name": "19 PRACTICANTE no puede POST /teams → 403",
+      "name": "20 PRACTICANTE no puede POST /teams → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -931,7 +972,7 @@
       ]
     },
     {
-      "name": "20 PRACTICANTE no puede POST /problems → 403",
+      "name": "21 PRACTICANTE no puede POST /problems → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -987,7 +1028,7 @@
       ]
     },
     {
-      "name": "21 PRACTICANTE no puede POST /problems/assign → 403",
+      "name": "22 PRACTICANTE no puede POST /problems/assign → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -1044,7 +1085,7 @@
       ]
     },
     {
-      "name": "22 PRACTICANTE no puede POST /competitions → 403",
+      "name": "23 PRACTICANTE no puede POST /competitions → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -1100,7 +1141,7 @@
       ]
     },
     {
-      "name": "23 PRACTICANTE no puede PATCH /competitions/1/status → 403",
+      "name": "24 PRACTICANTE no puede PATCH /competitions/1/status → 403",
       "request": {
         "method": "PATCH",
         "header": [
@@ -1158,7 +1199,7 @@
       ]
     },
     {
-      "name": "24 PRACTICANTE no puede GET /teams/1/memberships → 403",
+      "name": "25 PRACTICANTE no puede GET /teams/1/memberships → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -1208,7 +1249,7 @@
       ]
     },
     {
-      "name": "25 PRACTICANTE no puede GET /analytics/teams/1/weaknesses → 403",
+      "name": "26 PRACTICANTE no puede GET /analytics/teams/1/weaknesses → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -1253,7 +1294,7 @@
       ]
     },
     {
-      "name": "26 PRACTICANTE no puede GET /competitions/teams/1/official-results → 403",
+      "name": "27 PRACTICANTE no puede GET /competitions/teams/1/official-results → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -1298,7 +1339,7 @@
       ]
     },
     {
-      "name": "27 COACH no puede POST /teams/1/join → 403",
+      "name": "28 COACH no puede POST /teams/1/join → 403",
       "request": {
         "method": "POST",
         "header": [],
@@ -1342,7 +1383,7 @@
       ]
     },
     {
-      "name": "28 COACH no puede GET /analytics/teams/1/progress/me → 403",
+      "name": "29 COACH no puede GET /analytics/teams/1/progress/me → 403",
       "request": {
         "method": "GET",
         "header": [],
@@ -1388,7 +1429,54 @@
       ]
     },
     {
-      "name": "29 COACH no puede POST /competitions/teams/1/problems/1/resolutions → 403",
+      "name": "30 COACH no puede GET /analytics/teams/1/progress/me/topics → 403",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{coachToken}}",
+              "type": "string"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{baseUrl}}/analytics/teams/1/progress/me/topics",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "analytics",
+            "teams",
+            "1",
+            "progress",
+            "me",
+            "topics"
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json();",
+              "pm.test('Cuerpo de error {message, errors}', () => { pm.expect(body.message).to.be.a('string').and.not.empty; pm.expect(body).to.have.property('errors'); });",
+              "pm.test('Mensaje esperado', () => pm.expect(body.message).to.eql(\"No tiene permisos para realizar esta acción\"));",
+              "pm.test('Sin cookie de sesión', () => pm.expect(pm.response.headers.get('Set-Cookie')).to.be.undefined);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "31 COACH no puede POST /competitions/teams/1/problems/1/resolutions → 403",
       "request": {
         "method": "POST",
         "header": [
@@ -1449,7 +1537,7 @@
       ]
     },
     {
-      "name": "30 COACH: GET /teams → 200",
+      "name": "32 COACH: GET /teams → 200",
       "request": {
         "method": "GET",
         "header": [],
@@ -1490,7 +1578,7 @@
       ]
     },
     {
-      "name": "31 PRACTICANTE: GET /teams → 200",
+      "name": "33 PRACTICANTE: GET /teams → 200",
       "request": {
         "method": "GET",
         "header": [],
@@ -1531,7 +1619,7 @@
       ]
     },
     {
-      "name": "32 PRACTICANTE: GET /problems → 200",
+      "name": "34 PRACTICANTE: GET /problems → 200",
       "request": {
         "method": "GET",
         "header": [],
@@ -1571,7 +1659,7 @@
       ]
     },
     {
-      "name": "33 COACH: GET /teams/me → 200 (sus grupos; vacío para una cuenta nueva)",
+      "name": "35 COACH: GET /teams/me → 200 (sus grupos; vacío para una cuenta nueva)",
       "request": {
         "method": "GET",
         "header": [],
@@ -1613,7 +1701,7 @@
       ]
     },
     {
-      "name": "34 PRACTICANTE: GET /teams/me → 200 (sus membresías; vacío para una cuenta nueva)",
+      "name": "36 PRACTICANTE: GET /teams/me → 200 (sus membresías; vacío para una cuenta nueva)",
       "request": {
         "method": "GET",
         "header": [],
@@ -1655,7 +1743,7 @@
       ]
     },
     {
-      "name": "35 COACH con rol correcto llega al servicio: POST /teams vacío → 400",
+      "name": "37 COACH con rol correcto llega al servicio: POST /teams vacío → 400",
       "request": {
         "method": "POST",
         "header": [
