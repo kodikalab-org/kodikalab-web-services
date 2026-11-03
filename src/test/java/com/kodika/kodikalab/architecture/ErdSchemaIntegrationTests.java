@@ -71,7 +71,11 @@ class ErdSchemaIntegrationTests {
                 col("practicante_id", INT, null, NOT_NULL), col("estado", VARCHAR, 20, NOT_NULL, "ACTIVO"),
                 col("rol_equipo", VARCHAR, 30, NOT_NULL, "MIEMBRO"),
                 col("fecha_ingreso", TIMESTAMPTZ, null, NOT_NULL, "CURRENT_TIMESTAMP"),
-                col("fecha_salida", TIMESTAMPTZ, null, NULL)));
+                col("fecha_salida", TIMESTAMPTZ, null, NULL),
+                col("aclaracion_solicitada", VARCHAR, 500, NULL),
+                col("fecha_aclaracion", TIMESTAMPTZ, null, NULL),
+                col("aclaracion_respuesta", VARCHAR, 500, NULL),
+                col("fecha_respuesta_aclaracion", TIMESTAMPTZ, null, NULL)));
         ERD.put("competencia", List.of(
                 col("id", INT, null, NOT_NULL), col("grupo_id", INT, null, NOT_NULL),
                 col("nombre_evento", VARCHAR, 150, NOT_NULL), col("descripcion", VARCHAR, 500, NULL),

@@ -895,6 +895,148 @@ class TeamsIntegrationTests {
         assertThat(pending.getBody().toString()).doesNotContain(first.getEmail()).doesNotContain(second.getEmail());
     }
 
+    @Test
+    void draftIsHiddenUntilTheCoachPublishesIt() {
+        String coachSession = coachSession(account(Role.COACH));
+
+        var created = http.exchange("/teams", HttpMethod.POST,
+                new HttpEntity<>(Map.of("name", "Borrador de grafos", "draft", true, "visibility", "PROTEGIDO"),
+                        headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(created.getStatusCode().value()).isEqualTo(201);
+        assertThat(created.getBody())
+                .containsEntry("status", "BORRADOR")
+                .containsEntry("message", "Borrador del grupo guardado correctamente");
+        Integer groupId = (Integer) created.getBody().get("groupId");
+
+        assertThat(myTeams(coachSession))
+                .anySatisfy(team -> assertThat(team)
+                        .containsEntry("groupId", groupId)
+                        .containsEntry("status", "BORRADOR"));
+
+        // Un borrador no aparece en el listado público ni admite solicitudes de ingreso.
+        assertThat(availableGroups()).noneSatisfy(group -> assertThat(group).containsEntry("groupId", groupId));
+
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+        var joinDraft = http.exchange("/teams/" + groupId + "/join", HttpMethod.POST,
+                new HttpEntity<>(headers(practitionerSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(joinDraft.getStatusCode().value()).isEqualTo(409);
+
+        // Publicar exige completar nivel y cupo; luego el grupo sí se lista.
+        var incomplete = http.exchange("/teams/" + groupId + "/publish", HttpMethod.POST,
+                new HttpEntity<>(headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(incomplete.getStatusCode().value()).isEqualTo(400);
+
+        var updated = http.exchange("/teams/" + groupId + "/draft", HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("expectedLevel", "Div3", "maxCapacity", 5), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(updated.getStatusCode().value()).isEqualTo(200);
+        assertThat(updated.getBody()).containsEntry("name", "Borrador de grafos");
+
+        var published = http.exchange("/teams/" + groupId + "/publish", HttpMethod.POST,
+                new HttpEntity<>(headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(published.getStatusCode().value()).isEqualTo(200);
+        assertThat(published.getBody()).containsEntry("status", "ACTIVO");
+
+        assertThat(availableGroups()).anySatisfy(group -> assertThat(group).containsEntry("groupId", groupId));
+    }
+
+    @Test
+    void coachRequestsClarificationAndTheApplicantAnswersBeforeTheDecision() {
+        String coachSession = coachSession(account(Role.COACH));
+        Integer groupId = (Integer) createGroup(coachSession, "Grupo con aclaracion", "PROTEGIDO", 5).get("groupId");
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+
+        var joined = join(practitionerSession, groupId);
+        Integer membershipId = (Integer) joined.get("membershipId");
+        String question = "¿Puedes adjuntar el enlace de tu perfil de Codeforces?";
+
+        var asked = http.exchange("/teams/" + groupId + "/memberships/" + membershipId, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "SOLICITAR_ACLARACION", "message", question),
+                        headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(asked.getStatusCode().value()).isEqualTo(200);
+        assertThat(asked.getBody())
+                .containsEntry("status", "ACLARACION_SOLICITADA")
+                .containsEntry("clarificationRequest", question);
+
+        // Ya no aparece entre las pendientes, pero sí en su propio estado.
+        assertThat(requests(coachSession, groupId, "PENDIENTE")).isEmpty();
+        assertThat(requests(coachSession, groupId, "ACLARACION_SOLICITADA")).hasSize(1);
+
+        // El coach no puede decidir hasta que el postulante responda.
+        var earlyDecision = http.exchange("/teams/" + groupId + "/memberships/" + membershipId, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "ACEPTAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(earlyDecision.getStatusCode().value()).isEqualTo(409);
+
+        // El postulante ve la pregunta en /teams/me.
+        var mine = myTeams(practitionerSession);
+        assertThat(membershipOf(mine.get(0)))
+                .containsEntry("status", "ACLARACION_SOLICITADA");
+        Map<?, ?> clarification = (Map<?, ?>) membershipOf(mine.get(0)).get("clarification");
+        assertThat(clarification.get("request")).isEqualTo(question);
+
+        var answered = http.exchange("/teams/" + groupId + "/memberships/" + membershipId + "/clarification",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("message", "Mi usuario es practicante_2026"), headers(practitionerSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(answered.getStatusCode().value()).isEqualTo(200);
+        assertThat(answered.getBody())
+                .containsEntry("status", "PENDIENTE")
+                .containsEntry("clarificationResponse", "Mi usuario es practicante_2026");
+
+        assertThat(requests(coachSession, groupId, "PENDIENTE")).hasSize(1);
+
+        var accepted = http.exchange("/teams/" + groupId + "/memberships/" + membershipId, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "ACEPTAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+        assertThat(accepted.getStatusCode().value()).isEqualTo(200);
+        assertThat(accepted.getBody()).containsEntry("status", "ACTIVO");
+    }
+
+    @Test
+    void anotherPractitionerCannotAnswerTheClarification() {
+        String coachSession = coachSession(account(Role.COACH));
+        Integer groupId = (Integer) createGroup(coachSession, "Grupo aclaracion ajena", "PROTEGIDO", 5).get("groupId");
+        String ownerSession = practitionerSession(account(Role.PRACTICANTE));
+        Integer membershipId = (Integer) join(ownerSession, groupId).get("membershipId");
+
+        http.exchange("/teams/" + groupId + "/memberships/" + membershipId, HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "SOLICITAR_ACLARACION", "message", "¿Datos?"),
+                        headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        String intruderSession = practitionerSession(account(Role.PRACTICANTE));
+        var denied = http.exchange("/teams/" + groupId + "/memberships/" + membershipId + "/clarification",
+                HttpMethod.POST,
+                new HttpEntity<>(Map.of("message", "Respuesta ajena"), headers(intruderSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(denied.getStatusCode().value()).isEqualTo(403);
+    }
+
+    private List<Map<String, Object>> availableGroups() {
+        var response = http.exchange("/teams", HttpMethod.GET, new HttpEntity<>(headers(null)),
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        return response.getBody();
+    }
+
+    private List<Map<String, Object>> requests(String session, Integer groupId, String status) {
+        var response = http.exchange("/teams/" + groupId + "/memberships?status=" + status, HttpMethod.GET,
+                new HttpEntity<>(headers(session)),
+                new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        return response.getBody();
+    }
+
     private User account(Role role) {
         User user = new User();
 
