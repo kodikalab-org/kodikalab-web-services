@@ -5,6 +5,10 @@
 -- Amplia los estados permitidos en practicante_grupo.
 -- No crea tablas ni modifica los registros existentes.
 --
+-- Nota: este script conserva los estados de US05/US06. Para US04 (borrador de
+-- grupo) y la aclaracion al postulante use `migracion_borrador_aclaracion.sql`,
+-- que ademas agrega las columnas de aclaracion.
+--
 -- Ejecutar solamente sobre una base de datos existente,
 -- despues de realizar un respaldo.
 
@@ -18,6 +22,7 @@ ALTER TABLE public.practicante_grupo
         CHECK (
             estado IN (
                        'PENDIENTE',
+                       'ACLARACION_SOLICITADA',
                        'ACTIVO',
                        'RECHAZADO',
                        'RETIRADO',

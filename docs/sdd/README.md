@@ -56,9 +56,13 @@ La propiedad de tablas y las capacidades sin tablas oficiales se detallan en `05
 16. [16-us14-avance-independiente.md](16-us14-avance-independiente.md) — Registro manual provisional, contexto de equipo, avance propio, transacciones y pruebas de US-14.
 18. [18-us10-progreso-por-tema.md](18-us10-progreso-por-tema.md) — Progreso del practicante por tema, estados, temas a reforzar y errores de US-10.
 17. [17-us07-us08-asignacion-problemas.md](17-us07-us08-asignacion-problemas.md) — Catálogo de problemas, asignación atómica a competencias, vista del practicante, estado derivado, límites del modelo y trazabilidad con los commits de Sergio.
+18. [19-us04-borrador-us06-aclaracion.md](19-us04-borrador-us06-aclaracion.md) — Borrador de grupo (US04) y aclaración al postulante (US06): estados, endpoints, columnas y pruebas.
 
 ## Assets
 
 En el repositorio: [oficial.erd](assets/oficial.erd). Los diagramas del equipo están en `Diagrama_C4_Kodikalab.drawio` (Google Drive).
+
+Migraciones de referencia: [migracion_estados_membresia.sql](assets/migracion_estados_membresia.sql) y
+[migracion_borrador_aclaracion.sql](assets/migracion_borrador_aclaracion.sql).
 
 Un nuevo snapshot SQL puede incorporarse después de revisar los metadatos y validar entidades/DDL. No es una migración de datos ni un requisito para arrancar una base vacía en modo code-first.

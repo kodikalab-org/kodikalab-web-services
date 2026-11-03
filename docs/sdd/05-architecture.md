@@ -210,13 +210,13 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | --- | --- |
 | `/auth/**` | `auth`; registro/login persisten en `usuario` según el ERD nuevo |
 | `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
-| `/teams/**` | Propuesta pendiente de `teams`; no publicada |
+| `/teams/**` | `teams`; US04, US05 y US06 implementadas (grupos, borradores, solicitudes, aclaraciones y membresías); requieren token Bearer y rol según la operación |
 | `/problems`, `/problems/assign`, `/problems/assigned/**` | Catálogo (`problems`) y US-07/US-08 (`assignments`) implementadas; requieren token Bearer. `/problems/{id}/submit` y `/problems/{id}/resources` siguen pendientes |
 | `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
 | `/analytics/teams/{teamId}/weaknesses` | US-12 implementada; requiere sesión del coach responsable con cuenta activa |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |
 
-Las rutas pendientes se conservan únicamente como contratos propuestos. Los controllers plantilla de `teams`, `problems` y `competitions` no declaran endpoints, así que no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.
+Las rutas pendientes se conservan únicamente como contratos propuestos. Los controllers plantilla de `problems` y `competitions` que aún no declaran endpoints no aparecen en Swagger; sus solicitudes devuelven `404`, no una respuesta ficticia de éxito.
 
 ## Migración por alcance
 

@@ -135,7 +135,7 @@ Las funcionalidades US04, US05 y US06 de Teams están implementadas. Las funcion
 
 ## Implementación de Teams — US04, US05 y US06
 
-Las funcionalidades de creación de grupos, solicitudes de ingreso y revisión de membresías están implementadas mediante las tablas `grupo_estudio` y `practicante_grupo`.
+Las funcionalidades de creación de grupos (con borrador), solicitudes de ingreso y revisión de membresías (aceptar, rechazar o pedir aclaración) están implementadas mediante las tablas `grupo_estudio` y `practicante_grupo`.
 
 No se utiliza una tabla adicional `solicitud_grupo`.
 
@@ -155,11 +155,13 @@ Campos principales:
 | `cupo_maximo` | Capacidad máxima |
 | `horario_sesiones` | Horario opcional |
 | `codigo_invitacion` | Código único de invitación |
-| `estado` | `ACTIVO` o `ARCHIVADO` |
+| `estado` | `BORRADOR`, `ACTIVO` o `ARCHIVADO` |
 | `fecha_creacion` | Fecha de creación |
 | `visibilidad` | `PUBLICO`, `PROTEGIDO` o `ARCHIVADO` |
 
-Los grupos nuevos se crean con estado `ACTIVO` y no pueden utilizar visibilidad `ARCHIVADO`.
+Un grupo nuevo se publica con estado `ACTIVO`, o se guarda con estado `BORRADOR` si la petición envía `"draft": true`. El borrador solo exige nombre y se completa con `PATCH /api/teams/{id}/draft`; al publicarlo con `POST /api/teams/{id}/publish` pasa a `ACTIVO`. No se permite crear ni guardar un borrador con visibilidad `ARCHIVADO`.
+
+Mientras está en `BORRADOR`, el grupo no aparece en `GET /api/teams` y `POST /api/teams/{id}/join` responde `409`.
 
 ### Solicitudes y membresías — `practicante_grupo`
 
@@ -172,10 +174,20 @@ Estados implementados:
 | Estado | Significado |
 | --- | --- |
 | `PENDIENTE` | Solicitud esperando revisión |
+| `ACLARACION_SOLICITADA` | El coach pidió información adicional y espera la respuesta del postulante |
 | `ACTIVO` | Practicante integrante del grupo |
 | `RECHAZADO` | Solicitud rechazada |
 | `RETIRADO` | Practicante que abandonó el grupo |
 | `EXPULSADO` | Practicante expulsado |
+
+Columnas de aclaración (US06), todas opcionales y en la misma fila:
+
+| Columna | Descripción |
+| --- | --- |
+| `aclaracion_solicitada` | Mensaje del coach, máximo 500 caracteres |
+| `fecha_aclaracion` | Momento en que se pidió la aclaración |
+| `aclaracion_respuesta` | Respuesta del postulante, máximo 500 caracteres |
+| `fecha_respuesta_aclaracion` | Momento en que el postulante respondió |
 
 Las solicitudes utilizan el identificador real de `practicante_grupo`.
 
@@ -186,16 +198,16 @@ La combinación de `grupo_id` y `practicante_id` es única.
 - Un grupo `PUBLICO` permite ingreso directo con estado `ACTIVO`.
 - Un grupo `PROTEGIDO` permite ingreso directo con un código de invitación válido.
 - Un grupo `PROTEGIDO` sin código válido registra una solicitud `PENDIENTE`.
-- No se permiten solicitudes duplicadas mientras exista una membresía `PENDIENTE` o `ACTIVO`.
-- Una membresía `RECHAZADO` o `RETIRADO` puede reutilizarse para solicitar ingreso nuevamente.
+- No se permiten solicitudes duplicadas mientras exista una membresía `PENDIENTE` o `ACLARACION_SOLICITADA` abierta.
+- Una membresía `RECHAZADO` o `RETIRADO` puede reutilizarse para solicitar ingreso nuevamente; al reingresar se limpian las columnas de aclaración.
 - Según la política implementada, una membresía `EXPULSADO` no puede solicitar ingreso nuevamente.
 - Solamente las membresías `ACTIVO` se consideran para el cálculo de capacidad.
 - No se permiten nuevos ingresos o solicitudes cuando el grupo alcanza su cupo máximo.
-- No se permite ingresar a grupos inactivos o con visibilidad `ARCHIVADO`.
+- No se permite ingresar a grupos en `BORRADOR` (aún no publicados), inactivos o con visibilidad `ARCHIVADO`.
 
 ### Revisión de solicitudes
 
-Solo el coach responsable puede revisar solicitudes pendientes.
+Solo el coach responsable puede revisar solicitudes.
 
 La aceptación realiza:
 
@@ -207,19 +219,35 @@ El rechazo realiza:
 
 `PENDIENTE → RECHAZADO`
 
-No se crea ni se elimina ninguna fila adicional durante la revisión.
+La solicitud de aclaración realiza:
+
+`PENDIENTE → ACLARACION_SOLICITADA`
+
+Se guardan el mensaje y la fecha en `aclaracion_solicitada` y `fecha_aclaracion`. Mientras el estado sea
+`ACLARACION_SOLICITADA`, el coach no puede aceptar ni rechazar.
+
+El postulante responde con:
+
+`ACLARACION_SOLICITADA → PENDIENTE`
+
+Se guardan la respuesta y su fecha en `aclaracion_respuesta` y `fecha_respuesta_aclaracion`. La pregunta se conserva para
+dar contexto al coach. No se crea ni se elimina ninguna fila adicional en ninguna de estas transiciones.
 
 ### Compatibilidad con PostgreSQL
 
-El ERD oficial documentaba originalmente los estados `ACTIVO`, `RETIRADO` y `EXPULSADO`.
+El ERD oficial documentaba originalmente los estados `ACTIVO`, `RETIRADO` y `EXPULSADO` para `practicante_grupo.estado`, y
+`ACTIVO`/`ARCHIVADO` para `grupo_estudio.estado`.
 
-Para implementar US05 y US06 sin incorporar otra tabla, el enum Java `MembershipStatus` incorpora `PENDIENTE` y `RECHAZADO`.
+Para implementar US04, US05 y US06 sin incorporar otra tabla, el enum Java `GroupStatus` agrega `BORRADOR` y
+`MembershipStatus` agrega `PENDIENTE`, `ACLARACION_SOLICITADA` y `RECHAZADO`.
 
-Esto requiere ampliar la restricción CHECK de `practicante_grupo.estado` en bases PostgreSQL existentes.
+Esto requiere ampliar las restricciones CHECK en bases PostgreSQL existentes y agregar las cuatro columnas de aclaración.
 
-La ampliación de valores debe revisarse y aprobarse como diferencia respecto del ERD oficial. No se deben agregar columnas ni tablas para esta funcionalidad. `oficial.erd` ya muestra los cinco estados en el comentario de `practicante_grupo.estado`.
+La ampliación de valores y columnas se aplica con `assets/migracion_borrador_aclaracion.sql`. `oficial.erd` ya muestra los
+nuevos estados y columnas.
 
-Hibernate puede generar los cinco valores en esquemas nuevos, pero `ddl-auto: update` no garantiza modificar correctamente las restricciones CHECK existentes.
+Hibernate puede generar los nuevos valores y columnas en esquemas nuevos, pero `ddl-auto: update` no garantiza modificar
+correctamente las restricciones CHECK existentes.
 
 Se requiere una migración SQL reproducible y validada antes del despliegue.
 
