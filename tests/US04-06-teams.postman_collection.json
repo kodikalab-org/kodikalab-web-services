@@ -2,7 +2,7 @@
   "info": {
     "name": "KodikaLab - US04 US05 US06 Teams",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Flujo secuencial de Teams. Ejecutar en orden con Collection Runner y servidor local activo; cada login guarda el token JWT en la variable de colección token y las demás solicitudes lo envían como Bearer. Crea usuarios, perfiles y grupos de prueba en la base conectada al servidor. No ejecutar en producción."
+    "description": "Flujo secuencial de Teams. Ejecutar en orden con Collection Runner y servidor local activo; cada login guarda el token JWT en la variable de colección token y las demás solicitudes lo envían como Bearer. Crea usuarios, perfiles y grupos de prueba en la base conectada al servidor. No ejecutar en producción. Incluye los casos de US04 (borrador y publicación) y US06 (aclaración al postulante)."
   },
   "variable": [
     {
@@ -1543,6 +1543,681 @@
             "teams",
             "me"
           ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+              "pm.test('Cuerpo de error {message, errors}', () => { const b = pm.response.json(); pm.expect(b.message).to.be.a('string').and.not.empty; pm.expect(b).to.have.property('errors'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "39 Login COACH dueño para borrador",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); pm.collectionVariables.set('token', b.token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "40 Crear borrador con solo nombre -> BORRADOR",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Borrador US04\",\n  \"draft\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Borrador guardado con solo el nombre', () => { const b = pm.response.json(); pm.expect(b.status).to.eql('BORRADOR'); pm.expect(b.message).to.eql('Borrador del grupo guardado correctamente'); pm.expect(b.invitationCode).to.be.a('string'); pm.collectionVariables.set('groupDraft', b.groupId); pm.collectionVariables.set('inviteDraft', b.invitationCode); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "41 El borrador no aparece en el listado público",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('El borrador está oculto', () => { const xs = pm.response.json(); const id = Number(pm.collectionVariables.get('groupDraft')); pm.expect(xs.some((x) => x.groupId === id)).to.be.false; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "42 Publicar borrador incompleto -> 400",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupDraft}}/publish",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupDraft}}",
+            "publish"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+              "pm.test('Falta nivel esperado y cupo', () => { const b = pm.response.json(); pm.expect(b.message).to.be.a('string').and.not.empty; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "43 Guardar datos del borrador",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupDraft}}/draft",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupDraft}}",
+            "draft"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Borrador completado en US04\",\n  \"expectedLevel\": \"Div3\",\n  \"maxCapacity\": 5,\n  \"sessionSchedule\": \"Lunes 18:00\",\n  \"visibility\": \"PROTEGIDO\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Sigue en BORRADOR y conserva el nombre', () => { const b = pm.response.json(); pm.expect(b.status).to.eql('BORRADOR'); pm.expect(b.name).to.eql('Borrador US04'); pm.expect(b.expectedLevel).to.eql('Div3'); pm.expect(b.maxCapacity).to.eql(5); pm.expect(b.visibility).to.eql('PROTEGIDO'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "44 Publicar borrador -> ACTIVO",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupDraft}}/publish",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupDraft}}",
+            "publish"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('El grupo queda ACTIVO', () => pm.expect(pm.response.json().status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "45 El grupo publicado ya aparece en el listado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('El grupo publicado se lista', () => { const xs = pm.response.json(); const id = Number(pm.collectionVariables.get('groupDraft')); pm.expect(xs.some((x) => x.groupId === id && x.status === 'ACTIVO')).to.be.true; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "46 Login COACH dueño para aclaración",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); pm.collectionVariables.set('token', b.token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "47 Pedir aclaración al postulante (solicitud B)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships/{{membershipB}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships",
+            "{{membershipB}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"SOLICITAR_ACLARACION\",\n  \"message\": \"¿Puedes adjuntar el enlace de tu perfil de Codeforces?\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('La solicitud espera aclaración', () => { const b = pm.response.json(); pm.expect(b.status).to.eql('ACLARACION_SOLICITADA'); pm.expect(b.clarificationRequest).to.eql('¿Puedes adjuntar el enlace de tu perfil de Codeforces?'); pm.expect(b.message).to.eql('Aclaración solicitada al postulante'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "48 La aclaración se lista con su propio estado",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships?status=ACLARACION_SOLICITADA",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Aparece la solicitud con su pregunta', () => { const xs = pm.response.json(); pm.expect(xs).to.have.lengthOf(1); pm.expect(xs[0].status).to.eql('ACLARACION_SOLICITADA'); pm.expect(xs[0].clarification.request).to.eql('¿Puedes adjuntar el enlace de tu perfil de Codeforces?'); pm.expect(xs[0].clarification.response).to.be.null; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "49 El coach no puede decidir sin la respuesta -> 409",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships/{{membershipB}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships",
+            "{{membershipB}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"ACEPTAR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Indica que falta la respuesta', () => { const b = pm.response.json(); pm.expect(b.message).to.be.a('string').and.not.empty; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "50 Login PRACTICANTE A para responder",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{practitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); pm.collectionVariables.set('token', b.token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "51 El postulante ve la pregunta en mis equipos",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/teams/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "me"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('La membresía muestra la aclaración', () => { const mine = pm.response.json(); const of = mine.find((x) => x.groupId === Number(pm.collectionVariables.get('groupB'))); pm.expect(of.membership.status).to.eql('ACLARACION_SOLICITADA'); pm.expect(of.membership.clarification.request).to.eql('¿Puedes adjuntar el enlace de tu perfil de Codeforces?'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "52 Responder aclaración -> PENDIENTE",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships/{{membershipB}}/clarification",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships",
+            "{{membershipB}}",
+            "clarification"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Mi usuario es practicante_a\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Vuelve a PENDIENTE con la respuesta guardada', () => { const b = pm.response.json(); pm.expect(b.status).to.eql('PENDIENTE'); pm.expect(b.clarificationRequest).to.eql('¿Puedes adjuntar el enlace de tu perfil de Codeforces?'); pm.expect(b.clarificationResponse).to.eql('Mi usuario es practicante_a'); pm.expect(b.respondedAt).to.be.a('string'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "53 Login COACH dueño para aceptar",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{coachEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); pm.collectionVariables.set('token', b.token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "54 Aceptar la solicitud después de la respuesta -> ACTIVO",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships/{{membershipB}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships",
+            "{{membershipB}}"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decision\": \"ACEPTAR\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('La solicitud queda ACTIVO', () => pm.expect(pm.response.json().status).to.eql('ACTIVO'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "55 Sin token no se responde una aclaración -> 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/{{groupB}}/memberships/{{membershipB}}/clarification",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "{{groupB}}",
+            "memberships",
+            "{{membershipB}}",
+            "clarification"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"respuesta sin token\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
         }
       },
       "event": [
