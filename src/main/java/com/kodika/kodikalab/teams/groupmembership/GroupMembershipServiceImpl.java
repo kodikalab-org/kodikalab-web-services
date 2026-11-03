@@ -1,4 +1,3 @@
-
 package com.kodika.kodikalab.teams.groupmembership;
 
 import com.kodika.kodikalab.common.exception.BadRequestException;
@@ -60,8 +59,13 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
                         "El grupo solicitado no existe"
                 ));
 
-        if (group.getStatus() != GroupStatus.ACTIVO
-                || group.getVisibility() == GroupVisibility.ARCHIVADO) {
+        if (group.getStatus() == GroupStatus.BORRADOR) {
+            throw new ConflictException(
+                    "El grupo todavía no está publicado"
+            );
+        }
+
+        if (group.getStatus() != GroupStatus.ACTIVO) {
             throw new ConflictException(
                     "No se puede ingresar a un grupo archivado"
             );
@@ -79,7 +83,8 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
             throw new ConflictException("Ya perteneces a este grupo");
         }
 
-        if (membership.getStatus() == MembershipStatus.PENDIENTE) {
+        if (membership.getStatus() == MembershipStatus.PENDIENTE
+                || membership.getStatus() == MembershipStatus.ACLARACION_SOLICITADA) {
             throw new ConflictException(
                     "Ya tienes una solicitud pendiente para este grupo"
             );
@@ -98,6 +103,7 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
         membership.setTeamRole(TeamRole.MIEMBRO);
         membership.setLeftAt(null);
         membership.setJoinedAt(OffsetDateTime.now());
+        clearClarification(membership);
         membership.setStatus(
                 directJoin ? MembershipStatus.ACTIVO : MembershipStatus.PENDIENTE
         );
@@ -107,12 +113,19 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<GroupMembership> getPendingRequests(Integer groupId) {
+    public List<GroupMembership> getRequests(Integer groupId, MembershipStatus status) {
         User user = currentUserResolver.currentUser();
 
         if (user.getRole() != Role.COACH) {
             throw new ForbiddenException(
                     "Solo los coaches pueden consultar solicitudes"
+            );
+        }
+
+        if (status != MembershipStatus.PENDIENTE
+                && status != MembershipStatus.ACLARACION_SOLICITADA) {
+            throw new BadRequestException(
+                    "Solo se permite consultar solicitudes PENDIENTE o ACLARACION_SOLICITADA"
             );
         }
 
@@ -123,9 +136,7 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
 
         ensureResponsibleCoach(group, user);
 
-        return membershipRepository.findByGroupIdAndStatus(
-                groupId, MembershipStatus.PENDIENTE
-        );
+        return membershipRepository.findByGroupIdAndStatus(groupId, status);
     }
 
     @Override
@@ -133,7 +144,8 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
     public GroupMembership reviewRequest(
             Integer groupId,
             Integer membershipId,
-            boolean accept) {
+            MembershipDecision decision,
+            String message) {
 
         User user = currentUserResolver.currentUser();
 
@@ -141,6 +153,10 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
             throw new ForbiddenException(
                     "Solo los coaches pueden revisar solicitudes"
             );
+        }
+
+        if (decision == null) {
+            throw new BadRequestException("La decisión es obligatoria");
         }
 
         StudyGroup group = groupRepository.findById(groupId)
@@ -152,35 +168,73 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
 
         GroupMembership membership = membershipRepository.findById(membershipId)
                 .orElseThrow(() -> new NotFoundException(
-                        "La membresia no existe"
+                        "La membresía no existe"
                 ));
 
         if (!membership.getGroup().getId().equals(groupId)) {
             throw new BadRequestException(
-                    "La membresia no pertenece a este grupo"
+                    "La membresía no pertenece a este grupo"
             );
         }
 
-        if (membership.getStatus() != MembershipStatus.PENDIENTE) {
+        return switch (decision) {
+            case SOLICITAR_ACLARACION -> requestClarification(membership, message);
+            case ACEPTAR -> accept(membership, group);
+            case RECHAZAR -> reject(membership);
+        };
+    }
+
+    @Override
+    @Transactional
+    public GroupMembership respondClarification(
+            Integer groupId,
+            Integer membershipId,
+            String response) {
+
+        User user = currentUserResolver.currentUser();
+
+        if (user.getRole() != Role.PRACTICANTE) {
+            throw new ForbiddenException(
+                    "Solo el postulante puede responder una aclaración"
+            );
+        }
+
+        groupRepository.findById(groupId)
+                .orElseThrow(() -> new NotFoundException("El grupo no existe"));
+
+        GroupMembership membership = membershipRepository.findById(membershipId)
+                .orElseThrow(() -> new NotFoundException(
+                        "La membresía no existe"
+                ));
+
+        if (!membership.getGroup().getId().equals(groupId)) {
+            throw new BadRequestException(
+                    "La membresía no pertenece a este grupo"
+            );
+        }
+
+        if (!membership.getPractitioner().getUserId().equals(user.getId())) {
+            throw new ForbiddenException(
+                    "Solo el postulante puede responder una aclaración"
+            );
+        }
+
+        if (membership.getStatus() != MembershipStatus.ACLARACION_SOLICITADA) {
             throw new ConflictException(
-                    "Esta solicitud ya fue respondida"
+                    "La solicitud no está esperando una aclaración"
             );
         }
 
-        if (accept) {
-            if (group.getStatus() != GroupStatus.ACTIVO) {
-                throw new ConflictException(
-                        "No se pueden aceptar integrantes en un grupo archivado"
-                );
-            }
-
-            ensureCapacity(group);
-            membership.setStatus(MembershipStatus.ACTIVO);
-            membership.setJoinedAt(OffsetDateTime.now());
-            membership.setLeftAt(null);
-        } else {
-            membership.setStatus(MembershipStatus.RECHAZADO);
+        String text = trimToNull(response);
+        if (text == null) {
+            throw new BadRequestException(
+                    "La respuesta a la aclaración es obligatoria"
+            );
         }
+
+        membership.setClarificationResponse(text);
+        membership.setClarificationRespondedAt(OffsetDateTime.now());
+        membership.setStatus(MembershipStatus.PENDIENTE);
 
         return membershipRepository.save(membership);
     }
@@ -195,6 +249,70 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<GroupMembership> findForUpdate(Integer teamId, Integer userId) {
         return membershipRepository.findForUpdate(teamId, userId);
+    }
+
+    private GroupMembership accept(GroupMembership membership, StudyGroup group) {
+        requirePending(membership);
+
+        if (group.getStatus() != GroupStatus.ACTIVO) {
+            throw new ConflictException(
+                    "No se pueden aceptar integrantes en un grupo que no está activo"
+            );
+        }
+
+        ensureCapacity(group);
+        membership.setStatus(MembershipStatus.ACTIVO);
+        membership.setJoinedAt(OffsetDateTime.now());
+        membership.setLeftAt(null);
+
+        return membershipRepository.save(membership);
+    }
+
+    private GroupMembership reject(GroupMembership membership) {
+        requirePending(membership);
+        membership.setStatus(MembershipStatus.RECHAZADO);
+
+        return membershipRepository.save(membership);
+    }
+
+    private GroupMembership requestClarification(GroupMembership membership, String message) {
+        if (membership.getStatus() == MembershipStatus.ACLARACION_SOLICITADA) {
+            throw new ConflictException(
+                    "Ya se solicitó una aclaración a este postulante"
+            );
+        }
+
+        requirePending(membership);
+
+        String text = trimToNull(message);
+        if (text == null) {
+            throw new BadRequestException(
+                    "Debes indicar qué aclaración necesitas del postulante"
+            );
+        }
+
+        membership.setStatus(MembershipStatus.ACLARACION_SOLICITADA);
+        membership.setClarificationRequest(text);
+        membership.setClarificationRequestedAt(OffsetDateTime.now());
+        membership.setClarificationResponse(null);
+        membership.setClarificationRespondedAt(null);
+
+        return membershipRepository.save(membership);
+    }
+
+    /** Aceptar o rechazar exige una solicitud PENDIENTE; una aclaración sin responder no se puede resolver. */
+    private void requirePending(GroupMembership membership) {
+        if (membership.getStatus() == MembershipStatus.ACLARACION_SOLICITADA) {
+            throw new ConflictException(
+                    "El postulante aún no respondió la aclaración solicitada"
+            );
+        }
+
+        if (membership.getStatus() != MembershipStatus.PENDIENTE) {
+            throw new ConflictException(
+                    "Esta solicitud ya fue respondida"
+            );
+        }
     }
 
     private void ensureResponsibleCoach(StudyGroup group, User user) {
@@ -216,5 +334,19 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
             );
         }
     }
-}
 
+    private static void clearClarification(GroupMembership membership) {
+        membership.setClarificationRequest(null);
+        membership.setClarificationRequestedAt(null);
+        membership.setClarificationResponse(null);
+        membership.setClarificationRespondedAt(null);
+    }
+
+    private static String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+}

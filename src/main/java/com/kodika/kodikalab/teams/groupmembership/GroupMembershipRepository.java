@@ -41,14 +41,15 @@ public interface GroupMembershipRepository
     @Query("select m from GroupMembership m join fetch m.group g where m.practitioner.userId = :userId order by g.id")
     List<GroupMembership> findByPractitionerUserIdWithGroup(@Param("userId") Integer userId);
 
-    /** Integrantes activos y solicitudes pendientes de cada grupo, para el resumen del coach. */
+    /** Integrantes activos y solicitudes abiertas (pendientes o con aclaración) de cada grupo, para el coach. */
     @Query("""
             select new com.kodika.kodikalab.teams.groupmembership.dto.MembershipCount(g.id, m.status, count(m))
             from GroupMembership m
             join m.group g
             where g.id in :groupIds
               and m.status in (com.kodika.kodikalab.teams.groupmembership.MembershipStatus.ACTIVO,
-                               com.kodika.kodikalab.teams.groupmembership.MembershipStatus.PENDIENTE)
+                               com.kodika.kodikalab.teams.groupmembership.MembershipStatus.PENDIENTE,
+                               com.kodika.kodikalab.teams.groupmembership.MembershipStatus.ACLARACION_SOLICITADA)
             group by g.id, m.status
             """)
     List<MembershipCount> countActiveAndPendingByGroupIds(@Param("groupIds") Collection<Integer> groupIds);

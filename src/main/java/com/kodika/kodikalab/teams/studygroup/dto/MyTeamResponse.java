@@ -12,7 +12,8 @@ import java.time.OffsetDateTime;
 /**
  * Un equipo del usuario autenticado. Para un coach es un grupo que creó, con su código de invitación y la cantidad de
  * integrantes y de solicitudes pendientes. Para un practicante es un grupo donde tiene o tuvo una membresía, con el
- * estado de esa membresía (así sabe si lo aceptaron). Los campos que no corresponden al rol no se incluyen.
+ * estado de esa membresía (así sabe si lo aceptaron, si le pidieron una aclaración o si lo rechazaron). Los campos
+ * que no corresponden al rol no se incluyen.
  */
 public record MyTeamResponse(
         Integer groupId,
@@ -33,7 +34,17 @@ public record MyTeamResponse(
             MembershipStatus status,
             TeamRole teamRole,
             OffsetDateTime joinedAt,
-            OffsetDateTime leftAt
+            OffsetDateTime leftAt,
+            @JsonInclude(JsonInclude.Include.NON_NULL) Clarification clarification
+    ) {
+    }
+
+    /** Aclaración pedida por el coach y, si ya existe, la respuesta del postulante (US06). */
+    public record Clarification(
+            String request,
+            OffsetDateTime requestedAt,
+            String response,
+            OffsetDateTime respondedAt
     ) {
     }
 
@@ -49,6 +60,18 @@ public record MyTeamResponse(
                 group.getMaxCapacity(), group.getSessionSchedule(), group.getStatus(), group.getVisibility(),
                 null, null, null,
                 new Membership(membership.getId(), membership.getStatus(), membership.getTeamRole(),
-                        membership.getJoinedAt(), membership.getLeftAt()));
+                        membership.getJoinedAt(), membership.getLeftAt(), clarificationOf(membership)));
+    }
+
+    private static Clarification clarificationOf(GroupMembership membership) {
+        if (membership.getClarificationRequest() == null) {
+            return null;
+        }
+        return new Clarification(
+                membership.getClarificationRequest(),
+                membership.getClarificationRequestedAt(),
+                membership.getClarificationResponse(),
+                membership.getClarificationRespondedAt()
+        );
     }
 }

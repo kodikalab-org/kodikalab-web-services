@@ -67,4 +67,21 @@ public class GroupMembership {
 
     @Column(name = "fecha_salida", columnDefinition = "timestamp with time zone")
     private OffsetDateTime leftAt;
+
+    /**
+     * Mensaje con el que el coach pide una aclaración al postulante.
+     * Se conserva aunque el postulante ya haya respondido, para dar contexto al coach.
+     */
+    @Column(name = "aclaracion_solicitada", length = 500)
+    private String clarificationRequest;
+
+    @Column(name = "fecha_aclaracion", columnDefinition = "timestamp with time zone")
+    private OffsetDateTime clarificationRequestedAt;
+
+    /** Respuesta del postulante a la aclaración solicitada. */
+    @Column(name = "aclaracion_respuesta", length = 500)
+    private String clarificationResponse;
+
+    @Column(name = "fecha_respuesta_aclaracion", columnDefinition = "timestamp with time zone")
+    private OffsetDateTime clarificationRespondedAt;
 }
