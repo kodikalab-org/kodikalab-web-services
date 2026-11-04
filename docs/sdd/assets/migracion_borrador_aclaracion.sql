@@ -3,11 +3,14 @@
 -- US06: pedir aclaracion al postulante
 --
 -- Amplia los estados permitidos en grupo_estudio.estado (BORRADOR) y en
--- practicante_grupo.estado (ACLARACION_SOLICITADA), y agrega las columnas
--- donde se guarda la pregunta del coach y la respuesta del postulante.
+-- practicante_grupo.estado (ACLARACION_SOLICITADA), agrega las columnas donde
+-- se guarda la pregunta del coach y la respuesta del postulante, amplia
+-- practicante_grupo.estado a VARCHAR(30) porque ACLARACION_SOLICITADA mide 22,
+-- y permite que nivel_esperado y cupo_maximo queden nulos mientras el grupo es
+-- un borrador.
 --
 -- No crea tablas ni modifica los registros existentes: las columnas nuevas
--- son NULL y los grupos existentes conservan su estado.
+-- son NULL y los grupos existentes conservan su estado y sus valores.
 --
 -- Ejecutar solamente sobre una base de datos existente,
 -- despues de realizar un respaldo.
@@ -28,7 +31,20 @@ ALTER TABLE public.grupo_estudio
                 )
             );
 
+-- US04: un borrador solo exige el nombre; el nivel y el cupo se completan
+-- antes de publicar, por lo que ambos dejan de ser NOT NULL.
+ALTER TABLE public.grupo_estudio
+    ALTER COLUMN nivel_esperado DROP NOT NULL;
+
+ALTER TABLE public.grupo_estudio
+    ALTER COLUMN cupo_maximo DROP NOT NULL;
+
 -- US06: practicante_grupo.estado admite ACLARACION_SOLICITADA.
+-- El ERD original declaraba VARCHAR(20) y ese valor mide 22 caracteres:
+-- se amplia la columna antes de redefinir la restriccion.
+ALTER TABLE public.practicante_grupo
+    ALTER COLUMN estado TYPE VARCHAR(30);
+
 ALTER TABLE public.practicante_grupo
     DROP CONSTRAINT IF EXISTS practicante_grupo_estado_check;
 

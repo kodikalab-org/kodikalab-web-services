@@ -23,7 +23,9 @@ Ambas funcionalidades usan las tablas existentes `grupo_estudio` y `practicante_
 | `ACTIVO` | Grupo publicado |
 | `ARCHIVADO` | Grupo cerrado |
 
-`grupo_estudio.estado` pasa a admitir los tres valores. No se agregan columnas.
+`grupo_estudio.estado` pasa a admitir los tres valores. No se agregan columnas, pero `nivel_esperado` y
+`cupo_maximo` dejan de ser `NOT NULL`: un borrador puede guardarse solo con el nombre y publicarse después. La
+validación de completitud se hace al publicar.
 
 ### Endpoints
 
@@ -59,6 +61,9 @@ POST /teams/{id}/publish
 ### Modelo
 
 `MembershipStatus` agrega `ACLARACION_SOLICITADA`. `MembershipDecision` agrega `SOLICITAR_ACLARACION`.
+
+`practicante_grupo.estado` se amplía a `VARCHAR(30)`: el ERD original declaraba `VARCHAR(20)` y
+`ACLARACION_SOLICITADA` mide 22 caracteres, por lo que sin la ampliación PostgreSQL rechaza el cambio de estado.
 
 La aclaración se guarda en la misma fila de `practicante_grupo`, en cuatro columnas opcionales:
 
@@ -112,11 +117,13 @@ Coach:      PATCH .../memberships/{mid} {"decision":"ACEPTAR"}
 `assets/migracion_borrador_aclaracion.sql`:
 
 1. recrea `grupo_estudio_estado_check` con `BORRADOR`, `ACTIVO`, `ARCHIVADO`;
-2. recrea `practicante_grupo_estado_check` con `ACLARACION_SOLICITADA`;
-3. agrega las cuatro columnas de aclaración con `ADD COLUMN IF NOT EXISTS`.
+2. quita `NOT NULL` a `grupo_estudio.nivel_esperado` y `grupo_estudio.cupo_maximo` (borradores incompletos);
+3. amplía `practicante_grupo.estado` a `VARCHAR(30)`;
+4. recrea `practicante_grupo_estado_check` con `ACLARACION_SOLICITADA`;
+5. agrega las cuatro columnas de aclaración con `ADD COLUMN IF NOT EXISTS`.
 
-`assets/migracion_estados_membresia.sql` se mantiene como migración de estados y ahora también incluye
-`ACLARACION_SOLICITADA`, para que ejecutarla después no quite el valor.
+`assets/migracion_estados_membresia.sql` se mantiene como migración de estados y ahora también amplía la
+columna a `VARCHAR(30)` e incluye `ACLARACION_SOLICITADA`, para que ejecutarla después no quite el valor.
 
 `ddl-auto: update` no modifica restricciones CHECK existentes; la migración es obligatoria en bases ya creadas.
 

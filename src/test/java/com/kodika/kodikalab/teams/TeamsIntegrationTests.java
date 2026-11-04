@@ -916,7 +916,7 @@ class TeamsIntegrationTests {
                         .containsEntry("status", "BORRADOR"));
 
         // Un borrador no aparece en el listado público ni admite solicitudes de ingreso.
-        assertThat(availableGroups()).noneSatisfy(group -> assertThat(group).containsEntry("groupId", groupId));
+        assertThat(availableGroups(coachSession)).noneSatisfy(group -> assertThat(group).containsEntry("groupId", groupId));
 
         String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
         var joinDraft = http.exchange("/teams/" + groupId + "/join", HttpMethod.POST,
@@ -942,7 +942,7 @@ class TeamsIntegrationTests {
         assertThat(published.getStatusCode().value()).isEqualTo(200);
         assertThat(published.getBody()).containsEntry("status", "ACTIVO");
 
-        assertThat(availableGroups()).anySatisfy(group -> assertThat(group).containsEntry("groupId", groupId));
+        assertThat(availableGroups(coachSession)).anySatisfy(group -> assertThat(group).containsEntry("groupId", groupId));
     }
 
     @Test
@@ -1022,8 +1022,8 @@ class TeamsIntegrationTests {
         assertThat(denied.getStatusCode().value()).isEqualTo(403);
     }
 
-    private List<Map<String, Object>> availableGroups() {
-        var response = http.exchange("/teams", HttpMethod.GET, new HttpEntity<>(headers(null)),
+    private List<Map<String, Object>> availableGroups(String session) {
+        var response = http.exchange("/teams", HttpMethod.GET, new HttpEntity<>(headers(session)),
                 new ParameterizedTypeReference<List<Map<String, Object>>>() {});
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         return response.getBody();

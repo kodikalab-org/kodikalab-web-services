@@ -51,9 +51,13 @@ public class GroupMembership {
     @JoinColumn(name = "practicante_id", nullable = false)
     private PractitionerProfile practitioner;
 
+    /**
+     * 30 caracteres: el valor mas largo es {@code ACLARACION_SOLICITADA} (22);
+     * el ERD original declaraba 20, insuficiente para ese estado.
+     */
     @Enumerated(EnumType.STRING)
     @ColumnDefault("'ACTIVO'")
-    @Column(name = "estado", nullable = false, length = 20)
+    @Column(name = "estado", nullable = false, length = 30)
     private MembershipStatus status;
 
     @Enumerated(EnumType.STRING)

@@ -11,6 +11,7 @@ import com.kodika.kodikalab.teams.groupmembership.dto.ReviewMembershipRequest;
 import com.kodika.kodikalab.teams.groupmembership.dto.ReviewMembershipResponse;
 import com.kodika.kodikalab.teams.studygroup.CreateStudyGroupRequest;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
+import com.kodika.kodikalab.teams.studygroup.UpdateStudyGroupDraftRequest;
 import com.kodika.kodikalab.teams.studygroup.dto.CreateStudyGroupResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
 import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupDetailResponse;
@@ -78,7 +79,7 @@ public class StudyGroupController {
     @PatchMapping("/{id}/draft")
     public ResponseEntity<StudyGroupDetailResponse> updateDraft(
             @PathVariable("id") Integer groupId,
-            @Valid @RequestBody CreateStudyGroupRequest request) {
+            @Valid @RequestBody UpdateStudyGroupDraftRequest request) {
 
         return ResponseEntity.ok(
                 StudyGroupDetailResponse.from(

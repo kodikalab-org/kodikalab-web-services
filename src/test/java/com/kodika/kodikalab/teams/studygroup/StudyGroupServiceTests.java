@@ -216,8 +216,8 @@ class StudyGroupServiceTests {
         when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
         when(groups.findById(5)).thenReturn(Optional.of(published));
 
-        assertThatThrownBy(() -> service.updateDraft(5, new CreateStudyGroupRequest(
-                "Nuevo nombre", null, null, null, null, null, null)))
+        assertThatThrownBy(() -> service.updateDraft(5, new UpdateStudyGroupDraftRequest(
+                "Nuevo nombre", null, null, null, null, null)))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("borrador");
 

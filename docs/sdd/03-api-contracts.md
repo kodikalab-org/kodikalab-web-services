@@ -783,7 +783,8 @@ La implementación no requiere la entidad ni la tabla adicional `solicitud_grupo
 
 Las instalaciones existentes de PostgreSQL deben admitir los nuevos valores en las restricciones CHECK y las columnas de
 aclaración. El ajuste se aplica con `assets/migracion_borrador_aclaracion.sql`, que amplía `grupo_estudio.estado` con
-`BORRADOR`, amplía `practicante_grupo.estado` con `ACLARACION_SOLICITADA` y agrega las cuatro columnas indicadas.
+`BORRADOR`, amplía `practicante_grupo.estado` a `VARCHAR(30)` y con `ACLARACION_SOLICITADA`, permite `NULL` en
+`nivel_esperado` y `cupo_maximo` mientras el grupo es borrador, y agrega las cuatro columnas indicadas.
 
 Las pruebas de integración verifican creación de grupos (publicados y borradores), publicación, ocultamiento del borrador,
 solicitudes pendientes, aclaración y respuesta del postulante, aceptación, rechazo, autorización del coach, duplicados y

@@ -15,6 +15,9 @@
 BEGIN;
 
 ALTER TABLE public.practicante_grupo
+    ALTER COLUMN estado TYPE VARCHAR(30);
+
+ALTER TABLE public.practicante_grupo
 DROP CONSTRAINT IF EXISTS practicante_grupo_estado_check;
 
 ALTER TABLE public.practicante_grupo

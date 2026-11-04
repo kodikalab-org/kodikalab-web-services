@@ -161,6 +161,8 @@ Campos principales:
 
 Un grupo nuevo se publica con estado `ACTIVO`, o se guarda con estado `BORRADOR` si la petición envía `"draft": true`. El borrador solo exige nombre y se completa con `PATCH /api/teams/{id}/draft`; al publicarlo con `POST /api/teams/{id}/publish` pasa a `ACTIVO`. No se permite crear ni guardar un borrador con visibilidad `ARCHIVADO`.
 
+Mientras el grupo es un borrador, `nivel_esperado` y `cupo_maximo` pueden quedar en `NULL`; al publicar se exigen ambos (cupo entre 1 y 1000). Por eso esas dos columnas dejan de ser `NOT NULL` en el ERD.
+
 Mientras está en `BORRADOR`, el grupo no aparece en `GET /api/teams` y `POST /api/teams/{id}/join` responde `409`.
 
 ### Solicitudes y membresías — `practicante_grupo`
@@ -241,7 +243,10 @@ El ERD oficial documentaba originalmente los estados `ACTIVO`, `RETIRADO` y `EXP
 Para implementar US04, US05 y US06 sin incorporar otra tabla, el enum Java `GroupStatus` agrega `BORRADOR` y
 `MembershipStatus` agrega `PENDIENTE`, `ACLARACION_SOLICITADA` y `RECHAZADO`.
 
-Esto requiere ampliar las restricciones CHECK en bases PostgreSQL existentes y agregar las cuatro columnas de aclaración.
+Esto requiere ampliar las restricciones CHECK en bases PostgreSQL existentes, ampliar `practicante_grupo.estado` a
+`VARCHAR(30)` (el ERD original declaraba 20 y `ACLARACION_SOLICITADA` mide 22), quitar `NOT NULL` a
+`grupo_estudio.nivel_esperado` y `grupo_estudio.cupo_maximo` para admitir borradores incompletos, y agregar las cuatro
+columnas de aclaración.
 
 La ampliación de valores y columnas se aplica con `assets/migracion_borrador_aclaracion.sql`. `oficial.erd` ya muestra los
 nuevos estados y columnas.

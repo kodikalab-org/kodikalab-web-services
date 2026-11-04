@@ -89,7 +89,7 @@ public class StudyGroupServiceImpl implements StudyGroupService {
 
     @Override
     @Transactional
-    public StudyGroup updateDraft(Integer groupId, CreateStudyGroupRequest request) {
+    public StudyGroup updateDraft(Integer groupId, UpdateStudyGroupDraftRequest request) {
 
         StudyGroup group = requireOwnedGroup(groupId);
 
@@ -179,6 +179,28 @@ public class StudyGroupServiceImpl implements StudyGroupService {
     @Transactional(readOnly = true)
     public Optional<StudyGroupSummary> findSummaryById(Integer teamId) {
         return studyGroupRepository.findSummaryById(teamId);
+    }
+
+    /** Copia al grupo únicamente los campos enviados; {@code null} significa "no modificar". */
+    private void applyFields(StudyGroup group, UpdateStudyGroupDraftRequest request) {
+        if (request.name() != null) {
+            group.setName(trimToNull(request.name()));
+        }
+        if (request.description() != null) {
+            group.setDescription(trimToNull(request.description()));
+        }
+        if (request.expectedLevel() != null) {
+            group.setExpectedLevel(trimToNull(request.expectedLevel()));
+        }
+        if (request.maxCapacity() != null) {
+            group.setMaxCapacity(request.maxCapacity());
+        }
+        if (request.sessionSchedule() != null) {
+            group.setSessionSchedule(trimToNull(request.sessionSchedule()));
+        }
+        if (request.visibility() != null) {
+            group.setVisibility(request.visibility());
+        }
     }
 
     /** Copia al grupo únicamente los campos enviados; {@code null} significa "no modificar". */
