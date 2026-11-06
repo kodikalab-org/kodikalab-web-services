@@ -697,6 +697,35 @@ Reglas:
 - Mientras la aclaración siga sin respuesta, `ACEPTAR` y `RECHAZAR` responden `409 Conflict`.
 - Se conserva una única fila de `practicante_grupo`: no se crea una solicitud nueva.
 
+### US06 — Expulsar a un integrante
+
+`PATCH /api/teams/{id}/memberships/{memberId}` con `decision: "EXPULSAR"`.
+
+Rol requerido: `COACH` responsable del grupo.
+
+```json
+{
+  "decision": "EXPULSAR"
+}
+```
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Solicitud revisada correctamente",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "EXPULSADO"
+}
+```
+
+Reglas:
+- Solo se puede expulsar a una membresía `ACTIVO`; en cualquier otro estado responde `409 Conflict`.
+- La membresía pasa a `EXPULSADO` y se registra la fecha de salida, por lo que libera cupo.
+- Una persona `EXPULSADO` no puede volver a solicitar ingreso al grupo.
+- No se elimina la fila de `practicante_grupo`: se conserva el historial.
+
 ### US06 — El postulante responde la aclaración
 
 `POST /api/teams/{id}/memberships/{memberId}/clarification`

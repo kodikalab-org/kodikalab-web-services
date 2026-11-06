@@ -865,6 +865,49 @@ class TeamsIntegrationTests {
     }
 
     @Test
+    void coachExpelsAnActiveMemberAndThatMemberCannotRejoin() {
+        String coachSession = coachSession(account(Role.COACH));
+        var group = createGroup(coachSession, "Expulsion US06", "PUBLICO", 5);
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+        join(practitionerSession, (Integer) group.get("groupId"));
+
+        var active = requests(coachSession, (Integer) group.get("groupId"), "ACTIVO");
+        Object membershipId = active.get(0).get("membershipId");
+
+        var expelled = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "EXPULSAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(expelled.getStatusCode().value()).isEqualTo(200);
+        assertThat(expelled.getBody()).containsEntry("status", "EXPULSADO");
+        assertThat(requests(coachSession, (Integer) group.get("groupId"), "ACTIVO")).isEmpty();
+
+        // El cupo vuelve a estar libre.
+        var mine = myTeams(coachSession);
+        assertThat(mine.get(0)).containsEntry("activeMembers", 0);
+
+        // Quien fue expulsado no puede volver a postular.
+        var rejoin = http.exchange(
+                "/teams/" + group.get("groupId") + "/join",
+                HttpMethod.POST,
+                new HttpEntity<>(headers(practitionerSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(rejoin.getStatusCode().value()).isEqualTo(403);
+
+        // No se puede expulsar dos veces.
+        var again = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "EXPULSAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(again.getStatusCode().value()).isEqualTo(409);
+    }
+
+    @Test
     void practitionerSeesTheStatusOfEachOfTheirRequestsAndNeverTheCoachFields() {
         String coachSession = coachSession(account(Role.COACH));
         var open = createGroup(coachSession, "Practicante publico", "PUBLICO", 5);
