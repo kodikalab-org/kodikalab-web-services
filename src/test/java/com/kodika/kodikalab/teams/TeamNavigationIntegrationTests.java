@@ -3,6 +3,7 @@ package com.kodika.kodikalab.teams;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.UUID;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.support.Bearer;
@@ -21,7 +22,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import static org.assertj.core.api.Assertions.assertThat;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -111,29 +112,11 @@ class TeamNavigationIntegrationTests {
     }
 
     @Test
-    void listsOnlyAuthorizedCompetitionsAndDistinctAssignmentsOfTheSameProblem() throws Exception {
-        String member = login(practitioner);
-        mvc.perform(get(competitionPath(alpha)).contextPath("/api").with(Bearer.of(member)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].competitionId").value(alphaCompetition))
-                .andExpect(jsonPath("$[0].teamId").value(alpha))
-                .andExpect(jsonPath("$[0].accessKey").doesNotExist());
-        var alphaResult = mvc.perform(get(competitionPath(alpha) + "/problems").contextPath("/api").with(Bearer.of(member)))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].problemId").value(problem))
-                .andExpect(jsonPath("$[0].competitionId").value(alphaCompetition))
-                .andExpect(jsonPath("$[0].title").value("Problema compartido")).andReturn();
-        var betaResult = mvc.perform(get(competitionPath(beta) + "/problems").contextPath("/api").with(Bearer.of(login(outsider))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].problemId").value(problem)).andReturn();
-        assertThat(mapper.readTree(alphaResult.getResponse().getContentAsString()).get(0).get("competitionProblemId"))
-                .isNotEqualTo(mapper.readTree(betaResult.getResponse().getContentAsString()).get(0).get("competitionProblemId"));
-    }
-
-    @Test
     void unrelatedCoachAndPractitionerCannotQueryAnotherTeam() throws Exception {
         for (Account account : new Account[]{coach, practitioner}) {
-            for (String path : new String[]{competitionPath(beta), competitionPath(beta) + "/problems"}) {
-                mvc.perform(get(path).contextPath("/api").with(Bearer.of(login(account))))
-                        .andExpect(status().isForbidden());
+            String session = login(account);
+            for (MockHttpServletRequestBuilder request : teamQueries(beta)) {
+                mvc.perform(request.contextPath("/api").with(Bearer.of(session))).andExpect(status().isForbidden());
             }
         }
     }
@@ -145,32 +128,16 @@ class TeamNavigationIntegrationTests {
         mvc.perform(get("/api/teams/me").contextPath("/api").with(Bearer.of(session)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].membership.status").value("RETIRADO"));
-        mvc.perform(get(competitionPath(alpha)).contextPath("/api").with(Bearer.of(session)))
-                .andExpect(status().isForbidden());
-        mvc.perform(get(competitionPath(alpha) + "/problems").contextPath("/api").with(Bearer.of(session)))
-                .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void emptyListsAndMissingOrMalformedTeamsRemainDistinct() throws Exception {
-        int empty = team(coach.id());
-        String session = login(coach);
-        for (String suffix : new String[]{"", "/problems"}) {
-            mvc.perform(get(competitionPath(empty) + suffix).contextPath("/api").with(Bearer.of(session)))
-                    .andExpect(status().isOk()).andExpect(content().json("[]"));
-            mvc.perform(get(competitionPath(2147483647) + suffix).contextPath("/api").with(Bearer.of(session)))
-                    .andExpect(status().isNotFound());
-            mvc.perform(get(competitionPath(0) + suffix).contextPath("/api").with(Bearer.of(session)))
-                    .andExpect(status().isBadRequest());
-            mvc.perform(get("/api/competitions/teams/text" + suffix).contextPath("/api").with(Bearer.of(session)))
-                    .andExpect(status().isBadRequest());
+        for (MockHttpServletRequestBuilder request : teamQueries(alpha)) {
+            mvc.perform(request.contextPath("/api").with(Bearer.of(session))).andExpect(status().isForbidden());
         }
     }
 
     @Test
     void anonymousRequestsNeverReadTeamData() throws Exception {
-        for (String path : new String[]{"/api/teams/me", competitionPath(alpha), competitionPath(alpha) + "/problems"}) {
-            mvc.perform(get(path).contextPath("/api")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/teams/me").contextPath("/api")).andExpect(status().isUnauthorized());
+        for (MockHttpServletRequestBuilder request : teamQueries(alpha)) {
+            mvc.perform(request.contextPath("/api")).andExpect(status().isUnauthorized());
         }
     }
 
@@ -208,8 +175,10 @@ class TeamNavigationIntegrationTests {
         return Bearer.tokenFrom(result.getResponse().getContentAsString());
     }
 
-    private String competitionPath(int team) {
-        return "/api/competitions/teams/" + team;
+    /** Las consultas por equipo que usa la navegación: competencias y problemas asignados. */
+    private List<MockHttpServletRequestBuilder> teamQueries(int team) {
+        return List.of(get("/api/competitions").param("teamId", String.valueOf(team)),
+                get("/api/problems/assigned").param("teamId", String.valueOf(team)));
     }
 
     private record Account(int id, String email) {

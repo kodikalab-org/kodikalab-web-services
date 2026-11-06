@@ -30,6 +30,4 @@ public interface CompetitionRepository extends JpaRepository<Competition, Intege
             order by c.startsAt desc, c.id desc
             """)
     List<CompetitionListItem> findListItemsByTeamId(@Param("teamId") Integer teamId);
-
-    List<Competition> findByGroupIdOrderByStartsAtDescIdDesc(Integer teamId);
 }

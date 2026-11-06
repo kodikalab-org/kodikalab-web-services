@@ -1343,13 +1343,6 @@ La respuesta no usa wrapper:
 - Configuración conservada: `CODEFORCES_API_BASE_URL` (default `https://codeforces.com/api`),
   `CODEFORCES_API_TIMEOUT_MS` (default 3000 por petición). API pública sin credenciales Codeforces.
 
-## Consultas de navegación por equipo (US-11 a US-14)
+## Navegación por equipo (US-11 a US-14)
 
-Además de `GET /api/teams/me` (ver arriba), están implementadas, con sesión y autorización por equipo (coach responsable o integrante `ACTIVO`):
-
-```txt
-GET /api/competitions/teams/{teamId}
-GET /api/competitions/teams/{teamId}/problems
-```
-
-Contratos de respuesta, roles, ordenamiento, listas vacías y pruebas: [Navegación de equipos](17-navegacion-equipos.md).
+El cliente elige el contexto sin escribir IDs con endpoints ya documentados arriba: `GET /api/teams/me` (equipos del usuario), `GET /api/competitions?teamId=` (competencias del equipo) y `GET /api/problems/assigned?teamId=` (problemas asignados). No hay endpoints de navegación adicionales. Ver [Navegación de equipos](17-navegacion-equipos.md).

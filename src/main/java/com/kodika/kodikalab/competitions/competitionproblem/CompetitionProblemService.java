@@ -1,6 +1,5 @@
 package com.kodika.kodikalab.competitions.competitionproblem;
 
-import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignedProblemResponse;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignmentData;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignmentView;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.NewAssignment;
@@ -9,9 +8,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CompetitionProblemService {
-    /** Asignaciones del equipo para su coach o un integrante ACTIVO, una fila por asignación. */
-    List<AssignedProblemResponse> listByTeamId(Integer teamId);
-
     List<TeamAssignedProblem> findAssignedProblemsByTeamId(Integer teamId);
 
     /** Problemas ya asignados a la competencia, ordenados por letra. */
