@@ -555,6 +555,8 @@ Reglas:
 
 `GET /api/teams/{id}/memberships?status=ACLARACION_SOLICITADA`
 
+`GET /api/teams/{id}/memberships?status=ACTIVO` (integrantes del grupo)
+
 Rol requerido: `COACH` responsable del grupo.
 
 Respuesta exitosa: `200 OK`.
@@ -590,7 +592,8 @@ Respuesta exitosa: `200 OK`.
 
 Reglas:
 - Solamente el coach responsable puede consultar las solicitudes.
-- El parámetro `status` solo admite `PENDIENTE` o `ACLARACION_SOLICITADA`; cualquier otro valor responde `400 Bad Request`.
+- El parámetro `status` solo admite `ACTIVO`, `PENDIENTE` o `ACLARACION_SOLICITADA`; cualquier otro valor responde `400 Bad Request`.
+- Con `status=ACTIVO` se devuelven los integrantes vigentes del grupo, con `requestedAt` como fecha de ingreso y sin `clarification`.
 - Si no existen solicitudes en ese estado, se devuelve una lista vacía.
 - `membershipId` identifica un registro real de `practicante_grupo`.
 - `clarification` solo se incluye cuando el coach pidió una aclaración; muestra la pregunta y, si ya existe, la respuesta del postulante.

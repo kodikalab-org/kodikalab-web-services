@@ -831,6 +831,40 @@ class TeamsIntegrationTests {
     }
 
     @Test
+    void coachListsTheActiveMembersOfTheirGroup() {
+        String coachSession = coachSession(account(Role.COACH));
+        var group = createGroup(coachSession, "Integrantes visibles", "PUBLICO", 5);
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+        join(practitionerSession, (Integer) group.get("groupId"));
+
+        var active = requests(coachSession, (Integer) group.get("groupId"), "ACTIVO");
+
+        assertThat(active).hasSize(1);
+        assertThat(active.get(0))
+                .containsEntry("status", "ACTIVO")
+                .containsEntry("groupId", group.get("groupId"));
+        assertThat(active.get(0).get("practitioner")).isNotNull();
+
+        // Un estado no admitido sigue respondiendo 400.
+        var invalid = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships?status=RETIRADO",
+                HttpMethod.GET,
+                new HttpEntity<>(headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(invalid.getStatusCode().value()).isEqualTo(400);
+
+        // Un practicante no puede consultar la lista de integrantes.
+        var forbidden = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships?status=ACTIVO",
+                HttpMethod.GET,
+                new HttpEntity<>(headers(practitionerSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(forbidden.getStatusCode().value()).isEqualTo(403);
+    }
+
+    @Test
     void practitionerSeesTheStatusOfEachOfTheirRequestsAndNeverTheCoachFields() {
         String coachSession = coachSession(account(Role.COACH));
         var open = createGroup(coachSession, "Practicante publico", "PUBLICO", 5);

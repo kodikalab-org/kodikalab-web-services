@@ -114,16 +114,17 @@ public class StudyGroupController {
                 .body(JoinGroupResponse.from(membership));
     }
 
-    // US06 - Consultar solicitudes pendientes o con aclaración solicitada
+    // US06 - Consultar solicitudes o integrantes activos del grupo
     @GetMapping("/{id}/memberships")
     public ResponseEntity<List<PendingMembershipResponse>> getMemberships(
             @PathVariable("id") Integer groupId,
             @RequestParam MembershipStatus status) {
 
         if (status != MembershipStatus.PENDIENTE
-                && status != MembershipStatus.ACLARACION_SOLICITADA) {
+                && status != MembershipStatus.ACLARACION_SOLICITADA
+                && status != MembershipStatus.ACTIVO) {
             throw new BadRequestException(
-                    "Solo se permite consultar solicitudes PENDIENTE o ACLARACION_SOLICITADA"
+                    "Solo se permite consultar miembros ACTIVO, solicitudes PENDIENTE o ACLARACION_SOLICITADA"
             );
         }
 

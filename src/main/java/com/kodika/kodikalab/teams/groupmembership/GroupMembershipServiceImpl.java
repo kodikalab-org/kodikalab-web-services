@@ -123,9 +123,10 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
         }
 
         if (status != MembershipStatus.PENDIENTE
-                && status != MembershipStatus.ACLARACION_SOLICITADA) {
+                && status != MembershipStatus.ACLARACION_SOLICITADA
+                && status != MembershipStatus.ACTIVO) {
             throw new BadRequestException(
-                    "Solo se permite consultar solicitudes PENDIENTE o ACLARACION_SOLICITADA"
+                    "Solo se permite consultar miembros ACTIVO, solicitudes PENDIENTE o ACLARACION_SOLICITADA"
             );
         }
 
