@@ -77,6 +77,12 @@ public class PractitionerProfileServiceImpl implements PractitionerProfileServic
             applyCodeforces(profile, codeforcesHandle, codeforcesUser);
             profile.setAtcoderHandle(trimOptional(request.atcoderHandle()));
             profile.setVjudgeHandle(trimOptional(request.vjudgeHandle()));
+            profile.setDistrict(request.district());
+            profile.setExperienceMonths(request.experienceMonths());
+            profile.setPreferredTime(request.preferredTime());
+            profile.setAvailableDays(request.availableDays() == null ? null
+                    : request.availableDays().stream().sorted().toArray(String[]::new));
+            profile.setGoal(request.goal());
             PractitionerProfile saved = profileRepository.saveAndFlush(profile);
             return PractitionerProfileResponse.of(
                     codeforcesNotConfirmed ? CODEFORCES_NOT_CONFIRMED : PROFILE_UPDATED, saved);

@@ -57,7 +57,10 @@ class ErdSchemaIntegrationTests {
                 col("carrera", VARCHAR, 100, NOT_NULL), col("ciclo_academico", INT, null, NOT_NULL, "1"),
                 col("nivel_competitivo", VARCHAR, 30, NOT_NULL, "PRINCIPIANTE"),
                 col("codeforces_handle", VARCHAR, 50, NULL), col("codeforces_rating", INT, null, NULL, "0"),
-                col("atcoder_handle", VARCHAR, 50, NULL), col("vjudge_handle", VARCHAR, 50, NULL)));
+                col("atcoder_handle", VARCHAR, 50, NULL), col("vjudge_handle", VARCHAR, 50, NULL),
+                col("distrito", VARCHAR, 60, NULL), col("experiencia_meses", INT, null, NULL),
+                col("franja_horaria", VARCHAR, 10, NULL), col("dias_disponibles", "ARRAY", null, NULL),
+                col("objetivo", VARCHAR, 60, NULL)));
         ERD.put("grupo_estudio", List.of(
                 col("id", INT, null, NOT_NULL), col("coach_id", INT, null, NOT_NULL),
                 col("nombre", VARCHAR, 120, NOT_NULL), col("descripcion", VARCHAR, 500, NULL),

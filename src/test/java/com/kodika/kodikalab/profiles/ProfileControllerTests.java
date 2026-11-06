@@ -71,7 +71,7 @@ class ProfileControllerTests {
                 "Perfil actualizado correctamente",
                 new PractitionerProfileResponse.ProfileData("test@gmail.com", Role.PRACTICANTE, "20240001",
                         "Ingeniería de Software", 5, PractitionerLevel.INTERMEDIO, "tourist", 0,
-                        "tourist_atcoder", "usuario_vjudge")));
+                        "tourist_atcoder", "usuario_vjudge", null, null, null, null, null)));
         mvc.perform(put("/users/me").contentType(MediaType.APPLICATION_JSON).content(VALID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Perfil actualizado correctamente"))
@@ -199,6 +199,19 @@ class ProfileControllerTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.codigoEstudiante").value("El código de estudiante es obligatorio"));
         verifyNoInteractions(service, coachService);
+    }
+
+    @Test
+    void optionalPreferencesAreValidatedBeforeService() throws Exception {
+        for (String invalid : new String[]{"\"district\":\"" + "x".repeat(61) + "\"",
+                "\"experienceMonths\":-1", "\"experienceMonths\":601", "\"preferredTime\":\"Morning\"",
+                "\"availableDays\":[\"MON\"]", "\"availableDays\":[null]", "\"goal\":\"Other\""}) {
+            ObjectNode request = (ObjectNode) mapper.readTree(VALID);
+            request.setAll((ObjectNode) mapper.readTree("{" + invalid + "}"));
+            mvc.perform(put("/users/me").contentType(MediaType.APPLICATION_JSON).content(request.toString()))
+                    .andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(service);
     }
 
     private static User user(int id, Role role) {

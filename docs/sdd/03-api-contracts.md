@@ -1031,3 +1031,15 @@ Usar Swagger UI para revisar y probar endpoints:
 ```txt
 http://localhost:8080/api/swagger-ui.html
 ```
+## Preferencias opcionales del practicante
+
+`PUT /api/users/me` y `GET /api/users/me` agregan a `profile` las claves opcionales
+`district` (hasta 60 caracteres), `experienceMonths` (entero 0..600),
+`preferredTime` (`MANANA`, `TARDE`, `NOCHE`), `availableDays` (array sin duplicados,
+subconjunto de `LUN`, `MAR`, `MIE`, `JUE`, `VIE`, `SAB`, `DOM`) y `goal`.
+Los cuatro objetivos permitidos son `Clasificar a competencias`, `Mejorar mi nivel`,
+`Prepararme para entrevistas`, `Aprender por diversión`.
+Son opcionales y aceptan null. Como el endpoint es PUT, omitirlos o enviar null
+borra el valor anterior; `availableDays: []` conserva una selección vacía.
+Un distrito vacío se normaliza a null; valores inválidos devuelven 400 antes de persistir.
+No cambian los campos obligatorios ni el comportamiento de verificación de handles.

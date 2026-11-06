@@ -357,13 +357,18 @@ class ProfileIntegrationTests {
         assertColumn("practicante", "codeforces_rating", "integer", null, "YES");
         assertColumn("practicante", "atcoder_handle", "character varying", 50, "YES");
         assertColumn("practicante", "vjudge_handle", "character varying", 50, "YES");
+        assertColumn("practicante", "distrito", "character varying", 60, "YES");
+        assertColumn("practicante", "experiencia_meses", "integer", null, "YES");
+        assertColumn("practicante", "franja_horaria", "character varying", 10, "YES");
+        assertColumn("practicante", "dias_disponibles", "ARRAY", null, "YES");
+        assertColumn("practicante", "objetivo", "character varying", 60, "YES");
         assertColumn("coach", "usuario_id", "integer", null, "NO");
         assertColumn("coach", "especialidad_principal", "character varying", 120, "NO");
         assertColumn("coach", "organizacion_club", "character varying", 150, "YES");
         assertColumn("coach", "anios_experiencia", "integer", null, "NO");
         assertColumn("coach", "presentacion", "character varying", 500, "YES");
         assertThat(scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? "
-                + "AND table_name = 'practicante'", SCHEMA)).isEqualTo(9L);
+                + "AND table_name = 'practicante'", SCHEMA)).isEqualTo(14L);
         assertThat(scalar("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = ? "
                 + "AND table_name = 'coach'", SCHEMA)).isEqualTo(5L);
         for (String table : List.of("practicante", "coach")) {
@@ -378,6 +383,34 @@ class ProfileIntegrationTests {
     }
 
     // ---------- Utilidades ----------
+
+    @Test
+    void optionalPreferencesPersistAndClearThroughHttp() {
+        User user = account(Role.PRACTICANTE);
+        String token = login(user);
+        var body = practitionerBody(code(), null);
+        body.put("district", " Lima ");
+        body.put("experienceMonths", 24);
+        body.put("preferredTime", "MANANA");
+        body.put("availableDays", List.of("LUN", "SAB"));
+        body.put("goal", "Aprender por diversión");
+        assertThat(put(token, body).getStatusCode().value()).isEqualTo(200);
+        assertThat(profile(get(token))).containsEntry("district", "Lima")
+                .containsEntry("experienceMonths", 24).containsEntry("preferredTime", "MANANA")
+                .containsEntry("availableDays", List.of("LUN", "SAB"))
+                .containsEntry("goal", "Aprender por diversión");
+        assertThat(practitionerRow(user.getId()).orElseThrow()).containsEntry("distrito", "Lima")
+                .containsEntry("experiencia_meses", 24).containsEntry("franja_horaria", "MANANA")
+                .containsEntry("objetivo", "Aprender por diversión");
+        body.put("district", null);
+        body.put("experienceMonths", null);
+        body.put("preferredTime", null);
+        body.put("availableDays", List.of());
+        body.put("goal", null);
+        assertThat(put(token, body).getStatusCode().value()).isEqualTo(200);
+        assertThat(profile(get(token))).containsEntry("district", null).containsEntry("experienceMonths", null)
+                .containsEntry("preferredTime", null).containsEntry("availableDays", List.of()).containsEntry("goal", null);
+    }
 
     private User account(Role role) {
         User user = new User();
