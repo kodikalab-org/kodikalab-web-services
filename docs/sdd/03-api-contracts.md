@@ -557,6 +557,8 @@ Reglas:
 
 `GET /api/teams/{id}/memberships?status=ACTIVO` (integrantes del grupo)
 
+`GET /api/teams/{id}/memberships?status=EXPULSADO` (integrantes expulsados, para readmitir)
+
 Rol requerido: `COACH` responsable del grupo.
 
 Respuesta exitosa: `200 OK`.
@@ -592,8 +594,9 @@ Respuesta exitosa: `200 OK`.
 
 Reglas:
 - Solamente el coach responsable puede consultar las solicitudes.
-- El parámetro `status` solo admite `ACTIVO`, `PENDIENTE` o `ACLARACION_SOLICITADA`; cualquier otro valor responde `400 Bad Request`.
+- El parámetro `status` solo admite `ACTIVO`, `EXPULSADO`, `PENDIENTE` o `ACLARACION_SOLICITADA`; cualquier otro valor responde `400 Bad Request`.
 - Con `status=ACTIVO` se devuelven los integrantes vigentes del grupo, con `requestedAt` como fecha de ingreso y sin `clarification`.
+- Con `status=EXPULSADO` se devuelven los integrantes expulsados, con su fecha de salida en `requestedAt`.
 - Si no existen solicitudes en ese estado, se devuelve una lista vacía.
 - `membershipId` identifica un registro real de `practicante_grupo`.
 - `clarification` solo se incluye cuando el coach pidió una aclaración; muestra la pregunta y, si ya existe, la respuesta del postulante.
@@ -725,6 +728,26 @@ Reglas:
 - La membresía pasa a `EXPULSADO` y se registra la fecha de salida, por lo que libera cupo.
 - Una persona `EXPULSADO` no puede volver a solicitar ingreso al grupo.
 - No se elimina la fila de `practicante_grupo`: se conserva el historial.
+
+### US06 — Readmitir a un integrante expulsado
+
+`PATCH /api/teams/{id}/memberships/{memberId}` con `decision: "READMITIR"`.
+
+Rol requerido: `COACH` responsable del grupo.
+
+```json
+{
+  "decision": "READMITIR"
+}
+```
+
+Respuesta exitosa: `200 OK`, con `status: "ACTIVO"`.
+
+Reglas:
+- Solo aplica a una membresía `EXPULSADO`; en otro estado responde `409 Conflict`.
+- El grupo debe estar `ACTIVO` y tener cupo disponible.
+- Se actualiza `fecha_ingreso`, se limpia `fecha_salida` y se descartan aclaraciones anteriores.
+- El practicante no puede readmitirse por su cuenta: lo hace el coach.
 
 ### US06 — El postulante responde la aclaración
 

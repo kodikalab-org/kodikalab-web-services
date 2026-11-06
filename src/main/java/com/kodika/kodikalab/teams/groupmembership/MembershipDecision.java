@@ -10,11 +10,14 @@ package com.kodika.kodikalab.teams.groupmembership;
  *       del coach. El postulante debe responder antes de que el coach pueda aceptar o rechazar.</li>
  *   <li>{@code EXPULSAR}: un integrante {@code ACTIVO} pasa a {@code EXPULSADO} y libera su cupo. No puede
  *       volver a postular al grupo.</li>
+ *   <li>{@code READMITIR}: el coach vuelve a incorporar a alguien {@code EXPULSADO}; pasa a {@code ACTIVO} y
+ *       se comprueba el cupo disponible.</li>
  * </ul>
  */
 public enum MembershipDecision {
     ACEPTAR,
     RECHAZAR,
     SOLICITAR_ACLARACION,
-    EXPULSAR
+    EXPULSAR,
+    READMITIR
 }
