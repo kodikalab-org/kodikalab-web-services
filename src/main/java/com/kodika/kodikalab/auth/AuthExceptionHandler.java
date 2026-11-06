@@ -3,6 +3,8 @@ package com.kodika.kodikalab.auth;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
+import com.kodika.kodikalab.common.exception.ServiceUnavailableException;
+import com.kodika.kodikalab.common.exception.TooManyRequestsException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.users.Role;
 import jakarta.validation.ConstraintViolationException;
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /** Authentication errors only; the rest of the scaffolding retains its behavior. */
-@RestControllerAdvice(assignableTypes = AuthController.class)
+@RestControllerAdvice(assignableTypes = {AuthController.class, PasswordResetController.class})
 public class AuthExceptionHandler {
     public record ErrorResponse(String message, Map<String, String> errors) {
     }
@@ -60,6 +62,16 @@ public class AuthExceptionHandler {
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> unauthorized(UnauthorizedException exception) {
         return error(HttpStatus.UNAUTHORIZED, exception.getMessage());
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> tooManyRequests(TooManyRequestsException exception) {
+        return error(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage());
+    }
+
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> serviceUnavailable(ServiceUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
