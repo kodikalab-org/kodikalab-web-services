@@ -58,4 +58,20 @@ public class PractitionerProfile {
 
     @Column(name = "vjudge_handle", length = 50)
     private String vjudgeHandle;
+
+    @Column(name = "distrito", length = 60)
+    private String district;
+
+    @Column(name = "experiencia_meses")
+    private Integer experienceMonths;
+
+    @Column(name = "franja_horaria", length = 10)
+    private String preferredTime;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.ARRAY)
+    @Column(name = "dias_disponibles", columnDefinition = "text[]")
+    private String[] availableDays;
+
+    @Column(name = "objetivo", length = 60)
+    private String goal;
 }

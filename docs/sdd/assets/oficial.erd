@@ -162,7 +162,7 @@
           "c_pra_cfh",
           "c_pra_cfr",
           "c_pra_ath",
-          "c_pra_vjh"
+          "c_pra_vjh", "c_pra_district", "c_pra_experience", "c_pra_time", "c_pra_days", "c_pra_goal"
         ],
         "seqColumnIds": [
           "c_pra_uid",
@@ -173,7 +173,7 @@
           "c_pra_cfh",
           "c_pra_cfr",
           "c_pra_ath",
-          "c_pra_vjh"
+          "c_pra_vjh", "c_pra_district", "c_pra_experience", "c_pra_time", "c_pra_days", "c_pra_goal"
         ],
         "ui": {
           "x": -583.0781,
@@ -643,6 +643,11 @@
       }
     },
     "tableColumnEntities": {
+      "c_pra_district": {"id":"c_pra_district","tableId":"t_practicante","name":"distrito","comment":"Optional district","dataType":"VARCHAR(60)","default":"","options":0,"ui":{"keys":0,"widthName":100,"widthComment":160,"widthDataType":100,"widthDefault":60},"meta":{"updateAt":1793923200000,"createAt":1793923200000}},
+      "c_pra_experience": {"id":"c_pra_experience","tableId":"t_practicante","name":"experiencia_meses","comment":"Optional months, 0..600","dataType":"INT","default":"","options":0,"ui":{"keys":0,"widthName":120,"widthComment":160,"widthDataType":100,"widthDefault":60},"meta":{"updateAt":1793923200000,"createAt":1793923200000}},
+      "c_pra_time": {"id":"c_pra_time","tableId":"t_practicante","name":"franja_horaria","comment":"MANANA / TARDE / NOCHE, optional","dataType":"VARCHAR(10)","default":"","options":0,"ui":{"keys":0,"widthName":120,"widthComment":200,"widthDataType":100,"widthDefault":60},"meta":{"updateAt":1793923200000,"createAt":1793923200000}},
+      "c_pra_days": {"id":"c_pra_days","tableId":"t_practicante","name":"dias_disponibles","comment":"Optional subset: LUN MAR MIE JUE VIE SAB DOM","dataType":"TEXT[]","default":"","options":0,"ui":{"keys":0,"widthName":120,"widthComment":260,"widthDataType":100,"widthDefault":60},"meta":{"updateAt":1793923200000,"createAt":1793923200000}},
+      "c_pra_goal": {"id":"c_pra_goal","tableId":"t_practicante","name":"objetivo","comment":"Optional frontend goal label","dataType":"VARCHAR(60)","default":"","options":0,"ui":{"keys":0,"widthName":100,"widthComment":180,"widthDataType":100,"widthDefault":60},"meta":{"updateAt":1793923200000,"createAt":1793923200000}},
       "c_usr_id": {
         "id": "c_usr_id",
         "tableId": "t_usuario",

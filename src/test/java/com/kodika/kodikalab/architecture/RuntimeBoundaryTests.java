@@ -81,7 +81,7 @@ class RuntimeBoundaryTests {
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
                 .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/auth/recovery", "/auth/recovery-code",
                         "/auth/password-reset/request", "/auth/password-reset/verify", "/auth/password-reset/confirm",
-                        "/users/me", "/users/me",
+                        "/users/me", "/users/me", "/users/me/codeforces/stats",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
                         "/competitions", "/competitions/{competitionId}/status",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",

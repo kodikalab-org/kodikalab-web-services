@@ -16,7 +16,9 @@ public record PractitionerProfileResponse(String message, ProfileData profile) {
                 profile.getCodeforcesHandle(),
                 profile.getCodeforcesRating(),
                 profile.getAtcoderHandle(),
-                profile.getVjudgeHandle()
+                profile.getVjudgeHandle(),
+                profile.getDistrict(), profile.getExperienceMonths(), profile.getPreferredTime(),
+                profile.getAvailableDays(), profile.getGoal()
         ));
     }
 
@@ -30,7 +32,8 @@ public record PractitionerProfileResponse(String message, ProfileData profile) {
             String codeforcesHandle,
             Integer codeforcesRating,
             String atcoderHandle,
-            String vjudgeHandle
+            String vjudgeHandle,
+            String district, Integer experienceMonths, String preferredTime, String[] availableDays, String goal
     ) {
     }
 }
