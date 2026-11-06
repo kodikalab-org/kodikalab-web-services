@@ -75,6 +75,8 @@ public class SecurityConfig {
 
                         // Solo COACH
                         .requestMatchers(HttpMethod.POST, "/teams").hasRole(COACH)                                // US-04
+                        .requestMatchers(HttpMethod.PATCH, "/teams/{id}/draft").hasRole(COACH)                    // US-04
+                        .requestMatchers(HttpMethod.POST, "/teams/{id}/publish").hasRole(COACH)                   // US-04
                         .requestMatchers(HttpMethod.GET, "/teams/{id}/memberships").hasRole(COACH)                // US-06
                         .requestMatchers(HttpMethod.PATCH, "/teams/{id}/memberships/{memberId}").hasRole(COACH)   // US-06
                         .requestMatchers(HttpMethod.POST, "/problems", "/problems/assign").hasRole(COACH)         // US-07
@@ -88,6 +90,8 @@ public class SecurityConfig {
                         // Solo PRACTICANTE
                         .requestMatchers(HttpMethod.GET, "/users/me/codeforces/stats").hasRole(PRACTICANTE)
                         .requestMatchers(HttpMethod.POST, "/teams/{id}/join").hasRole(PRACTICANTE)                // US-05
+                        .requestMatchers(HttpMethod.POST, "/teams/{id}/memberships/{memberId}/clarification")
+                        .hasRole(PRACTICANTE)                                                                     // US-06
                         .requestMatchers(HttpMethod.POST,
                                 "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions")
                         .hasRole(PRACTICANTE)                                                                     // US-09/14

@@ -344,6 +344,7 @@ Respuesta exitosa: `200 OK`.
 
 Reglas:
 - Solamente se listan grupos con estado `ACTIVO`.
+- Los borradores (`BORRADOR`) no se listan y tampoco aparecen los grupos `ARCHIVADO`.
 - El código de invitación no se incluye en el listado.
 - Si no existen grupos activos, se devuelve una lista vacía.
 
@@ -352,7 +353,7 @@ Reglas:
 Cualquier cuenta autenticada y `ACTIVO`. Devuelve `200 OK` con un arreglo ordenado por `groupId`, vacío si no hay
 nada que mostrar. La forma depende del rol del token y los campos del otro rol no se incluyen.
 
-**Coach:** los grupos que creó (de cualquier estado), con el código de invitación y los contadores. Es el único lugar
+**Coach:** los grupos que creó (de cualquier estado, incluidos los borradores), con el código de invitación y los contadores. Es el único lugar
 donde el coach puede volver a consultar el código de un grupo.
 
 ```json
@@ -374,7 +375,8 @@ donde el coach puede volver a consultar el código de un grupo.
 ```
 
 **Practicante:** los grupos donde tiene o tuvo una membresía, con el estado de esa membresía. Así sabe si lo aceptaron
-(`ACTIVO`) o lo rechazaron (`RECHAZADO`) sin necesidad de una notificación.
+(`ACTIVO`), si lo rechazaron (`RECHAZADO`) o si el coach le pidió una aclaración (`ACLARACION_SOLICITADA`) sin
+necesidad de una notificación.
 
 ```json
 [
@@ -389,10 +391,16 @@ donde el coach puede volver a consultar el código de un grupo.
     "visibility": "PROTEGIDO",
     "membership": {
       "membershipId": 2,
-      "status": "PENDIENTE",
+      "status": "ACLARACION_SOLICITADA",
       "teamRole": "MIEMBRO",
       "joinedAt": "2026-10-09T19:00:00-05:00",
-      "leftAt": null
+      "leftAt": null,
+      "clarification": {
+        "request": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?",
+        "requestedAt": "2026-10-09T20:00:00-05:00",
+        "response": null,
+        "respondedAt": null
+      }
     }
   }
 ]
@@ -401,16 +409,17 @@ donde el coach puede volver a consultar el código de un grupo.
 Reglas:
 - `invitationCode`, `activeMembers` y `pendingRequests` solo aparecen para el coach; `membership` solo para el practicante.
 - `joinedAt` es la fecha de la solicitud mientras la membresía está `PENDIENTE` y la de ingreso cuando pasa a `ACTIVO`.
-- Los contadores del coach cuentan solo membresías `ACTIVO` y `PENDIENTE`.
+- `clarification` solo aparece si el coach pidió una aclaración; incluye la respuesta cuando el postulante ya respondió.
+- Los contadores del coach cuentan membresías `ACTIVO` y solicitudes abiertas (`PENDIENTE` y `ACLARACION_SOLICITADA`).
 - `401` sin token válido; `403` cuenta que no está `ACTIVO`.
 
-### US04 — Crear grupo de estudio
+### US04 — Crear grupo de estudio (publicado o borrador)
 
 `POST /api/teams`
 
 Rol requerido: `COACH`, con perfil de coach registrado.
 
-Request:
+Request para publicar el grupo de inmediato:
 
 ```json
 {
@@ -423,25 +432,92 @@ Request:
 }
 ```
 
-Respuesta exitosa: `201 Created`.
+Request para guardar un borrador (solo el nombre es obligatorio):
+
+```json
+{
+  "name": "Entrenamiento de Grafos",
+  "draft": true
+}
+```
+
+Respuesta exitosa: `201 Created`. El campo `status` indica si quedó `ACTIVO` o `BORRADOR`.
 
 ```json
 {
   "message": "Grupo creado correctamente",
   "groupId": 1,
   "name": "Entrenamiento de Grafos",
+  "status": "ACTIVO",
+  "invitationCode": "CODIGO_GENERADO"
+}
+```
+
+Con `"draft": true` el mensaje es `"Borrador del grupo guardado correctamente"` y `status` es `BORRADOR`.
+
+Reglas:
+- Solamente un usuario `COACH` puede crear grupos.
+- El coach debe tener su perfil registrado.
+- Sin `draft`, el grupo se crea con estado `ACTIVO` y debe incluir nombre, nivel esperado y cupo válido.
+- Con `draft: true`, el grupo se crea con estado `BORRADOR`; solo el nombre es obligatorio.
+- Se genera automáticamente un código único de invitación en ambos casos.
+- La capacidad máxima debe estar entre 1 y 1000.
+- La visibilidad `ARCHIVADO` no está permitida al crear grupos.
+- El grupo se guarda en `grupo_estudio`.
+
+### US04 — Guardar cambios de un borrador
+
+`PATCH /api/teams/{id}/draft`
+
+Rol requerido: `COACH` responsable del grupo.
+
+Request (todos los campos son opcionales; `null` significa "no modificar"):
+
+```json
+{
+  "description": "Preparación para competencias ICPC",
+  "expectedLevel": "Div3",
+  "maxCapacity": 15,
+  "sessionSchedule": "Lunes de 18:00 a 20:00",
+  "visibility": "PROTEGIDO"
+}
+```
+
+Respuesta exitosa: `200 OK`, con el detalle completo del grupo (`StudyGroupDetailResponse`):
+
+```json
+{
+  "groupId": 1,
+  "name": "Entrenamiento de Grafos",
+  "description": "Preparación para competencias ICPC",
+  "expectedLevel": "Div3",
+  "maxCapacity": 15,
+  "sessionSchedule": "Lunes de 18:00 a 20:00",
+  "status": "BORRADOR",
+  "visibility": "PROTEGIDO",
   "invitationCode": "CODIGO_GENERADO"
 }
 ```
 
 Reglas:
-- Solamente un usuario `COACH` puede crear grupos.
-- El coach debe tener su perfil registrado.
-- El grupo se crea con estado `ACTIVO`.
-- Se genera automáticamente un código único de invitación.
-- La capacidad máxima debe estar entre 1 y 1000.
-- La visibilidad `ARCHIVADO` no está permitida al crear grupos.
-- El grupo se guarda en `grupo_estudio`.
+- Solo el coach responsable puede editar el borrador.
+- Solo se puede editar un grupo en estado `BORRADOR`; si ya está publicado, responde `409 Conflict`.
+- El nombre no puede quedar vacío.
+- La visibilidad `ARCHIVADO` no está permitida.
+
+### US04 — Publicar un borrador
+
+`POST /api/teams/{id}/publish`
+
+Rol requerido: `COACH` responsable del grupo. No requiere cuerpo.
+
+Respuesta exitosa: `200 OK`, con el mismo detalle del grupo y `status` en `ACTIVO`.
+
+Reglas:
+- El grupo debe estar en `BORRADOR`; si ya está `ACTIVO` o está `ARCHIVADO`, responde `409 Conflict`.
+- Se exige nombre, nivel esperado y cupo entre 1 y 1000; si falta algo, responde `400 Bad Request`.
+- Si la visibilidad es `ARCHIVADO`, se publica como `PUBLICO`.
+- Al publicarse, el grupo aparece en `GET /api/teams` y admite solicitudes de ingreso.
 
 ### US05 — Ingresar o solicitar ingreso a un grupo
 
@@ -497,20 +573,24 @@ Respuesta: `201 Created`, con estado `ACTIVO`.
 
 Reglas:
 - El grupo debe existir y encontrarse `ACTIVO`.
+- No se permite ingresar a un grupo `BORRADOR`: responde `409 Conflict` ("El grupo todavía no está publicado").
 - No se permite ingresar a grupos con visibilidad `ARCHIVADO`.
 - Solo un `PRACTICANTE` con perfil registrado puede ingresar.
 - Se verifica el cupo disponible antes de registrar el ingreso o la solicitud.
 - Únicamente las membresías `ACTIVO` cuentan para el cupo.
-- No se permite crear una solicitud duplicada `PENDIENTE`.
+- No se permite crear una solicitud duplicada `PENDIENTE` ni mientras hay una `ACLARACION_SOLICITADA` abierta.
 - Un practicante que ya es miembro `ACTIVO` no puede ingresar nuevamente.
 - Las membresías `RECHAZADO` y `RETIRADO` pueden regresar a `PENDIENTE` mediante una nueva solicitud.
 - Una membresía `EXPULSADO` no puede volver a solicitar ingreso según la política implementada.
+- Al reingresar se limpian los datos de aclaraciones anteriores.
 - Las solicitudes se almacenan en `practicante_grupo`, reutilizando el registro del practicante cuando corresponde.
 - `fecha_ingreso` representa inicialmente la fecha de solicitud y se actualiza cuando la membresía pasa a `ACTIVO`.
 
-### US06 — Consultar solicitudes pendientes
+### US06 — Consultar solicitudes por estado
 
 `GET /api/teams/{id}/memberships?status=PENDIENTE`
+
+`GET /api/teams/{id}/memberships?status=ACLARACION_SOLICITADA`
 
 Rol requerido: `COACH` responsable del grupo.
 
@@ -522,8 +602,14 @@ Respuesta exitosa: `200 OK`.
     "membershipId": 2,
     "groupId": 1,
     "practitionerId": 5,
-    "status": "PENDIENTE",
+    "status": "ACLARACION_SOLICITADA",
     "requestedAt": "2026-10-09T19:00:00-05:00",
+    "clarification": {
+      "request": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?",
+      "requestedAt": "2026-10-09T20:00:00-05:00",
+      "response": null,
+      "respondedAt": null
+    },
     "practitioner": {
       "fullName": "Ana Prueba",
       "studentCode": "U2020001",
@@ -541,13 +627,14 @@ Respuesta exitosa: `200 OK`.
 
 Reglas:
 - Solamente el coach responsable puede consultar las solicitudes.
-- El parámetro `status` debe ser `PENDIENTE`.
-- Si no existen solicitudes pendientes, se devuelve una lista vacía.
+- El parámetro `status` solo admite `PENDIENTE` o `ACLARACION_SOLICITADA`; cualquier otro valor responde `400 Bad Request`.
+- Si no existen solicitudes en ese estado, se devuelve una lista vacía.
 - `membershipId` identifica un registro real de `practicante_grupo`.
+- `clarification` solo se incluye cuando el coach pidió una aclaración; muestra la pregunta y, si ya existe, la respuesta del postulante.
 - `practitioner` trae el perfil académico y competitivo del postulante para que el coach decida con información. No incluye el correo.
 - Las solicitudes salen de la más antigua a la más reciente.
 
-### US06 — Aceptar o rechazar solicitudes
+### US06 — Aceptar, rechazar o pedir aclaración
 
 `PATCH /api/teams/{id}/memberships/{memberId}`
 
@@ -570,6 +657,15 @@ Request para rechazar:
 ```json
 {
   "decision": "RECHAZAR"
+}
+```
+
+Request para pedir una aclaración (`message` es obligatorio, máximo 500 caracteres):
+
+```json
+{
+  "decision": "SOLICITAR_ACLARACION",
+  "message": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?"
 }
 ```
 
@@ -614,11 +710,78 @@ Reglas:
 - No se crea una tabla ni un registro adicional de solicitud.
 - El practicante puede solicitar ingreso nuevamente.
 
+#### Aclaración solicitada
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Aclaración solicitada al postulante",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "ACLARACION_SOLICITADA",
+  "clarificationRequest": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?"
+}
+```
+
+Reglas:
+- La membresía debe estar `PENDIENTE`; si ya está en `ACLARACION_SOLICITADA`, responde `409 Conflict`.
+- `message` es obligatorio y no puede superar 500 caracteres; si falta, responde `400 Bad Request`.
+- El estado cambia de `PENDIENTE` a `ACLARACION_SOLICITADA` y se registra la pregunta con su fecha.
+- Mientras la aclaración siga sin respuesta, `ACEPTAR` y `RECHAZAR` responden `409 Conflict`.
+- Se conserva una única fila de `practicante_grupo`: no se crea una solicitud nueva.
+
+### US06 — El postulante responde la aclaración
+
+`POST /api/teams/{id}/memberships/{memberId}/clarification`
+
+Rol requerido: `PRACTICANTE` dueño de la solicitud.
+
+Request (`message` obligatorio, máximo 500 caracteres):
+
+```json
+{
+  "message": "Mi usuario es practicante_2026"
+}
+```
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Aclaración enviada; la solicitud vuelve a revisión del coach",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "PENDIENTE",
+  "clarificationRequest": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?",
+  "clarificationResponse": "Mi usuario es practicante_2026",
+  "respondedAt": "2026-10-10T09:00:00-05:00"
+}
+```
+
+Reglas:
+- Solo el practicante dueño de la membresía puede responder; otro practicante recibe `403 Forbidden`.
+- La membresía debe estar en `ACLARACION_SOLICITADA`; en cualquier otro estado responde `409 Conflict`.
+- La respuesta no puede estar vacía (`400 Bad Request`).
+- Al responder, el estado vuelve a `PENDIENTE`, se guarda la respuesta con su fecha y el coach puede aceptar o rechazar.
+- El coach ve la respuesta en el listado de solicitudes y en `GET /api/teams/me` del practicante.
+
+### Estados del grupo
+
+La columna `grupo_estudio.estado` utiliza los siguientes valores:
+
+- `BORRADOR`: grupo guardado por el coach, todavía no publicado; no se lista ni admite solicitudes.
+- `ACTIVO`: grupo publicado y visible.
+- `ARCHIVADO`: grupo cerrado.
+
+Los estados se representan con `GroupStatus` y se persisten como texto mediante `EnumType.STRING`.
+
 ### Estados de membresía
 
 La columna `practicante_grupo.estado` utiliza los siguientes valores:
 
-- `PENDIENTE`: solicitud a la espera de respuesta.
+- `PENDIENTE`: solicitud a la espera de respuesta del coach.
+- `ACLARACION_SOLICITADA`: el coach pidió información adicional y espera la respuesta del postulante.
 - `ACTIVO`: practicante integrante del grupo.
 - `RECHAZADO`: solicitud rechazada.
 - `RETIRADO`: practicante que abandonó el grupo.
@@ -638,25 +801,31 @@ Las respuestas de error de Teams siguen el formato:
 ```
 
 Códigos HTTP:
-- `400 Bad Request`: datos inválidos, decisión desconocida o parámetros incorrectos.
+- `400 Bad Request`: datos inválidos, decisión desconocida, `status` no permitido, aclaración sin mensaje o parámetros incorrectos.
 - `401 Unauthorized`: ausencia de sesión válida.
-- `403 Forbidden`: rol no autorizado, coach ajeno o acceso prohibido.
+- `403 Forbidden`: rol no autorizado, coach ajeno, postulante ajeno o acceso prohibido.
 - `404 Not Found`: grupo, membresía o perfil inexistente.
-- `409 Conflict`: solicitud duplicada, membresía activa, cupo lleno o solicitud ya respondida.
+- `409 Conflict`: solicitud duplicada, membresía activa, cupo lleno, grupo no publicado, borrador ya publicado o solicitud ya respondida.
 
 No se exponen trazas internas ni detalles SQL en las respuestas.
 
 ### Persistencia y compatibilidad
 
-US04 utiliza `grupo_estudio`.
+US04 utiliza `grupo_estudio`; el borrador es un valor más de `grupo_estudio.estado` (`BORRADOR`).
 
-US05 y US06 utilizan exclusivamente `practicante_grupo`.
+US05 y US06 utilizan exclusivamente `practicante_grupo`. La aclaración se guarda en la misma fila, en las columnas
+`aclaracion_solicitada`, `fecha_aclaracion`, `aclaracion_respuesta` y `fecha_respuesta_aclaracion`.
 
 La implementación no requiere la entidad ni la tabla adicional `solicitud_grupo`.
 
-Las instalaciones existentes de PostgreSQL deben admitir los estados `PENDIENTE` y `RECHAZADO` en la restricción CHECK de `practicante_grupo.estado`. Este ajuste debe aplicarse mediante una migración reproducible antes del despliegue.
+Las instalaciones existentes de PostgreSQL deben admitir los nuevos valores en las restricciones CHECK y las columnas de
+aclaración. El ajuste se aplica con `assets/migracion_borrador_aclaracion.sql`, que amplía `grupo_estudio.estado` con
+`BORRADOR`, amplía `practicante_grupo.estado` a `VARCHAR(30)` y con `ACLARACION_SOLICITADA`, permite `NULL` en
+`nivel_esperado` y `cupo_maximo` mientras el grupo es borrador, y agrega las cuatro columnas indicadas.
 
-Las pruebas de integración verifican creación de grupos, solicitudes pendientes, aceptación, rechazo, autorización del coach, duplicados y capacidad.
+Las pruebas de integración verifican creación de grupos (publicados y borradores), publicación, ocultamiento del borrador,
+solicitudes pendientes, aclaración y respuesta del postulante, aceptación, rechazo, autorización del coach, duplicados y
+capacidad.
 
 ## Analytics — US-10
 

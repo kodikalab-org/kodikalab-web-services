@@ -4,7 +4,9 @@ package com.kodika.kodikalab.teams;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
+import com.kodika.kodikalab.teams.groupmembership.MembershipDecision;
 import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
 import com.kodika.kodikalab.teams.groupmembership.TeamRole;
 import com.kodika.kodikalab.teams.studygroup.GroupStatus;
@@ -110,7 +112,7 @@ class StudyGroupControllerTests {
         var joined = OffsetDateTime.parse("2026-10-09T19:00:00-05:00");
         when(studyGroupService.findMyTeams()).thenReturn(List.of(new MyTeamResponse(1, "Grafos", null, "Div3", 15,
                 "Lunes", GroupStatus.ACTIVO, GroupVisibility.PROTEGIDO, null, null, null,
-                new MyTeamResponse.Membership(7, MembershipStatus.PENDIENTE, TeamRole.MIEMBRO, joined, null))));
+                new MyTeamResponse.Membership(7, MembershipStatus.PENDIENTE, TeamRole.MIEMBRO, joined, null, null))));
 
         mvc.perform(get("/teams/me"))
                 .andExpect(status().isOk())
@@ -160,7 +162,7 @@ class StudyGroupControllerTests {
 
     @Test
     void anotherCoachCannotReviewRequest() throws Exception {
-        when(membershipService.reviewRequest(1, 2, true))
+        when(membershipService.reviewRequest(1, 2, MembershipDecision.ACEPTAR, null))
                 .thenThrow(new ForbiddenException(
                         "No eres el coach responsable de este grupo"
                 ));
@@ -187,6 +189,117 @@ class StudyGroupControllerTests {
     }
 
     @Test
+    void draftIsSavedWithOnlyANameAndReportsItsStatus() throws Exception {
+        StudyGroup draft = new StudyGroup();
+        draft.setId(5);
+        draft.setName("Borrador de grafos");
+        draft.setStatus(GroupStatus.BORRADOR);
+
+        when(studyGroupService.createGroup(any())).thenReturn(draft);
+
+        mvc.perform(post("/teams")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Borrador de grafos","draft":true}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("BORRADOR"))
+                .andExpect(jsonPath("$.message").value("Borrador del grupo guardado correctamente"));
+    }
+
+    @Test
+    void draftCanBeUpdatedAndPublished() throws Exception {
+        StudyGroup group = new StudyGroup();
+        group.setId(5);
+        group.setName("Borrador corregido");
+        group.setExpectedLevel("Div2");
+        group.setMaxCapacity(10);
+        group.setStatus(GroupStatus.ACTIVO);
+
+        when(studyGroupService.updateDraft(eq(5), any())).thenReturn(group);
+        when(studyGroupService.publishGroup(5)).thenReturn(group);
+
+        mvc.perform(patch("/teams/5/draft")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Borrador corregido","expectedLevel":"Div2","maxCapacity":10}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Borrador corregido"));
+
+        mvc.perform(post("/teams/5/publish"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVO"));
+    }
+
+    @Test
+    void coachCanRequestAClarification() throws Exception {
+        GroupMembership waiting = new GroupMembership();
+        waiting.setId(2);
+        waiting.setGroup(group(1));
+        waiting.setStatus(MembershipStatus.ACLARACION_SOLICITADA);
+        waiting.setClarificationRequest("¿Puedes adjuntar tu perfil de Codeforces?");
+
+        when(membershipService.reviewRequest(1, 2, MembershipDecision.SOLICITAR_ACLARACION,
+                "¿Puedes adjuntar tu perfil de Codeforces?")).thenReturn(waiting);
+
+        mvc.perform(patch("/teams/1/memberships/2")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"decision":"SOLICITAR_ACLARACION","message":"¿Puedes adjuntar tu perfil de Codeforces?"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACLARACION_SOLICITADA"))
+                .andExpect(jsonPath("$.message").value("Aclaración solicitada al postulante"))
+                .andExpect(jsonPath("$.clarificationRequest").value("¿Puedes adjuntar tu perfil de Codeforces?"));
+    }
+
+    @Test
+    void clarificationCanBeListedByItsOwnStatus() throws Exception {
+        when(membershipService.getRequests(1, MembershipStatus.ACLARACION_SOLICITADA))
+                .thenReturn(List.of());
+
+        mvc.perform(get("/teams/1/memberships")
+                        .param("status", "ACLARACION_SOLICITADA"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+    }
+
+    @Test
+    void practitionerAnswersTheClarification() throws Exception {
+        GroupMembership answered = new GroupMembership();
+        answered.setId(2);
+        answered.setGroup(group(1));
+        answered.setStatus(MembershipStatus.PENDIENTE);
+        answered.setClarificationRequest("¿Puedes adjuntar tu perfil?");
+        answered.setClarificationResponse("Sí, mi usuario es practicante_1");
+
+        when(membershipService.respondClarification(1, 2, "Sí, mi usuario es practicante_1"))
+                .thenReturn(answered);
+
+        mvc.perform(post("/teams/1/memberships/2/clarification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"message":"Sí, mi usuario es practicante_1"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDIENTE"))
+                .andExpect(jsonPath("$.clarificationResponse").value("Sí, mi usuario es practicante_1"));
+    }
+
+    @Test
+    void clarificationWithoutAMessageReturns400() throws Exception {
+        mvc.perform(post("/teams/1/memberships/2/clarification")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"message":"   "}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(membershipService);
+    }
+
+    @Test
     void invalidDecisionReturns400() throws Exception {
         mvc.perform(patch("/teams/1/memberships/2")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -196,6 +309,12 @@ class StudyGroupControllerTests {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(membershipService);
+    }
+
+    private static StudyGroup group(int id) {
+        StudyGroup group = new StudyGroup();
+        group.setId(id);
+        return group;
     }
 }
 

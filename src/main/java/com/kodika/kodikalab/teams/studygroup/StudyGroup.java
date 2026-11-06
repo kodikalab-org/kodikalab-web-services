@@ -43,12 +43,19 @@ public class StudyGroup {
     @Column(name = "descripcion", length = 500)
     private String description;
 
-    /** Texto libre según el ERD: Div3 / Div2 / Regional. */
-    @Column(name = "nivel_esperado", nullable = false, length = 50)
+    /**
+     * Texto libre según el ERD (Div3 / Div2 / Regional). Nulo mientras el grupo es un
+     * borrador sin completar; se exige al publicar.
+     */
+    @Column(name = "nivel_esperado", length = 50)
     private String expectedLevel;
 
+    /**
+     * Capacidad de integrantes. Nula mientras el grupo es un borrador sin completar;
+     * al publicar se exige entre 1 y 1000.
+     */
     @ColumnDefault("15")
-    @Column(name = "cupo_maximo", nullable = false)
+    @Column(name = "cupo_maximo")
     private Integer maxCapacity;
 
     /** Días y horas de práctica; el ERD no define una tabla de horarios. */
