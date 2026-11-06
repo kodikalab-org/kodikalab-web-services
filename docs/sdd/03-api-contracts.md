@@ -202,6 +202,13 @@ Los tres endpoints nunca devuelven el código, la contraseña ni datos de la cue
 
 ## Users/Profile
 
+Las respuestas de `GET /api/users/me` y `PUT /api/users/me` incluyen
+`profile.fullName` y `profile.email` para los dos roles. `fullName` procede del
+nombre completo registrado en `usuario.nombre_completo`; no se deduce del correo.
+Es un campo de respuesta de solo lectura: enviarlo en el PUT no cambia el nombre
+de la cuenta. Los clientes deben mostrar el nombre como identidad principal y el
+correo por separado. Este cambio es aditivo y no agrega columnas ni modifica el ERD.
+
 `GET /api/users/me` y `PUT /api/users/me` operan sobre el perfil del usuario autenticado y **dependen del rol de la cuenta autenticada**: `PRACTICANTE` gestiona la tabla `practicante` y `COACH` gestiona la tabla `coach`. Requieren el token Bearer obtenido con `POST /api/auth/login`. El cliente no envía `usuarioId` ni rol; ambos se resuelven desde el token. Un body con los campos del otro rol se rechaza con `400` (faltan los campos obligatorios del rol propio) y nunca escribe en la tabla del otro rol.
 
 ### US-03 — Perfil competitivo del practicante

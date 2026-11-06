@@ -71,11 +71,12 @@ class ProfileControllerTests {
                 "Perfil actualizado correctamente",
                 new PractitionerProfileResponse.ProfileData("test@gmail.com", Role.PRACTICANTE, "20240001",
                         "Ingeniería de Software", 5, PractitionerLevel.INTERMEDIO, "tourist", 0,
-                        "tourist_atcoder", "usuario_vjudge", null, null, null, null, null)));
+                        "tourist_atcoder", "usuario_vjudge", null, null, null, null, null, "Usuario Prueba")));
         mvc.perform(put("/users/me").contentType(MediaType.APPLICATION_JSON).content(VALID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Perfil actualizado correctamente"))
                 .andExpect(jsonPath("$.profile.role").value("PRACTICANTE"))
+                .andExpect(jsonPath("$.profile.fullName").value("Usuario Prueba"))
                 .andExpect(jsonPath("$.profile.codeforcesHandle").value("tourist"))
                 .andExpect(jsonPath("$.profile.atcoderHandle").value("tourist_atcoder"))
                 .andExpect(jsonPath("$.profile.vjudgeHandle").value("usuario_vjudge"))
@@ -137,10 +138,11 @@ class ProfileControllerTests {
                 "Perfil actualizado correctamente",
                 new CoachProfileResponse.CoachProfileData("coach@gmail.com", Role.COACH,
                         "Grafos y Programación Dinámica", "Club de Programación Competitiva", 4,
-                        "Entrenador de maratones ICPC.")));
+                        "Entrenador de maratones ICPC.", "Coach Prueba")));
         mvc.perform(put("/users/me").contentType(MediaType.APPLICATION_JSON).content(VALID_COACH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.profile.role").value("COACH"))
+                .andExpect(jsonPath("$.profile.fullName").value("Coach Prueba"))
                 .andExpect(jsonPath("$.profile.especialidadPrincipal").value("Grafos y Programación Dinámica"))
                 .andExpect(jsonPath("$.profile.aniosExperiencia").value(4))
                 .andExpect(jsonPath("$.profile.codigoEstudiante").doesNotExist())
