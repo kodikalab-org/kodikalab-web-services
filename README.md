@@ -188,6 +188,8 @@ MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
 MAIL_USERNAME=
 MAIL_PASSWORD=
+# Opcional: remitente de los correos (por defecto MAIL_USERNAME)
+MAIL_FROM=
 ```
 
 Descripción:
@@ -204,8 +206,9 @@ Descripción:
 | `CORS_ALLOWED_ORIGINS` | Opcional. Orígenes del frontend autorizados, separados por comas (por defecto `http://localhost:3000,http://localhost:4200,http://localhost:5173`). |
 | `MAIL_HOST` | Host SMTP para correo. |
 | `MAIL_PORT` | Puerto SMTP. |
-| `MAIL_USERNAME` | Usuario del servicio de correo. |
+| `MAIL_USERNAME` | Usuario del servicio de correo. Es también el remitente por defecto. |
 | `MAIL_PASSWORD` | Password o app password del servicio de correo. |
+| `MAIL_FROM` | Opcional. Remitente de los correos del sistema (por defecto `MAIL_USERNAME`). Sin remitente, `POST /auth/password-reset/request` responde 503 porque no puede enviar el código. |
 
 ---
 

@@ -42,7 +42,7 @@ JWT firmado con HMAC-SHA256 (`jjwt`). Claims: `iss=kodikalab`, `sub` (correo), `
 
 | Acceso | Endpoints |
 | --- | --- |
-| Público | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**` |
+| Público | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/{request,verify,confirm}`, `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `PATCH /competitions/{competitionId}/status`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me`, `GET /analytics/teams/{teamId}/progress/me/topics` |
 | Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /teams/me`, `GET /competitions?teamId=`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
@@ -99,8 +99,23 @@ Escenario alternativo de US-02. El sistema no envía correos (no hay cliente de 
 
 Contrato: `03-api-contracts.md`. Pruebas: `RecoveryCodeServiceTests`, `AccountRecoveryServiceTests`, `RecoveryControllerTests` y `RecoveryIntegrationTests`; Postman: bloque final de `US02-login`.
 
+## Restablecer la contraseña con código por correo
+
+Escenario alternativo de US-02 para el titular que olvidó su contraseña. El sistema envía por correo (SMTP, `spring-boot-starter-mail`) un código de 6 dígitos; con él el titular define una contraseña nueva. Convive con el código de recuperación sin correo descrito arriba.
+
+- **Código:** 6 dígitos. No se guarda en ninguna tabla (el ERD no cambia): es `HMAC-SHA256(clave derivada de JWT_SECRET con el contexto password-reset-code, correo + hash vigente + ventana)`, reducido a 6 dígitos. La ventana dura 10 minutos y se aceptan la actual y la anterior, así que un código vale entre 10 y 20 minutos sin estado en el servidor.
+- **Un solo uso:** al cambiar la contraseña cambia el hash y el código deja de valer; la actualización compara el hash anterior (`UPDATE ... WHERE password_hash = :actual`), así que con dos solicitudes simultáneas solo una gana.
+- **Fuerza bruta:** 6 dígitos no bastan por sí solos. `PasswordResetAttemptLimiter` permite 5 intentos de verificación cada 15 minutos por correo (429 después) y un envío por minuto por correo. El intento se **reserva de forma atómica antes** de comprobar el código y solo se devuelve si era correcto: así las peticiones simultáneas no evalúan más códigos que el cupo (comprobar y registrar después dejaba pasar unos 200 intentos en una ráfaga). La clave del cupo es el correo plegado como lo hace la base de datos (`upper()` y luego minúsculas), de modo que variantes como `cıla@x.com` y `cila@x.com` comparten el mismo cupo. Los límites cuentan igual para correos registrados y no registrados, para no revelar qué cuentas existen. Están en memoria: se reinician con la aplicación y no se comparten entre instancias.
+- **Solo códigos pedidos:** el código es una función pura de (correo, hash, ventana), así que existiría para toda cuenta activa aunque su titular nunca lo pidiera. Por eso `verify` y `confirm` solo lo aceptan si se pidió un envío para ese correo en los últimos 20 minutos (registro en memoria, el mismo del límite de envíos); un atacante tiene que provocar primero el correo al titular. Tras reiniciar la aplicación hay que pedir el código de nuevo.
+- **Sin filtrar información:** `request` responde siempre 200 con el mismo mensaje; `verify` y `confirm` responden el mismo `401 Código inválido o vencido` ante código incorrecto, vencido, correo inexistente o cuenta suspendida, y se calcula el HMAC también con una cuenta ausente. El envío es asíncrono para que el tiempo de respuesta no dependa de si la cuenta existe.
+- **Correo:** texto plano en español con el código y su vigencia (máximo 20 minutos). El envío usa una cola acotada de 100 correos; si el servidor SMTP está lento y se llena, se descartan y se registra. El remitente sale de `MAIL_FROM` o, si falta, de `MAIL_USERNAME`; sin remitente `request` responde 503 (una condición del servidor, no de la cuenta). El registro nunca incluye el código ni el destinatario.
+- **Efectos:** BCrypt para la contraseña nueva, tokens anteriores inválidos y nuevo inicio de sesión habilitado.
+- **Límites conocidos:** quien conozca el correo de otra persona puede bloquear su restablecimiento durante 15 minutos con códigos incorrectos (el inicio de sesión no se ve afectado); rotar `JWT_SECRET` invalida los códigos pendientes; no hay límite por IP; quien provoque correos al titular (uno por minuto) y adivine en 5 intentos cada 15 minutos tiene aproximadamente un 0,1 % de acertar por día, y el titular recibe esos correos.
+
+Contrato: `03-api-contracts.md`. Pruebas: `PasswordResetCodeServiceTests`, `PasswordResetAttemptLimiterTests`, `PasswordResetServiceTests`, `PasswordResetControllerTests` y `SmtpPasswordResetMailerTests`.
+
 ## Pendientes antes de producción
 
 - **Logout y revocación:** el token vale hasta su vencimiento o hasta un cambio de contraseña; cerrar sesión consiste en descartarlo en el cliente. Una lista de revocación o tokens de corta vida con refresco requieren una política acordada.
-- **Limitación de intentos** de login, registro y recuperación.
+- **Limitación de intentos** de login, registro y recuperación sin correo (el restablecimiento por correo ya limita envíos e intentos, en memoria).
 - **HTTPS** y cabeceras de seguridad en el despliegue; el secreto real solo en variables de entorno del servidor.
