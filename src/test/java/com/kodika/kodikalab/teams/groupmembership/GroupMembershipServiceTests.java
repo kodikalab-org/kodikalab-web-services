@@ -4,6 +4,7 @@ package com.kodika.kodikalab.teams.groupmembership;
 import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
+import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfile;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfileService;
@@ -49,7 +50,8 @@ class GroupMembershipServiceTests {
                 membershipRepository,
                 groupRepository,
                 practitionerProfileService,
-                currentUserResolver
+                currentUserResolver,
+                new InvitationCodeAttemptLimiter()
         );
 
         practitionerUser = new User();
@@ -292,6 +294,131 @@ class GroupMembershipServiceTests {
         assertThatThrownBy(() -> service.respondClarification(10, 5, "Respuesta sin pregunta"))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("no está esperando");
+    }
+
+    @Test
+    void joinByCodeEntersProtectedGroupDirectly() {
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+
+        GroupMembership result = service.joinByCode("ABC123");
+
+        assertThat(result.getStatus()).isEqualTo(MembershipStatus.ACTIVO);
+        assertThat(result.getGroup()).isSameAs(group);
+        assertThat(result.getPractitioner()).isEqualTo(practitioner);
+        verify(membershipRepository).save(result);
+    }
+
+    @Test
+    void joinByCodeIsCaseInsensitiveAndTrimsTheCode() {
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+
+        GroupMembership result = service.joinByCode("  abc123 ");
+
+        assertThat(result.getStatus()).isEqualTo(MembershipStatus.ACTIVO);
+    }
+
+    @Test
+    void joinByCodeBlocksGuessingAfterFiveUnknownCodes() {
+        when(groupRepository.findByInvitationCode(any())).thenReturn(Optional.empty());
+
+        for (int i = 0; i < InvitationCodeAttemptLimiter.MAX_ATTEMPTS; i++) {
+            assertThatThrownBy(() -> service.joinByCode("NOEXISTE0000"))
+                    .isInstanceOf(NotFoundException.class);
+        }
+
+        assertThatThrownBy(() -> service.joinByCode("NOEXISTE0001"))
+                .isInstanceOf(com.kodika.kodikalab.common.exception.TooManyRequestsException.class);
+        verify(groupRepository, times(InvitationCodeAttemptLimiter.MAX_ATTEMPTS)).findByInvitationCode(any());
+    }
+
+    @Test
+    void joinByCodeWithAValidCodeDoesNotConsumeTheAttemptLimit() {
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+        group.setMaxCapacity(100);
+
+        for (int i = 0; i <= InvitationCodeAttemptLimiter.MAX_ATTEMPTS; i++) {
+            service.joinByCode("ABC123");
+        }
+
+        verify(groupRepository, times(InvitationCodeAttemptLimiter.MAX_ATTEMPTS + 1)).findByInvitationCode("ABC123");
+    }
+
+    @Test
+    void joinByCodeWithAnUnknownCodeIsNotFound() {
+        when(groupRepository.findByInvitationCode("NOEXISTE")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.joinByCode("noexiste"))
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("El código de invitación no es válido");
+
+        verify(membershipRepository, never()).save(any());
+    }
+
+    @Test
+    void joinByCodeKeepsTheDuplicateRules() {
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+        when(membershipRepository.findByGroupIdAndPractitionerUserId(10, 2))
+                .thenReturn(Optional.of(membership(MembershipStatus.ACTIVO)));
+
+        assertThatThrownBy(() -> service.joinByCode("ABC123"))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("Ya perteneces");
+
+        verify(membershipRepository, never()).save(any());
+    }
+
+    @Test
+    void joinByCodeKeepsTheCapacityRule() {
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+        when(membershipRepository.countByGroupIdAndStatus(10, MembershipStatus.ACTIVO)).thenReturn(3L);
+
+        assertThatThrownBy(() -> service.joinByCode("ABC123"))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("capacidad maxima");
+    }
+
+    @Test
+    void joinByCodeKeepsTheExpelledRule() {
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+        when(membershipRepository.findByGroupIdAndPractitionerUserId(10, 2))
+                .thenReturn(Optional.of(membership(MembershipStatus.EXPULSADO)));
+
+        assertThatThrownBy(() -> service.joinByCode("ABC123"))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("expulsado");
+    }
+
+    @Test
+    void joinByCodeKeepsTheDraftRule() {
+        group.setStatus(GroupStatus.BORRADOR);
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+
+        assertThatThrownBy(() -> service.joinByCode("ABC123"))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("todavía no está publicado");
+    }
+
+    @Test
+    void coachCannotJoinByCode() {
+        when(currentUserResolver.currentUser()).thenReturn(coachUser);
+
+        assertThatThrownBy(() -> service.joinByCode("ABC123"))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(groupRepository, never()).findByInvitationCode(any());
+    }
+
+    @Test
+    void joinByCodeUpgradesAPreviouslyRejectedMembershipToActive() {
+        GroupMembership rejected = membership(MembershipStatus.RECHAZADO);
+        when(groupRepository.findByInvitationCode("ABC123")).thenReturn(Optional.of(group));
+        when(membershipRepository.findByGroupIdAndPractitionerUserId(10, 2))
+                .thenReturn(Optional.of(rejected));
+
+        GroupMembership result = service.joinByCode("ABC123");
+
+        assertThat(result).isSameAs(rejected);
+        assertThat(result.getStatus()).isEqualTo(MembershipStatus.ACTIVO);
     }
 
     private GroupMembership membership(MembershipStatus status) {

@@ -998,6 +998,36 @@ class TeamsIntegrationTests {
     }
 
     @Test
+    void practitionerJoinsAProtectedGroupWithOnlyTheInvitationCode() {
+        String coachSession = coachSession(account(Role.COACH));
+        Map<String, Object> group = createGroup(coachSession, "Grupo por codigo", "PROTEGIDO", 5);
+        Integer groupId = (Integer) group.get("groupId");
+        String code = (String) group.get("invitationCode");
+
+        // El coach no puede ingresar por código.
+        assertThat(joinByCode(coachSession, code).getStatusCode().value()).isEqualTo(403);
+
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+
+        var unknown = joinByCode(practitionerSession, "ZZZZZZZZZZZZ");
+        assertThat(unknown.getStatusCode().value()).isEqualTo(404);
+        assertThat(unknown.getBody()).containsEntry("message", "El código de invitación no es válido");
+
+        // El código en minúsculas y con espacios también vale.
+        var joined = joinByCode(practitionerSession, "  " + code.toLowerCase() + " ");
+        assertThat(joined.getStatusCode().value()).isEqualTo(201);
+        assertThat(joined.getBody())
+                .containsEntry("status", "ACTIVO")
+                .containsEntry("groupId", groupId);
+
+        assertThat(joinByCode(practitionerSession, code).getStatusCode().value()).isEqualTo(409);
+
+        // El ingreso por id sin código sigue generando una solicitud pendiente.
+        String other = practitionerSession(account(Role.PRACTICANTE));
+        assertThat(join(other, groupId)).containsEntry("status", "PENDIENTE");
+    }
+
+    @Test
     void draftIsHiddenUntilTheCoachPublishesIt() {
         String coachSession = coachSession(account(Role.COACH));
 
@@ -1216,6 +1246,12 @@ class TeamsIntegrationTests {
                 new HttpEntity<>(headers(session)), new ParameterizedTypeReference<Map<String, Object>>() {});
         assertThat(joined.getStatusCode().value()).isEqualTo(201);
         return joined.getBody();
+    }
+
+    private org.springframework.http.ResponseEntity<Map<String, Object>> joinByCode(String session, String code) {
+        return http.exchange("/teams/join-by-code", HttpMethod.POST,
+                new HttpEntity<>(Map.of("invitationCode", code), headers(session)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
     }
 
     private List<Map<String, Object>> myTeams(String session) {

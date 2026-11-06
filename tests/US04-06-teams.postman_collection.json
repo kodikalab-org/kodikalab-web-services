@@ -2232,6 +2232,190 @@
           }
         }
       ]
+    },
+    {
+      "name": "56 Login PRACTICANTE A para ingreso por código",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{practitionerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "pm.test('Token JWT recibido', () => { const b = pm.response.json(); pm.expect(b.token).to.be.a('string'); pm.expect(b.tokenType).to.eql('Bearer'); pm.collectionVariables.set('token', b.token); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "57 Código inexistente -> 404",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/join-by-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "join-by-code"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"invitationCode\": \"ZZZZZZZZZZZZ\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+              "pm.test('Mensaje', () => pm.expect(pm.response.json().message).to.eql('El código de invitación no es válido'));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "58 Solo código (minúsculas) a grupo protegido -> ACTIVO",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/join-by-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "join-by-code"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"invitationCode\": \"  {{inviteDraftLower}}  \"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('inviteDraftLower', String(pm.collectionVariables.get('inviteDraft')).toLowerCase());"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+              "pm.test('Miembro ACTIVO del grupo publicado', () => { const b = pm.response.json(); pm.expect(b.status).to.eql('ACTIVO'); pm.expect(b.groupId).to.eql(Number(pm.collectionVariables.get('groupDraft'))); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "59 Repetir el código del mismo grupo -> 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/teams/join-by-code",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "teams",
+            "join-by-code"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"invitationCode\": \"{{inviteDraft}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+              "pm.test('Ya pertenece', () => pm.expect(pm.response.json().message).to.eql('Ya perteneces a este grupo'));"
+            ]
+          }
+        }
+      ]
     }
   ],
   "auth": {

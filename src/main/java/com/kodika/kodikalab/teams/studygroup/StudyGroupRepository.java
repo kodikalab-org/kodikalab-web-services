@@ -11,6 +11,9 @@ public interface StudyGroupRepository extends JpaRepository<StudyGroup, Integer>
 
     List<StudyGroup> findByStatusOrderByIdAsc(GroupStatus status);
 
+    /** Busca el grupo por su código de invitación (único, 12 caracteres en mayúsculas). */
+    Optional<StudyGroup> findByInvitationCode(String invitationCode);
+
     /** Grupos que creó el coach, de cualquier estado. */
     @Query("select g from StudyGroup g where g.coach.userId = :coachUserId order by g.id")
     List<StudyGroup> findByCoachUserId(@Param("coachUserId") Integer coachUserId);

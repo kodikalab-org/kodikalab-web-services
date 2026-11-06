@@ -3,6 +3,8 @@ package com.kodika.kodikalab.teams;
 
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
+import com.kodika.kodikalab.common.exception.NotFoundException;
+import com.kodika.kodikalab.common.exception.TooManyRequestsException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
@@ -158,6 +160,94 @@ class StudyGroupControllerTests {
         mvc.perform(post("/teams/1/join")
                         .param("invitationCode", "CODIGO"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void joinByCodeReturns429WhenTheAttemptLimitIsExhausted() throws Exception {
+        when(membershipService.joinByCode("ABC123DEF456"))
+                .thenThrow(new TooManyRequestsException("Demasiados intentos"));
+
+        mvc.perform(post("/teams/join-by-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"invitationCode":"ABC123DEF456"}
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("Demasiados intentos"));
+    }
+
+    @Test
+    void joinByCodeReturns201WithTheMembership() throws Exception {
+        StudyGroup group = new StudyGroup();
+        group.setId(4);
+        GroupMembership membership = new GroupMembership();
+        membership.setId(9);
+        membership.setGroup(group);
+        membership.setStatus(MembershipStatus.ACTIVO);
+
+        when(membershipService.joinByCode("abc123def456")).thenReturn(membership);
+
+        mvc.perform(post("/teams/join-by-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"invitationCode":"abc123def456"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("Ingreso al grupo registrado correctamente"))
+                .andExpect(jsonPath("$.membershipId").value(9))
+                .andExpect(jsonPath("$.groupId").value(4))
+                .andExpect(jsonPath("$.status").value("ACTIVO"));
+    }
+
+    @Test
+    void joinByCodeRequiresTheCode() throws Exception {
+        mvc.perform(post("/teams/join-by-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"invitationCode":"   "}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.invitationCode").exists());
+
+        mvc.perform(post("/teams/join-by-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verify(membershipService, never()).joinByCode(any());
+    }
+
+    @Test
+    void joinByCodeWithAnUnknownCodeReturns404() throws Exception {
+        when(membershipService.joinByCode(any()))
+                .thenThrow(new NotFoundException("El código de invitación no es válido"));
+
+        mvc.perform(post("/teams/join-by-code")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"invitationCode":"NOEXISTE0000"}
+                                """))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("El código de invitación no es válido"));
+    }
+
+    @Test
+    void joinByIdStillAcceptsTheOptionalInvitationCodeParam() throws Exception {
+        StudyGroup group = new StudyGroup();
+        group.setId(1);
+        GroupMembership membership = new GroupMembership();
+        membership.setId(3);
+        membership.setGroup(group);
+        membership.setStatus(MembershipStatus.PENDIENTE);
+
+        when(membershipService.requestJoin(1, null)).thenReturn(membership);
+
+        mvc.perform(post("/teams/1/join"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDIENTE"));
+
+        verify(membershipService).requestJoin(1, null);
+        verify(membershipService, never()).joinByCode(any());
     }
 
     @Test
