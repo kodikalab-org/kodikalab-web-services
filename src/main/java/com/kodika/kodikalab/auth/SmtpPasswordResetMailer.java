@@ -1,14 +1,15 @@
 package com.kodika.kodikalab.auth;
 
 import jakarta.annotation.PreDestroy;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class SmtpPasswordResetMailer implements PasswordResetMailer {
     private static final Logger LOG = LoggerFactory.getLogger(SmtpPasswordResetMailer.class);
-    static final String SUBJECT = "Tu código para restablecer la contraseña de Kodikalab";
+    private static final int MAX_QUEUED = 100;
+    static final String SUBJECT ="Tu código para restablecer la contraseña de Kodikalab";
 
     private final JavaMailSender sender;
     private final String from;
@@ -28,11 +30,13 @@ public class SmtpPasswordResetMailer implements PasswordResetMailer {
     public SmtpPasswordResetMailer(JavaMailSender sender, @Value("${kodikalab.mail.from:}") String from) {
         this.sender = sender;
         this.from = from == null ? "" : from.strip();
-        this.ownedExecutor = Executors.newFixedThreadPool(2, runnable -> {
-            Thread thread = new Thread(runnable, "password-reset-mail");
-            thread.setDaemon(true);
-            return thread;
-        });
+        // Cola acotada: con el SMTP lento no puede crecer sin límite; un correo que no cabe se descarta y se registra.
+        this.ownedExecutor = new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(MAX_QUEUED), runnable -> {
+                    Thread thread = new Thread(runnable, "password-reset-mail");
+                    thread.setDaemon(true);
+                    return thread;
+                }, (task, pool) -> LOG.warn("Cola de correos de restablecimiento llena: se descarta un envío"));
         this.executor = ownedExecutor;
     }
 
@@ -61,7 +65,9 @@ public class SmtpPasswordResetMailer implements PasswordResetMailer {
                 message.setSubject(SUBJECT);
                 message.setText(body(fullName, code));
                 sender.send(message);
-            } catch (MailException exception) {
+            } catch (RuntimeException exception) {
+                // Cualquier fallo del envío (MailException u otro) se queda aquí: en un hilo del executor llegaría
+                // al manejador por defecto, que imprime el stack trace completo con el destinatario.
                 // Solo el tipo de error: el mensaje puede incluir el destinatario y nunca debe incluir el código.
                 LOG.warn("No se pudo enviar el correo de restablecimiento de contraseña ({})",
                         exception.getClass().getSimpleName());
@@ -73,7 +79,7 @@ public class SmtpPasswordResetMailer implements PasswordResetMailer {
         return "Hola " + (fullName == null || fullName.isBlank() ? "" : fullName.strip()) + ",\n\n"
                 + "Recibimos una solicitud para restablecer la contraseña de tu cuenta de Kodikalab.\n\n"
                 + "Tu código de verificación es: " + code + "\n\n"
-                + "El código vence en 10 minutos y solo sirve una vez. Si no pediste este cambio, ignora este "
+                + "El código vence en un máximo de 20 minutos y deja de servir en cuanto cambies la contraseña. Si no pediste este cambio, ignora este "
                 + "mensaje: tu contraseña no se modificará.\n\n"
                 + "Por tu seguridad, no compartas este código con nadie.\n\n"
                 + "Equipo Kodikalab\n";

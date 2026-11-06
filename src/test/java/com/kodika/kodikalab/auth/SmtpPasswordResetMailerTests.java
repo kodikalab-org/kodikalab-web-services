@@ -32,7 +32,7 @@ class SmtpPasswordResetMailerTests {
         assertThat(message.getTo()).containsExactly("camila@upc.edu.pe");
         assertThat(message.getSubject()).isEqualTo(SmtpPasswordResetMailer.SUBJECT);
         assertThat(message.getText()).contains("Hola Camila Rojas,").contains("483920")
-                .contains("vence en 10 minutos").contains("Si no pediste este cambio");
+                .contains("vence en un máximo de 20 minutos").contains("Si no pediste este cambio");
     }
 
     @Test
@@ -44,6 +44,14 @@ class SmtpPasswordResetMailerTests {
     @Test
     void aSendFailureIsSwallowedSoTheRequestOutcomeDoesNotDependOnTheAccount() {
         doThrow(new MailSendException("SMTP caído para camila@upc.edu.pe código 483920")).when(sender)
+                .send(any(SimpleMailMessage.class));
+        assertThatCode(() -> mailer("no-reply@kodikalab.test").sendCode("camila@upc.edu.pe", "Camila", "483920"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void anyRuntimeFailureStaysInsideTheSendingThread() {
+        doThrow(new IllegalStateException("fallo inesperado con camila@upc.edu.pe")).when(sender)
                 .send(any(SimpleMailMessage.class));
         assertThatCode(() -> mailer("no-reply@kodikalab.test").sendCode("camila@upc.edu.pe", "Camila", "483920"))
                 .doesNotThrowAnyException();

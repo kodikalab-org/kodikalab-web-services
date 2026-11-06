@@ -43,6 +43,7 @@ class PasswordResetServiceTests {
     private final PasswordResetMailer mailer = mock(PasswordResetMailer.class);
     private MutableClock clock;
     private PasswordResetCodeService codes;
+    private PasswordResetAttemptLimiter limiter;
     private PasswordResetService service;
     private User user;
     private String currentHash;
@@ -51,7 +52,11 @@ class PasswordResetServiceTests {
     void setUp() {
         clock = new MutableClock(Instant.parse("2026-11-06T12:00:00Z"));
         codes = new PasswordResetCodeService(TestJwt.service().deriveKey("kodikalab:password-reset-code:v1"), clock);
-        service = new PasswordResetServiceImpl(users, encoder, codes, new PasswordResetAttemptLimiter(clock), mailer);
+        limiter = new PasswordResetAttemptLimiter(clock);
+        service = new PasswordResetServiceImpl(users, encoder, codes, limiter, mailer);
+        // El titular ya pidió un código hace un minuto: verify y confirm solo aceptan códigos que se pidieron.
+        limiter.acquireSend(EMAIL);
+        clock.advance(Duration.ofSeconds(60));
         currentHash = encoder.encode("Password123");
         user = new User();
         user.setId(5);
@@ -149,6 +154,22 @@ class PasswordResetServiceTests {
         assertThat(service.verifyCode(verifyRequest(validCode())).message()).contains("Código verificado");
         assertThat(service.verifyCode(verifyRequest(validCode())).message()).contains("Código verificado");
         verify(users, never()).replacePasswordHash(any(), anyString(), anyString());
+    }
+
+    @Test
+    void verifyRejectsTheRightCodeWhenNoCodeWasRequestedForThatEmail() {
+        limiter.clear(EMAIL);
+        assertInvalidCode(() -> service.verifyCode(verifyRequest(validCode())));
+        assertInvalidCode(() -> service.resetPassword(confirm(validCode(), "Nueva1234")));
+        verify(users, never()).replacePasswordHash(any(), anyString(), anyString());
+    }
+
+    @Test
+    void aRequestedCodeIsAcceptedUntilTwentyMinutesAfterTheSendAndRejectedAfterwards() {
+        clock.advance(Duration.ofMinutes(19));
+        assertThat(service.verifyCode(verifyRequest(validCode())).message()).contains("Código verificado");
+        clock.advance(Duration.ofMinutes(2));
+        assertInvalidCode(() -> service.verifyCode(verifyRequest(validCode())));
     }
 
     @Test

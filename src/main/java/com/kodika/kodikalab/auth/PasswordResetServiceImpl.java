@@ -11,6 +11,7 @@ import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserService;
 import com.kodika.kodikalab.users.UserStatus;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -58,7 +59,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
     @Override
     public PasswordResetResponse verifyCode(PasswordResetVerifyRequest request) {
-        limiter.checkNotLocked(request.email());
         verified(request.email(), request.code());
         return new PasswordResetResponse("Código verificado. Ya puedes crear tu nueva contraseña");
     }
@@ -69,7 +69,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         if (request.newPassword().getBytes(StandardCharsets.UTF_8).length > 72) {
             throw new BadRequestException("La contraseña no debe superar 72 bytes en UTF-8");
         }
-        limiter.checkNotLocked(request.email());
         User user = verified(request.email(), request.code());
         String currentHash = user.getPasswordHash();
         String newHash = passwordEncoder.encode(request.newPassword());
@@ -81,17 +80,23 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         return new PasswordResetResponse("Contraseña actualizada. Inicia sesión con tu nueva contraseña");
     }
 
-    /** Devuelve la cuenta si el código es correcto; si no, cuenta el intento fallido y responde siempre igual. */
+    /**
+     * Devuelve la cuenta si el código es correcto; si no, responde siempre igual. El intento se reserva antes de
+     * comprobar nada (atómico, 429 si el cupo se agotó) y solo se devuelve cuando el código era correcto, así que las
+     * peticiones simultáneas no evalúan más códigos que el cupo. El código solo vale si se pidió para ese correo.
+     */
     private User verified(String email, String code) {
+        Instant window = limiter.reserveAttempt(email);
         User user = userService.findByEmail(email).orElse(null);
         boolean eligible = isEligible(user);
         String accountEmail = eligible ? user.getEmail() : email;
         String hash = eligible ? user.getPasswordHash() : DUMMY_PASSWORD_HASH;
         boolean matches = codes.matches(accountEmail, hash, code);
-        if (!eligible || !matches) {
-            limiter.recordFailure(email);
+        boolean requested = limiter.codeRequestedRecently(email);
+        if (!eligible || !matches || !requested) {
             throw new UnauthorizedException(INVALID_CODE);
         }
+        limiter.refundAttempt(email, window);
         return user;
     }
 

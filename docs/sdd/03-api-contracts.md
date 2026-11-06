@@ -185,8 +185,8 @@ Tres pasos públicos, sin token. El código tiene **6 dígitos**, llega por corr
 ```
 
 - `400` código que no son exactamente 6 dígitos o correo inválido.
-- `401` `Código inválido o vencido`: código incorrecto, vencido, ya usado, correo inexistente o cuenta suspendida. Todos responden igual.
-- `429` `Demasiados intentos. Espera unos minutos y pide un código nuevo`: 5 códigos incorrectos en 15 minutos bloquean ese correo, aunque después llegue el código correcto.
+- `401` `Código inválido o vencido`: código incorrecto, vencido, ya usado, no pedido para ese correo en los últimos 20 minutos, correo inexistente o cuenta suspendida. Todos responden igual.
+- `429` `Demasiados intentos. Espera unos minutos y pide un código nuevo`: 5 intentos de verificación en 15 minutos por correo (cuentan `verify` y `confirm`; un intento con código correcto se devuelve). Pasado el cupo se rechaza todo, aunque llegue el código correcto.
 
 `POST /api/auth/password-reset/confirm`: `{ "email": "...", "code": "123456", "newPassword": "Nueva1234" }`. Vuelve a verificar el código y define la contraseña nueva, con la misma política del registro (8 caracteres, una mayúscula y un número; máximo 72 bytes UTF-8).
 
