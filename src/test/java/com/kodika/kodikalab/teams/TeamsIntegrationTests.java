@@ -905,6 +905,31 @@ class TeamsIntegrationTests {
                 new ParameterizedTypeReference<Map<String, Object>>() {});
 
         assertThat(again.getStatusCode().value()).isEqualTo(409);
+
+        // El coach sí puede readmitir al expulsado.
+        var expelledList = requests(coachSession, (Integer) group.get("groupId"), "EXPULSADO");
+        assertThat(expelledList).hasSize(1);
+        assertThat(expelledList.get(0)).containsEntry("status", "EXPULSADO");
+
+        var readmitted = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "READMITIR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(readmitted.getStatusCode().value()).isEqualTo(200);
+        assertThat(readmitted.getBody()).containsEntry("status", "ACTIVO");
+        assertThat(requests(coachSession, (Integer) group.get("groupId"), "ACTIVO")).hasSize(1);
+        assertThat(myTeams(coachSession).get(0)).containsEntry("activeMembers", 1);
+
+        // Ya no está expulsado: una segunda readmisión responde 409.
+        var readmitAgain = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "READMITIR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(readmitAgain.getStatusCode().value()).isEqualTo(409);
     }
 
     @Test

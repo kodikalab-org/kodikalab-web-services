@@ -122,9 +122,10 @@ public class StudyGroupController {
 
         if (status != MembershipStatus.PENDIENTE
                 && status != MembershipStatus.ACLARACION_SOLICITADA
-                && status != MembershipStatus.ACTIVO) {
+                && status != MembershipStatus.ACTIVO
+                && status != MembershipStatus.EXPULSADO) {
             throw new BadRequestException(
-                    "Solo se permite consultar miembros ACTIVO, solicitudes PENDIENTE o ACLARACION_SOLICITADA"
+                    "Solo se permite consultar miembros ACTIVO, EXPULSADO, solicitudes PENDIENTE o ACLARACION_SOLICITADA"
             );
         }
 
