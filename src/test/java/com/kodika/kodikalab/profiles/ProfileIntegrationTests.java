@@ -2,6 +2,7 @@ package com.kodika.kodikalab.profiles;
 
 import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesClient;
 import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesUserInfo;
+import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesSubmission;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserRepository;
@@ -433,6 +434,29 @@ class ProfileIntegrationTests {
         return (String) token;
     }
 
+    @Test
+    void codeforcesStatsEnforceJwtAndPractitionerRoleAndUseLinkedHandle() {
+        assertThat(stats(null).getStatusCode().value()).isEqualTo(401);
+        assertThat(stats(login(account(Role.COACH))).getStatusCode().value()).isEqualTo(403);
+        User practitioner = account(Role.PRACTICANTE);
+        String token = login(practitioner);
+        var unlinked = stats(token);
+        assertThat(unlinked.getStatusCode().value()).isEqualTo(200);
+        assertThat(unlinked.getBody()).containsEntry("linked", false).containsEntry("handle", null)
+                .containsEntry("problemsSolved", 0).containsEntry("activity", List.of());
+        assertThat(put(token, practitionerBody(code(), "tourist")).getStatusCode().value()).isEqualTo(200);
+        var linked = stats(token);
+        assertThat(linked.getStatusCode().value()).isEqualTo(200);
+        assertThat(linked.getBody()).containsEntry("linked", true).containsEntry("handle", "tourist")
+                .containsEntry("currentRating", 3800).containsEntry("problemsSolved", 1);
+        assertThat(get(token).getStatusCode().value()).isEqualTo(200);
+    }
+
+    private ResponseEntity<Map<String, Object>> stats(String token) {
+        return http.exchange("/users/me/codeforces/stats", HttpMethod.GET, new HttpEntity<>(jsonHeaders(token)),
+                new ParameterizedTypeReference<>() {});
+    }
+
     private ResponseEntity<Map<String, Object>> get(String session) {
         return http.exchange("/users/me", HttpMethod.GET, new HttpEntity<>(jsonHeaders(session)),
                 new ParameterizedTypeReference<>() {});
@@ -539,10 +563,19 @@ class ProfileIntegrationTests {
         @Bean
         @Primary
         CodeforcesClient codeforcesStub() {
-            return handle -> switch (handle) {
-                case "tourist" -> Optional.of(new CodeforcesUserInfo("tourist", 3800));
-                case "newbie_ok" -> Optional.of(new CodeforcesUserInfo("newbie_ok", null));
-                default -> Optional.empty();
+            return new CodeforcesClient() {
+                public Optional<CodeforcesUserInfo> findUser(String handle) {
+                    return switch (handle) {
+                        case "tourist" -> Optional.of(new CodeforcesUserInfo("tourist", 3800));
+                        case "newbie_ok" -> Optional.of(new CodeforcesUserInfo("newbie_ok", null));
+                        default -> Optional.empty();
+                    };
+                }
+
+                public List<CodeforcesSubmission> findSubmissions(String handle) {
+                    return List.of(new CodeforcesSubmission(
+                            1793966400, 1, "A", 800, "OK"));
+                }
             };
         }
     }

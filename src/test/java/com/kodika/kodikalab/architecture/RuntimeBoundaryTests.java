@@ -80,7 +80,7 @@ class RuntimeBoundaryTests {
                         .startsWith("com.kodika.kodikalab"))
                 .flatMap(entry -> entry.getKey().getPatternValues().stream()).toList())
                 .containsExactlyInAnyOrder("/auth/register", "/auth/login", "/auth/recovery", "/auth/recovery-code",
-                        "/users/me", "/users/me",
+                        "/users/me", "/users/me", "/users/me/codeforces/stats",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
                         "/competitions", "/competitions/{competitionId}/status",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
