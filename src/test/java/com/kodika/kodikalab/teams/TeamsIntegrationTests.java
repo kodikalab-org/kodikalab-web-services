@@ -831,6 +831,108 @@ class TeamsIntegrationTests {
     }
 
     @Test
+    void coachListsTheActiveMembersOfTheirGroup() {
+        String coachSession = coachSession(account(Role.COACH));
+        var group = createGroup(coachSession, "Integrantes visibles", "PUBLICO", 5);
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+        join(practitionerSession, (Integer) group.get("groupId"));
+
+        var active = requests(coachSession, (Integer) group.get("groupId"), "ACTIVO");
+
+        assertThat(active).hasSize(1);
+        assertThat(active.get(0))
+                .containsEntry("status", "ACTIVO")
+                .containsEntry("groupId", group.get("groupId"));
+        assertThat(active.get(0).get("practitioner")).isNotNull();
+
+        // Un estado no admitido sigue respondiendo 400.
+        var invalid = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships?status=RETIRADO",
+                HttpMethod.GET,
+                new HttpEntity<>(headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(invalid.getStatusCode().value()).isEqualTo(400);
+
+        // Un practicante no puede consultar la lista de integrantes.
+        var forbidden = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships?status=ACTIVO",
+                HttpMethod.GET,
+                new HttpEntity<>(headers(practitionerSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(forbidden.getStatusCode().value()).isEqualTo(403);
+    }
+
+    @Test
+    void coachExpelsAnActiveMemberAndThatMemberCannotRejoin() {
+        String coachSession = coachSession(account(Role.COACH));
+        var group = createGroup(coachSession, "Expulsion US06", "PUBLICO", 5);
+        String practitionerSession = practitionerSession(account(Role.PRACTICANTE));
+        join(practitionerSession, (Integer) group.get("groupId"));
+
+        var active = requests(coachSession, (Integer) group.get("groupId"), "ACTIVO");
+        Object membershipId = active.get(0).get("membershipId");
+
+        var expelled = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "EXPULSAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(expelled.getStatusCode().value()).isEqualTo(200);
+        assertThat(expelled.getBody()).containsEntry("status", "EXPULSADO");
+        assertThat(requests(coachSession, (Integer) group.get("groupId"), "ACTIVO")).isEmpty();
+
+        // El cupo vuelve a estar libre.
+        var mine = myTeams(coachSession);
+        assertThat(mine.get(0)).containsEntry("activeMembers", 0);
+
+        // Quien fue expulsado no puede volver a postular.
+        var rejoin = http.exchange(
+                "/teams/" + group.get("groupId") + "/join",
+                HttpMethod.POST,
+                new HttpEntity<>(headers(practitionerSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(rejoin.getStatusCode().value()).isEqualTo(403);
+
+        // No se puede expulsar dos veces.
+        var again = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "EXPULSAR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(again.getStatusCode().value()).isEqualTo(409);
+
+        // El coach sí puede readmitir al expulsado.
+        var expelledList = requests(coachSession, (Integer) group.get("groupId"), "EXPULSADO");
+        assertThat(expelledList).hasSize(1);
+        assertThat(expelledList.get(0)).containsEntry("status", "EXPULSADO");
+
+        var readmitted = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "READMITIR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(readmitted.getStatusCode().value()).isEqualTo(200);
+        assertThat(readmitted.getBody()).containsEntry("status", "ACTIVO");
+        assertThat(requests(coachSession, (Integer) group.get("groupId"), "ACTIVO")).hasSize(1);
+        assertThat(myTeams(coachSession).get(0)).containsEntry("activeMembers", 1);
+
+        // Ya no está expulsado: una segunda readmisión responde 409.
+        var readmitAgain = http.exchange(
+                "/teams/" + group.get("groupId") + "/memberships/" + membershipId,
+                HttpMethod.PATCH,
+                new HttpEntity<>(Map.of("decision", "READMITIR"), headers(coachSession)),
+                new ParameterizedTypeReference<Map<String, Object>>() {});
+
+        assertThat(readmitAgain.getStatusCode().value()).isEqualTo(409);
+    }
+
+    @Test
     void practitionerSeesTheStatusOfEachOfTheirRequestsAndNeverTheCoachFields() {
         String coachSession = coachSession(account(Role.COACH));
         var open = createGroup(coachSession, "Practicante publico", "PUBLICO", 5);

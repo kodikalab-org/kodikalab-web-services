@@ -123,9 +123,11 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
         }
 
         if (status != MembershipStatus.PENDIENTE
-                && status != MembershipStatus.ACLARACION_SOLICITADA) {
+                && status != MembershipStatus.ACLARACION_SOLICITADA
+                && status != MembershipStatus.ACTIVO
+                && status != MembershipStatus.EXPULSADO) {
             throw new BadRequestException(
-                    "Solo se permite consultar solicitudes PENDIENTE o ACLARACION_SOLICITADA"
+                    "Solo se permite consultar miembros ACTIVO, EXPULSADO, solicitudes PENDIENTE o ACLARACION_SOLICITADA"
             );
         }
 
@@ -181,6 +183,8 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
             case SOLICITAR_ACLARACION -> requestClarification(membership, message);
             case ACEPTAR -> accept(membership, group);
             case RECHAZAR -> reject(membership);
+            case EXPULSAR -> expel(membership);
+            case READMITIR -> readmit(membership, group);
         };
     }
 
@@ -271,6 +275,44 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
     private GroupMembership reject(GroupMembership membership) {
         requirePending(membership);
         membership.setStatus(MembershipStatus.RECHAZADO);
+
+        return membershipRepository.save(membership);
+    }
+
+    /** Expulsar solo aplica a un integrante ACTIVO; libera su cupo y bloquea el reingreso. */
+    private GroupMembership expel(GroupMembership membership) {
+        if (membership.getStatus() != MembershipStatus.ACTIVO) {
+            throw new ConflictException(
+                    "Solo se puede expulsar a un integrante activo del grupo"
+            );
+        }
+
+        membership.setStatus(MembershipStatus.EXPULSADO);
+        membership.setLeftAt(OffsetDateTime.now());
+
+        return membershipRepository.save(membership);
+    }
+
+    /** El coach vuelve a incorporar a alguien expulsado; exige cupo y grupo activo. */
+    private GroupMembership readmit(GroupMembership membership, StudyGroup group) {
+        if (membership.getStatus() != MembershipStatus.EXPULSADO) {
+            throw new ConflictException(
+                    "Solo se puede readmitir a un integrante expulsado"
+            );
+        }
+
+        if (group.getStatus() != GroupStatus.ACTIVO) {
+            throw new ConflictException(
+                    "No se puede readmitir integrantes en un grupo que no está activo"
+            );
+        }
+
+        ensureCapacity(group);
+
+        membership.setStatus(MembershipStatus.ACTIVO);
+        membership.setJoinedAt(OffsetDateTime.now());
+        membership.setLeftAt(null);
+        clearClarification(membership);
 
         return membershipRepository.save(membership);
     }
