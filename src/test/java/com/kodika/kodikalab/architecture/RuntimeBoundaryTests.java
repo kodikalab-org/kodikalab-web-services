@@ -92,7 +92,8 @@ class RuntimeBoundaryTests {
                         "/teams/{id}/memberships/{memberId}", "/teams/{id}/draft", "/teams/{id}/publish",
                         "/teams/{id}/memberships/{memberId}/clarification",
                         "/problems", "/problems", "/problems/assign", "/problems/assigned",
-                        "/problems/assigned/{competitionProblemId}");
+                        "/problems/assigned/{competitionProblemId}",
+                        "/competitions/teams/{teamId}", "/competitions/teams/{teamId}/problems");
     }
 
     @Test

@@ -11,6 +11,8 @@ import com.kodika.kodikalab.competitions.problemresolution.ProblemResolutionServ
 import com.kodika.kodikalab.competitions.officialresult.OfficialResultService;
 import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultRequest;
 import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultResponse;
+import com.kodika.kodikalab.competitions.competition.dto.TeamCompetitionResponse;
+import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignedProblemResponse;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -56,6 +58,18 @@ public class CompetitionController {
     @GetMapping
     public CompetitionListResponse list(@RequestParam(required = false) Integer teamId) {
         return competitionService.listByTeam(teamId);
+    }
+
+    /** US-11 a US-14: competencias del equipo para elegir contexto (sin clave de acceso). */
+    @GetMapping("/teams/{teamId}")
+    public List<TeamCompetitionResponse> competitions(@PathVariable Integer teamId) {
+        return competitionService.findByTeamId(teamId);
+    }
+
+    /** US-11 a US-14: asignaciones de problemas del equipo, una fila por asignación (competitionProblemId). */
+    @GetMapping("/teams/{teamId}/problems")
+    public List<AssignedProblemResponse> problems(@PathVariable Integer teamId) {
+        return competitionProblemService.listByTeamId(teamId);
     }
 
     @PatchMapping("/{competitionId}/status")

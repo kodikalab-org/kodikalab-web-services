@@ -3,11 +3,13 @@ package com.kodika.kodikalab.competitions.competitionproblem;
 import com.kodika.kodikalab.common.exception.ConstraintViolations;
 import com.kodika.kodikalab.common.exception.FieldConflictException;
 import com.kodika.kodikalab.competitions.competition.Competition;
+import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignedProblemResponse;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignmentData;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignmentView;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.NewAssignment;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.TeamAssignedProblem;
 import com.kodika.kodikalab.problems.problem.Problem;
+import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
 import jakarta.persistence.EntityManager;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -23,11 +25,20 @@ import org.springframework.transaction.annotation.Transactional;
 public class CompetitionProblemServiceImpl implements CompetitionProblemService {
     private final CompetitionProblemRepository competitionProblemRepository;
     private final EntityManager entityManager;
+    private final StudyGroupService groups;
 
     public CompetitionProblemServiceImpl(CompetitionProblemRepository competitionProblemRepository,
-                                         EntityManager entityManager) {
+                                         EntityManager entityManager, StudyGroupService groups) {
         this.competitionProblemRepository = competitionProblemRepository;
         this.entityManager = entityManager;
+        this.groups = groups;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignedProblemResponse> listByTeamId(Integer teamId) {
+        groups.requireAccessibleTeam(teamId);
+        return competitionProblemRepository.findAvailableByTeamId(teamId);
     }
 
     @Override

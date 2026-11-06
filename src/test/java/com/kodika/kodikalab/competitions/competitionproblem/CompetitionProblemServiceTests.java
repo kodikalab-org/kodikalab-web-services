@@ -8,6 +8,7 @@ import com.kodika.kodikalab.competitions.competition.PenaltyRule;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.NewAssignment;
 import com.kodika.kodikalab.problems.problem.Problem;
 import com.kodika.kodikalab.teams.studygroup.StudyGroup;
+import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
 import jakarta.persistence.EntityManager;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -37,7 +38,7 @@ class CompetitionProblemServiceTests {
     void setUp() {
         repository = mock(CompetitionProblemRepository.class);
         entityManager = mock(EntityManager.class);
-        service = new CompetitionProblemServiceImpl(repository, entityManager);
+        service = new CompetitionProblemServiceImpl(repository, entityManager, mock(StudyGroupService.class));
         competitionReference = competition(5, 1);
         when(entityManager.getReference(Competition.class, 5)).thenReturn(competitionReference);
         when(entityManager.getReference(Problem.class, 11)).thenReturn(problem(11));

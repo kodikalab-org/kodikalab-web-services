@@ -10,6 +10,7 @@ import com.kodika.kodikalab.competitions.competition.dto.CompetitionListResponse
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionSummary;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
+import com.kodika.kodikalab.competitions.competition.dto.TeamCompetitionResponse;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
 import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
@@ -201,6 +202,17 @@ public class CompetitionServiceImpl implements CompetitionService {
         }
         List<CompetitionListItem> items = competitionRepository.findListItemsByTeamId(teamId);
         return new CompetitionListResponse(teamId, items.size(), items);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TeamCompetitionResponse> findByTeamId(Integer teamId) {
+        groupService.requireAccessibleTeam(teamId);
+        return competitionRepository.findByGroupIdOrderByStartsAtDescIdDesc(teamId).stream()
+                .map(competition -> new TeamCompetitionResponse(competition.getId(), teamId,
+                        competition.getEventName(), competition.getStatus(), competition.getStartsAt(),
+                        competition.getEndsAt()))
+                .toList();
     }
 
     @Override

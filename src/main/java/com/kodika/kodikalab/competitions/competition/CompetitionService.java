@@ -5,6 +5,8 @@ import com.kodika.kodikalab.competitions.competition.dto.CompetitionListResponse
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionSummary;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
+import com.kodika.kodikalab.competitions.competition.dto.TeamCompetitionResponse;
+import java.util.List;
 import java.util.Optional;
 
 /** Servicio de competencias del grupo (competencia). */
@@ -20,6 +22,9 @@ public interface CompetitionService {
 
     /** Competencias de un equipo, para su coach responsable o un integrante con membresía ACTIVO. */
     CompetitionListResponse listByTeam(Integer teamId);
+
+    /** Competencias del equipo (id, nombre, estado y fechas) para su coach o un integrante ACTIVO; sin clave de acceso. */
+    List<TeamCompetitionResponse> findByTeamId(Integer teamId);
 
     /** Equipo y estado de la competencia, sin bloqueo. */
     Optional<CompetitionSummary> findSummaryById(Integer competitionId);
