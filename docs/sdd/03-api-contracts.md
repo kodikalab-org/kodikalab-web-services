@@ -375,3 +375,16 @@ Usar Swagger UI para revisar y probar endpoints:
 ```txt
 http://localhost:8080/api/swagger-ui.html
 ```
+
+
+## Consultas implementadas para navegación US-11 a US-14
+
+A partir del 6 de noviembre de 2026 están implementadas, con sesión y autorización por equipo:
+
+```txt
+GET /teams/me
+GET /competitions/teams/{teamId}
+GET /competitions/teams/{teamId}/problems
+```
+
+Contratos de respuesta, roles, ordenamiento, listas vacías y pruebas: [Navegación de equipos](17-navegacion-equipos.md). La base HTTP es /api. Las demás rutas planificadas de equipos y asignaciones no se implementan como parte de este cambio.

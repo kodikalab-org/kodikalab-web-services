@@ -5,11 +5,19 @@ import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface GroupMembershipRepository extends JpaRepository<GroupMembership, Integer> {
+    @EntityGraph(attributePaths = "group")
+    List<GroupMembership> findByPractitionerUserIdAndStatusOrderByGroupIdAsc(Integer userId, MembershipStatus status);
+
+    long countByGroupIdAndStatus(Integer teamId, MembershipStatus status);
+
+    boolean existsByGroupIdAndPractitionerUserIdAndStatus(Integer teamId, Integer userId, MembershipStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select m from GroupMembership m where m.group.id = :teamId and m.practitioner.userId = :userId")
     Optional<GroupMembership> findForUpdate(@Param("teamId") Integer teamId, @Param("userId") Integer userId);

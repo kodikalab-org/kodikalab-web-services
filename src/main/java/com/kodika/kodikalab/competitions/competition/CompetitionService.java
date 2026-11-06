@@ -1,8 +1,8 @@
 package com.kodika.kodikalab.competitions.competition;
 
-/**
- * Plantilla del servicio de competencias del grupo (competencia).
- * Declarar aquí las operaciones al implementar cada historia; sin lógica por ahora.
- */
+import com.kodika.kodikalab.competitions.competition.dto.TeamCompetitionResponse;
+import java.util.List;
+
 public interface CompetitionService {
+    List<TeamCompetitionResponse> findByTeamId(Integer teamId);
 }

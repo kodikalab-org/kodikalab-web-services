@@ -8,6 +8,8 @@ import com.kodika.kodikalab.competitions.officialresult.OfficialResultService;
 import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultRequest;
 import com.kodika.kodikalab.competitions.officialresult.dto.OfficialResultResponse;
 import java.util.List;
+import com.kodika.kodikalab.competitions.competition.dto.TeamCompetitionResponse;
+import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignedProblemResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,6 +39,16 @@ public class CompetitionController {
         this.problemResolutionService = problemResolutionService;
         this.categoryService = categoryService;
         this.officialResultService = officialResultService;
+    }
+
+    @GetMapping("/teams/{teamId}")
+    public List<TeamCompetitionResponse> competitions(@PathVariable Integer teamId) {
+        return competitionService.findByTeamId(teamId);
+    }
+
+    @GetMapping("/teams/{teamId}/problems")
+    public List<AssignedProblemResponse> problems(@PathVariable Integer teamId) {
+        return competitionProblemService.listByTeamId(teamId);
     }
 
     @PostMapping("/{competitionId}/official-result")
