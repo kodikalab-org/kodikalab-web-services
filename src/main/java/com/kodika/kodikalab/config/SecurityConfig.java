@@ -83,6 +83,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/weaknesses").hasRole(COACH)   // US-12
 
                         // Solo PRACTICANTE
+                        .requestMatchers(HttpMethod.GET, "/users/me/codeforces/stats").hasRole(PRACTICANTE)
                         .requestMatchers(HttpMethod.POST, "/teams/{id}/join").hasRole(PRACTICANTE)                // US-05
                         .requestMatchers(HttpMethod.POST,
                                 "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions")

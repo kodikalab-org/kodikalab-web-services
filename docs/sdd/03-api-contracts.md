@@ -1031,3 +1031,46 @@ Usar Swagger UI para revisar y probar endpoints:
 ```txt
 http://localhost:8080/api/swagger-ui.html
 ```
+## Preferencias opcionales del practicante
+
+`PUT /api/users/me` y `GET /api/users/me` agregan a `profile` las claves opcionales
+`district` (hasta 60 caracteres), `experienceMonths` (entero 0..600),
+`preferredTime` (`MANANA`, `TARDE`, `NOCHE`), `availableDays` (array sin duplicados,
+subconjunto de `LUN`, `MAR`, `MIE`, `JUE`, `VIE`, `SAB`, `DOM`) y `goal`.
+Los cuatro objetivos permitidos son `Clasificar a competencias`, `Mejorar mi nivel`,
+`Prepararme para entrevistas`, `Aprender por diversión`.
+Son opcionales y aceptan null. Como el endpoint es PUT, omitirlos o enviar null
+borra el valor anterior; `availableDays: []` conserva una selección vacía.
+Un distrito vacío se normaliza a null; valores inválidos devuelven 400 antes de persistir.
+No cambian los campos obligatorios ni el comportamiento de verificación de handles.
+
+## Estadísticas Codeforces del practicante
+
+`GET /api/users/me/codeforces/stats` requiere Bearer JWT y rol `PRACTICANTE`.
+La respuesta no usa wrapper:
+
+```json
+{"linked":true,"handle":"test_handle","problemsSolved":2,"maxStreakDays":1,
+ "currentRating":1200,"acceptedSubmissions":3,"acceptanceRate":75.0,
+ "activity":[{"date":"2026-11-06","count":3}],
+ "solvedByRating":[{"rating":0,"count":1},{"rating":800,"count":1}]}
+```
+
+- Sin perfil o sin handle confirmado: `linked:false`, `handle:null`, números 0 y arrays vacíos.
+- `problemsSolved`: problemas distintos (`contestId:index`) con al menos un envío `OK`.
+- `acceptedSubmissions`: todos los envíos `OK`, incluidos reenvíos del mismo problema.
+- `acceptanceRate`: porcentaje 0..100 de `OK` sobre todos los envíos, incluidos pendientes; 0 sin envíos.
+- `maxStreakDays`: mayor secuencia histórica de días UTC con al menos un `OK`.
+- `activity`: días con `OK`, cuenta de envíos aceptados por día UTC; array disperso ascendente,
+  desde hoy menos un año calendario más un día hasta hoy inclusive. El cliente rellena días sin actividad con 0.
+- `solvedByRating`: problemas distintos por rating numérico exacto, orden ascendente; 0 significa sin rating.
+- `currentRating`: rating actual de `user.info`, 0 si el usuario aún no tiene rating.
+- Handle inexistente: 404 con `message`; timeouts, límite upstream, HTTP fallido o JSON inválido: 503 con `message`.
+  No se guardan errores en caché ni se modifican datos del perfil. Fallar estadísticas no impide guardar o leer perfil.
+- Caché en memoria por handle (insensible a mayúsculas), 15 minutos, hasta 512 handles por instancia;
+  cambio de fecha UTC fuerza recálculo de la ventana. Reiniciar elimina caché. No hay estado distribuido.
+- Todas las consultas del cliente Codeforces, incluida validación en PUT, comparten separación de al menos 2 segundos.
+  La espera comienza al completar cada envío HTTP (incluso si falla), no al iniciar el envío, para cubrir demoras del transporte.
+  `user.status` solicita historial completo (`from=1`, sin `count`); primera consulta puede tardar más que un cache hit.
+- Configuración conservada: `CODEFORCES_API_BASE_URL` (default `https://codeforces.com/api`),
+  `CODEFORCES_API_TIMEOUT_MS` (default 3000 por petición). API pública sin credenciales Codeforces.

@@ -5,6 +5,8 @@ import com.kodika.kodikalab.common.exception.ConstraintViolations;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.profiles.practitioner.CodeforcesStatsController;
+import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesUnavailableException;
 import java.util.Map;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -13,9 +15,14 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-@RestControllerAdvice(assignableTypes = ProfileController.class)
+@RestControllerAdvice(assignableTypes = {ProfileController.class, CodeforcesStatsController.class})
 public class ProfileExceptionHandler {
     public record ErrorResponse(String message, Map<String, String> errors) {
+    }
+
+    @ExceptionHandler(CodeforcesUnavailableException.class)
+    public ResponseEntity<ErrorResponse> codeforcesUnavailable(CodeforcesUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
     @ExceptionHandler(ProfileValidationException.class)

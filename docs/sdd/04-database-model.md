@@ -334,3 +334,11 @@ Antes de adaptar una base con datos:
 9. Invalidar sesiones anteriores al cambiar el modelo de roles.
 
 No se ejecutó ninguno de estos pasos sobre la base local. La alineación de `auth`/`users` se validó en PostgreSQL temporal aislado y no equivale a haber implementado las demás tablas oficiales ni migrado datos antiguos.
+## Preferencias opcionales aprobadas del practicante
+
+`practicante` incorpora `distrito VARCHAR(60)`, `experiencia_meses INT` (0..600),
+`franja_horaria VARCHAR(10)`, `dias_disponibles TEXT[]` y `objetivo VARCHAR(60)`,
+todas nullable y sin defaults para no inventar datos históricos.
+Se mantiene el enfoque code-first actual (Hibernate ddl-auto update en desarrollo),
+sin introducir Flyway/Liquibase. En despliegues con DDL desactivado, agregar esas
+cinco columnas nullable antes de iniciar esta versión; no modifica filas previas.

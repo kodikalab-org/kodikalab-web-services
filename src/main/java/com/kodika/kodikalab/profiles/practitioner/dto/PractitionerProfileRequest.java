@@ -34,9 +34,21 @@ public record PractitionerProfileRequest(
 
         @Size(max = 50, message = "El identificador de VJudge debe tener como máximo 50 caracteres")
         @Pattern(regexp = "^[A-Za-z0-9._-]*$", message = "El identificador de VJudge no cumple el formato permitido")
-        String vjudgeHandle
+        String vjudgeHandle,
+        @Size(max = 60) String district,
+        @Min(0) @jakarta.validation.constraints.Max(600) Integer experienceMonths,
+        @Pattern(regexp = "MANANA|TARDE|NOCHE") String preferredTime,
+        @Size(max = 7) java.util.Set<@NotNull @Pattern(regexp = "LUN|MAR|MIE|JUE|VIE|SAB|DOM") String> availableDays,
+        @Pattern(regexp = "Clasificar a competencias|Mejorar mi nivel|Prepararme para entrevistas|Aprender por diversión") String goal
 ) {
+    public PractitionerProfileRequest(String codigoEstudiante, String carrera, Integer cicloAcademico,
+            PractitionerLevel nivelCompetitivo, String codeforcesHandle, String atcoderHandle, String vjudgeHandle) {
+        this(codigoEstudiante, carrera, cicloAcademico, nivelCompetitivo, codeforcesHandle, atcoderHandle,
+                vjudgeHandle, null, null, null, null, null);
+    }
+
     public PractitionerProfileRequest {
+        district = district == null || district.isBlank() ? null : district.strip();
         codigoEstudiante = codigoEstudiante == null ? null : codigoEstudiante.strip();
         carrera = carrera == null ? null : carrera.strip();
         codeforcesHandle = codeforcesHandle == null ? null : codeforcesHandle.strip();

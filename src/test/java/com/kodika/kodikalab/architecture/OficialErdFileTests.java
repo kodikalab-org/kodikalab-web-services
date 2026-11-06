@@ -52,6 +52,7 @@ class OficialErdFileTests {
             case "TIMESTAMP WITH TIME ZONE" -> "timestamp with time zone";
             case "TEXT" -> "text";
             case "JSONB" -> "jsonb";
+            case "TEXT[]" -> "ARRAY";
             default -> type;
         };
     }

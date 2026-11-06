@@ -144,6 +144,23 @@ class PractitionerProfileServiceTests {
         verifyNoInteractions(repository, codeforces);
     }
 
+    @Test
+    void optionalPreferencesRoundTripAndCanBeCleared() {
+        when(repository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var request = new PractitionerProfileRequest("20240001", "Software", 5, PractitionerLevel.INTERMEDIO,
+                null, null, null, " Lima ", 600, "NOCHE", java.util.Set.of("LUN", "VIE"), "Mejorar mi nivel");
+        var saved = service.savePractitionerProfile(practitioner, request).profile();
+        assertThat(saved.district()).isEqualTo("Lima");
+        assertThat(saved.experienceMonths()).isEqualTo(600);
+        assertThat(saved.preferredTime()).isEqualTo("NOCHE");
+        assertThat(saved.availableDays()).containsExactly("LUN", "VIE");
+        assertThat(saved.goal()).isEqualTo("Mejorar mi nivel");
+        var cleared = service.savePractitionerProfile(practitioner, request(null)).profile();
+        assertThat(cleared.district()).isNull();
+        assertThat(cleared.availableDays()).isNull();
+        assertThat(cleared.goal()).isNull();
+    }
+
     private PractitionerProfileRequest request(String codeforcesHandle) {
         return new PractitionerProfileRequest("20240001", "Ingeniería de Software", 5,
                 PractitionerLevel.INTERMEDIO, codeforcesHandle, "tourist_atcoder", "usuario_vjudge");
