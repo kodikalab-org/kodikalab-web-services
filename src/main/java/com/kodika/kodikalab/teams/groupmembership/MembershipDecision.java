@@ -8,10 +8,13 @@ package com.kodika.kodikalab.teams.groupmembership;
  *   <li>{@code RECHAZAR}: la solicitud pasa a {@code RECHAZADO}.</li>
  *   <li>{@code SOLICITAR_ACLARACION}: la solicitud pasa a {@code ACLARACION_SOLICITADA} y se guarda el mensaje
  *       del coach. El postulante debe responder antes de que el coach pueda aceptar o rechazar.</li>
+ *   <li>{@code EXPULSAR}: un integrante {@code ACTIVO} pasa a {@code EXPULSADO} y libera su cupo. No puede
+ *       volver a postular al grupo.</li>
  * </ul>
  */
 public enum MembershipDecision {
     ACEPTAR,
     RECHAZAR,
-    SOLICITAR_ACLARACION
+    SOLICITAR_ACLARACION,
+    EXPULSAR
 }

@@ -182,6 +182,7 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
             case SOLICITAR_ACLARACION -> requestClarification(membership, message);
             case ACEPTAR -> accept(membership, group);
             case RECHAZAR -> reject(membership);
+            case EXPULSAR -> expel(membership);
         };
     }
 
@@ -272,6 +273,20 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
     private GroupMembership reject(GroupMembership membership) {
         requirePending(membership);
         membership.setStatus(MembershipStatus.RECHAZADO);
+
+        return membershipRepository.save(membership);
+    }
+
+    /** Expulsar solo aplica a un integrante ACTIVO; libera su cupo y bloquea el reingreso. */
+    private GroupMembership expel(GroupMembership membership) {
+        if (membership.getStatus() != MembershipStatus.ACTIVO) {
+            throw new ConflictException(
+                    "Solo se puede expulsar a un integrante activo del grupo"
+            );
+        }
+
+        membership.setStatus(MembershipStatus.EXPULSADO);
+        membership.setLeftAt(OffsetDateTime.now());
 
         return membershipRepository.save(membership);
     }
