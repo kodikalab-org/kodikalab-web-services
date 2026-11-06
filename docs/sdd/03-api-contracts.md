@@ -107,7 +107,7 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 
 | Acceso | Endpoints |
 | --- | --- |
-| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `/swagger-ui.html`, `/v3/api-docs` |
+| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `/swagger-ui.html`, `/v3/api-docs` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
 | Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
@@ -162,6 +162,43 @@ El sistema no envía correos: el titular verifica su identidad con el **código 
 Límites conocidos: rotar `JWT_SECRET` cambia todos los códigos (cada titular puede consultar el nuevo con su contraseña) y todavía no hay limitación de intentos; con 120 bits de entropía, adivinar un código no es factible.
 
 La colección `tests/US02-login.postman_collection.json`, su fixture SQL y `tests/US02-login.md` usan el modelo oficial; un `401` con un correo ausente no prueba una cuenta suspendida existente. Diseño: `10-us02-login.md`. Secuencia de alineación: `11-erd-oficial-alignment.md`.
+
+### Restablecer la contraseña con un código enviado por correo (US-02, escenario alternativo)
+
+Tres pasos públicos, sin token. El código tiene **6 dígitos**, llega por correo al titular y vence solo (vale entre 10 y 20 minutos). No se guarda en ninguna tabla: es un HMAC del correo, el hash vigente de la contraseña y una ventana de 10 minutos (ver `06-security-strategy.md`).
+
+`POST /api/auth/password-reset/request`: `{ "email": "test@gmail.com" }`. Envía el código si el correo es de una cuenta `ACTIVO`.
+
+```json
+{ "message": "Si el correo está registrado, te enviamos un código para restablecer tu contraseña" }
+```
+
+- `200` siempre con el mismo mensaje, exista o no la cuenta, esté suspendida o no: no se revela qué correos están registrados. El envío es en segundo plano; un fallo del servidor de correo se registra y no cambia la respuesta.
+- `400` correo ausente o con formato inválido.
+- `429` ya se pidió un código para ese correo hace menos de un minuto: `Espera un minuto antes de pedir otro código`. El límite se aplica igual a correos no registrados.
+- `503` `El envío de correos no está configurado`: el servidor no tiene remitente (`MAIL_FROM` o `MAIL_USERNAME`).
+
+`POST /api/auth/password-reset/verify`: `{ "email": "...", "code": "123456" }`. Comprueba el código sin consumirlo; permite al cliente avanzar al paso de la contraseña nueva. Los espacios del código se ignoran.
+
+```json
+{ "message": "Código verificado. Ya puedes crear tu nueva contraseña" }
+```
+
+- `400` código que no son exactamente 6 dígitos o correo inválido.
+- `401` `Código inválido o vencido`: código incorrecto, vencido, ya usado, no pedido para ese correo en los últimos 20 minutos, correo inexistente o cuenta suspendida. Todos responden igual.
+- `429` `Demasiados intentos. Espera unos minutos y pide un código nuevo`: 5 intentos de verificación en 15 minutos por correo (cuentan `verify` y `confirm`; un intento con código correcto se devuelve). Pasado el cupo se rechaza todo, aunque llegue el código correcto.
+
+`POST /api/auth/password-reset/confirm`: `{ "email": "...", "code": "123456", "newPassword": "Nueva1234" }`. Vuelve a verificar el código y define la contraseña nueva, con la misma política del registro (8 caracteres, una mayúscula y un número; máximo 72 bytes UTF-8).
+
+```json
+{ "message": "Contraseña actualizada. Inicia sesión con tu nueva contraseña" }
+```
+
+- `400` contraseña débil (`La contraseña debe contener al menos 8 caracteres, una mayúscula y un número`) o de más de 72 bytes.
+- `401` y `429` como en `verify`. Dos solicitudes simultáneas con el mismo código: solo una gana.
+- Efectos: BCrypt para la contraseña nueva, el código deja de valer y los tokens emitidos antes del cambio también (el JWT lleva la huella del hash). Un cambio correcto borra el contador de intentos fallidos.
+
+Los tres endpoints nunca devuelven el código, la contraseña ni datos de la cuenta, y `toString` de las solicitudes los oculta.
 
 ## Users/Profile
 
