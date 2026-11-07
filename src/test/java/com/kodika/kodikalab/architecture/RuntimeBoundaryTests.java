@@ -83,7 +83,7 @@ class RuntimeBoundaryTests {
                         "/auth/password-reset/request", "/auth/password-reset/verify", "/auth/password-reset/confirm",
                         "/users/me", "/users/me", "/users/me/codeforces/stats",
                         "/analytics/teams/{teamId}/standings", "/analytics/teams/{teamId}/weaknesses", "/competitions",
-                        "/competitions", "/competitions/{competitionId}/status",
+                        "/competitions", "/competitions/{competitionId}/status", "/competitions/{competitionId}/standings",
                         "/competitions/{competitionId}/official-result", "/competitions/{competitionId}/official-result",
                         "/competitions/{competitionId}/official-result", "/competitions/teams/{teamId}/official-results",
                         "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions",

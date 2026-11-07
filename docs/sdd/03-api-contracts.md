@@ -110,7 +110,7 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 | Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `/swagger-ui.html`, `/v3/api-docs` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
-| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
+| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /competitions/{competitionId}/standings`, `GET /analytics/teams/{teamId}/standings` |
 
 Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
 dependen de datos (coach responsable del equipo, membresía activa, cuenta `ACTIVO`).
@@ -1115,6 +1115,58 @@ solicitudes simultáneas se serializan: una cambia el estado y la otra recibe `4
 La de inicio más reciente primero y, con el mismo inicio, la creada después; `items` queda vacío si el equipo no tiene
 competencias. Nunca incluye la clave de acceso. Errores: `400` sin `teamId` o no numérico (`errors.teamId`), `401` sin token
 válido, `403` cuenta no activa, practicante sin membresía `ACTIVO` o coach de otro equipo, `404` equipo inexistente.
+
+## Clasificación por concurso
+
+`GET /api/competitions/{competitionId}/standings`. El coach responsable del equipo de la competencia o un integrante con
+membresía `ACTIVO` de ese equipo. Es la clasificación estilo Codeforces de un solo concurso; el ranking acumulado del
+equipo sigue en `GET /api/analytics/teams/{teamId}/standings`.
+
+```json
+{
+  "competitionId": 5,
+  "teamId": 3,
+  "eventName": "Semanal 12",
+  "status": "EN_CURSO",
+  "penaltyRule": "ICPC_20_MIN",
+  "startsAt": "2026-10-20T14:00:00-05:00",
+  "endsAt": "2026-10-20T19:00:00-05:00",
+  "problems": [
+    { "competitionProblemId": 11, "letter": "A", "title": "Watermelon", "score": 100 }
+  ],
+  "rows": [
+    {
+      "position": 1,
+      "userId": 7,
+      "fullName": "Ana Pérez",
+      "solved": 2,
+      "score": 200,
+      "penaltyMinutes": 45,
+      "cells": [
+        { "competitionProblemId": 11, "letter": "A", "result": "RESUELTO", "attempts": 1, "minutes": 12 }
+      ]
+    }
+  ]
+}
+```
+
+- `problems` va ordenado por letra (`A < B < … < Z < AA`) y cada fila trae una celda por problema, en el mismo orden.
+- `rows` incluye a todo integrante `ACTIVO` del equipo, aunque no tenga intentos. Solo cuentan las resoluciones de
+  membresías de ese equipo sobre los problemas de esa competencia: el progreso de cada `(equipo, usuario)` está aislado.
+- `result` usa los estados de `GET /problems/assigned`: `RESUELTO` (hay un intento aceptado), `PENDIENTE` (hay un
+  intento por verificar y ninguno aceptado), `EN_PROGRESO` (solo intentos fallidos) y `SIN_INTENTOS`.
+- `attempts` son los intentos hasta el primer aceptado (incluido), o todos si no lo resolvió. `minutes` son los minutos
+  desde `startsAt` hasta ese aceptado; es `null` si no está resuelto.
+- `ICPC_20_MIN`: orden por `solved` descendente y luego `penaltyMinutes` ascendente, donde la penalización suma, por
+  cada problema resuelto, sus `minutes` más 20 por cada respuesta fallida anterior a la aceptada (un intento aún
+  `PENDIENTE` no penaliza). `IOI_POINTS`: orden por `score` descendente (suma del `score` de los problemas resueltos)
+  y `penaltyMinutes` es `0`. `score` se informa con ambas reglas.
+- Los empates comparten `position` (`1, 1, 3`), igual que el ranking del equipo; entre empatados se muestra primero el
+  nombre menor.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` identificador no numérico o no positivo
+(`errors.competitionId`), `401` sin token válido, `403` cuenta no activa, practicante sin membresía `ACTIVO` o coach de
+otro equipo, `404` competencia inexistente, `503` persistencia no disponible.
 
 ## US-13 — Resultados oficiales de competencias
 

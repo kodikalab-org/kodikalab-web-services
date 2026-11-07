@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.competitions.problemresolution;
 
+import com.kodika.kodikalab.competitions.problemresolution.dto.CompetitionAttempt;
 import com.kodika.kodikalab.competitions.problemresolution.dto.MemberAttempt;
 import com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData;
 import java.util.List;
@@ -35,4 +36,17 @@ public interface ProblemResolutionRepository extends JpaRepository<ProblemResolu
             order by r.submittedAt desc, r.id desc
             """)
     List<MemberAttempt> findAttemptsByMembershipId(@Param("membershipId") Integer membershipId);
+
+    /** Solo membresías del equipo dado sobre problemas de la competencia dada, del más antiguo al más reciente. */
+    @Query("""
+            select new com.kodika.kodikalab.competitions.problemresolution.dto.CompetitionAttempt(
+                r.id, m.id, cp.id, r.verdict, r.submittedAt)
+            from ProblemResolution r
+            join r.membership m
+            join r.competitionProblem cp
+            where cp.competition.id = :competitionId and m.group.id = :teamId
+            order by r.submittedAt asc, r.id asc
+            """)
+    List<CompetitionAttempt> findAttemptsByCompetitionAndTeam(@Param("competitionId") Integer competitionId,
+                                                              @Param("teamId") Integer teamId);
 }

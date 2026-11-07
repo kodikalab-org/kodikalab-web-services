@@ -11,7 +11,8 @@
  *   <li>{@code POST /problems/assign}: el coach responsable asigna problemas del catálogo a una competencia;</li>
  *   <li>{@code GET /problems/assigned}: problemas asignados de un equipo, con estado, filtros y orden;</li>
  *   <li>{@code GET /problems/assigned/{competitionProblemId}}: detalle de una asignación con el historial de
- *       intentos.</li>
+ *       intentos;</li>
+ *   <li>{@code GET /competitions/{competitionId}/standings}: clasificación de un concurso estilo Codeforces.</li>
  * </ul>
  */
 package com.kodika.kodikalab.assignments;

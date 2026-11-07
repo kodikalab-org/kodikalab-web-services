@@ -5,6 +5,7 @@ import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.competitions.competition.dto.ChangeCompetitionStatusRequest;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionDetail;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionListItem;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionListResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
@@ -207,6 +208,15 @@ public class CompetitionServiceImpl implements CompetitionService {
     @Transactional(readOnly = true)
     public Optional<CompetitionSummary> findSummaryById(Integer competitionId) {
         return competitionRepository.findById(competitionId).map(CompetitionServiceImpl::summary);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<CompetitionDetail> findDetailById(Integer competitionId) {
+        return competitionRepository.findById(competitionId).map(competition -> new CompetitionDetail(
+                competition.getId(), competition.getGroup() == null ? null : competition.getGroup().getId(),
+                competition.getEventName(), competition.getStatus(), competition.getPenaltyRule(),
+                competition.getStartsAt(), competition.getEndsAt()));
     }
 
     @Override
