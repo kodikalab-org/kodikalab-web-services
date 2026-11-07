@@ -177,6 +177,28 @@ public class StudyGroupServiceImpl implements StudyGroupService {
 
     @Override
     @Transactional(readOnly = true)
+    public void requireAccessibleTeam(Integer teamId) {
+        User user = currentUserResolver.currentUser();
+        if (user.getStatus() != UserStatus.ACTIVO || user.getId() == null
+                || (user.getRole() != Role.COACH && user.getRole() != Role.PRACTICANTE)) {
+            throw new ForbiddenException("La cuenta no tiene acceso a los equipos");
+        }
+        if (teamId == null || teamId <= 0) {
+            throw new BadRequestException("El identificador del equipo debe ser un entero positivo");
+        }
+        StudyGroupSummary group = findSummaryById(teamId)
+                .orElseThrow(() -> new NotFoundException("El equipo no existe"));
+        boolean allowed = user.getRole() == Role.COACH
+                ? user.getId().equals(group.coachUserId())
+                : membershipRepository.existsByGroupIdAndPractitionerUserIdAndStatus(
+                        teamId, user.getId(), MembershipStatus.ACTIVO);
+        if (!allowed) {
+            throw new ForbiddenException("No tiene autorización para consultar este equipo");
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<StudyGroupSummary> findSummaryById(Integer teamId) {
         return studyGroupRepository.findSummaryById(teamId);
     }

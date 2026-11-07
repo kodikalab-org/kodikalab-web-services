@@ -21,5 +21,11 @@ public interface StudyGroupService {
     /** Equipos del usuario autenticado: los grupos del coach o las membresías del practicante. */
     List<MyTeamResponse> findMyTeams();
 
+    /**
+     * Exige que el usuario autenticado (activo) pueda consultar el equipo: su coach responsable o un integrante con
+     * membresía ACTIVO. Lanza BadRequest, NotFound o Forbidden según corresponda.
+     */
+    void requireAccessibleTeam(Integer teamId);
+
     Optional<StudyGroupSummary> findSummaryById(Integer teamId);
 }

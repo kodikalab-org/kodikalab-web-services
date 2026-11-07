@@ -1342,3 +1342,7 @@ La respuesta no usa wrapper:
   `user.status` solicita historial completo (`from=1`, sin `count`); primera consulta puede tardar más que un cache hit.
 - Configuración conservada: `CODEFORCES_API_BASE_URL` (default `https://codeforces.com/api`),
   `CODEFORCES_API_TIMEOUT_MS` (default 3000 por petición). API pública sin credenciales Codeforces.
+
+## Navegación por equipo (US-11 a US-14)
+
+El cliente elige el contexto sin escribir IDs con endpoints ya documentados arriba: `GET /api/teams/me` (equipos del usuario), `GET /api/competitions?teamId=` (competencias del equipo) y `GET /api/problems/assigned?teamId=` (problemas asignados). No hay endpoints de navegación adicionales. Ver [Navegación de equipos](17-navegacion-equipos.md).
