@@ -14,6 +14,7 @@ import com.kodika.kodikalab.problems.problem.dto.ProblemResponse;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesProblem;
 import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesProblemClient;
+import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesUnavailableException;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserStatus;
@@ -65,8 +66,7 @@ public class CodeforcesProblemServiceImpl implements CodeforcesProblemService {
         if (existing.isPresent()) {
             return new ImportCodeforcesProblemResponse(false, existing.get());
         }
-        CodeforcesProblem remote = client.findProblem(code.contestId(), code.index())
-                .orElseThrow(() -> new NotFoundException("El problema no existe en Codeforces"));
+        CodeforcesProblem remote = fetch(code);
         // contest.standings no siempre trae la dificultad: se completa con la copia del problemset si ya está en memoria.
         if (remote.rating() == null) {
             Optional<CodeforcesProblem> known = catalog.peek(code.contestId(), code.index());
@@ -95,6 +95,21 @@ public class CodeforcesProblemServiceImpl implements CodeforcesProblemService {
                 throw exception;
             }
         }
+    }
+
+    /**
+     * Busca primero en el problemset (en memoria y una sola descarga para todos); los problemas de concursos muy
+     * recientes que aún no figuran ahí, o un problemset caído, se consultan en la clasificación del concurso.
+     */
+    private CodeforcesProblem fetch(CodeforcesProblemCode code) {
+        Optional<CodeforcesProblem> fromProblemset;
+        try {
+            fromProblemset = catalog.find(code.contestId(), code.index());
+        } catch (CodeforcesUnavailableException exception) {
+            fromProblemset = Optional.empty();
+        }
+        return fromProblemset.or(() -> client.findProblem(code.contestId(), code.index()))
+                .orElseThrow(() -> new NotFoundException("El problema no existe en Codeforces"));
     }
 
     @Override

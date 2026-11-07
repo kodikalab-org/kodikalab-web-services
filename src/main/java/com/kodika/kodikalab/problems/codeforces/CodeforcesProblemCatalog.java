@@ -72,6 +72,18 @@ public class CodeforcesProblemCatalog {
         }
     }
 
+    /**
+     * El problema en el problemset (descarga o renueva la copia si hace falta).
+     *
+     * @throws CodeforcesUnavailableException si no hay copia y Codeforces no responde
+     */
+    public Optional<CodeforcesProblem> find(int contestId, String index) {
+        String wanted = index.toUpperCase(Locale.ROOT);
+        return problems().stream()
+                .filter(problem -> problem.contestId() == contestId && problem.index().equals(wanted))
+                .findFirst();
+    }
+
     /** El problema en la copia actual, aunque esté vencida; nunca descarga nada. */
     public Optional<CodeforcesProblem> peek(int contestId, String index) {
         Snapshot current = snapshot;

@@ -96,8 +96,9 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
 
     @Override
     public Optional<CodeforcesProblem> findProblem(int contestId, String index) {
-        // Un solo registro de la clasificación basta: solo interesa la lista de problemas del concurso.
-        JsonNode result = fetchResult("/contest.standings?contestId=" + contestId + "&from=1&count=1", timeout,
+        // Codeforces solo acepta contest.standings sin parámetros extra para concursos que no son gym; es el respaldo
+        // para problemas que todavía no aparecen en problemset.problems, por eso usa el timeout del catálogo.
+        JsonNode result = fetchResult("/contest.standings?contestId=" + contestId, catalogTimeout,
                 comment -> comment.contains("contest") && comment.contains("not found"));
         if (result == null) {
             return Optional.empty();

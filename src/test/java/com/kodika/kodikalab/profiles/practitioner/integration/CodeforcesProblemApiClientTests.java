@@ -59,7 +59,7 @@ class CodeforcesProblemApiClientTests {
         var problem = client.findProblem(4, "a");
 
         assertThat(lastPath.get()).isEqualTo("/api/contest.standings");
-        assertThat(lastQuery.get()).isEqualTo("contestId=4&from=1&count=1");
+        assertThat(lastQuery.get()).isEqualTo("contestId=4");
         assertThat(problem).contains(new CodeforcesProblem(4, "A", "Watermelon", 800, java.util.List.of("brute force", "math")));
     }
 

@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -79,6 +80,30 @@ class CodeforcesProblemServiceTests {
     }
 
     @Test
+    void importsFromTheProblemsetWithoutAskingForTheContestStandings() {
+        // Codeforces rejects contest.standings with extra parameters for non-gym contests, so the problemset is used first.
+        when(client.listProblems()).thenReturn(List.of(WATERMELON));
+        when(problems.create(any())).thenReturn(stored(12));
+
+        var response = service.importProblem(new ImportCodeforcesProblemRequest("4A"));
+
+        assertThat(response.created()).isTrue();
+        verify(client, never()).findProblem(anyInt(), anyString());
+        verify(problems).create(new CreateProblemRequest("Watermelon", WATERMELON_URL, SourcePlatform.CODEFORCES,
+                "4A", "800", 2000, 256, List.of("brute force", "math")));
+    }
+
+    @Test
+    void fallsBackToTheContestWhenTheProblemsetIsUnavailable() {
+        when(client.listProblems()).thenThrow(new CodeforcesUnavailableException());
+        when(client.findProblem(4, "A")).thenReturn(Optional.of(WATERMELON));
+        when(problems.create(any())).thenReturn(stored(12));
+
+        assertThat(service.importProblem(new ImportCodeforcesProblemRequest("4A")).created()).isTrue();
+        verify(client).findProblem(4, "A");
+    }
+
+    @Test
     void acceptsAFullProblemUrl() {
         when(client.findProblem(4, "A")).thenReturn(Optional.of(WATERMELON));
         when(problems.create(any())).thenReturn(stored(12));
@@ -102,17 +127,17 @@ class CodeforcesProblemServiceTests {
     }
 
     @Test
-    void fillsAMissingDifficultyFromTheProblemsetWhenItIsAlreadyInMemory() {
+    void reusesTheProblemsetCopyAlreadyInMemoryWithoutDownloadingItAgain() {
         when(client.listProblems()).thenReturn(List.of(WATERMELON));
         service.search("watermelon", null); // loads the problemset copy
-        when(client.findProblem(4, "A")).thenReturn(Optional.of(
-                new CodeforcesProblem(4, "A", "Watermelon", null, List.of("math"))));
         when(problems.create(any())).thenReturn(stored(12));
 
         service.importProblem(new ImportCodeforcesProblemRequest("4A"));
 
+        verify(client, times(1)).listProblems();
+        verify(client, never()).findProblem(anyInt(), anyString());
         verify(problems).create(new CreateProblemRequest("Watermelon", WATERMELON_URL, SourcePlatform.CODEFORCES,
-                "4A", "800", 2000, 256, List.of("math")));
+                "4A", "800", 2000, 256, List.of("brute force", "math")));
     }
 
     @Test
