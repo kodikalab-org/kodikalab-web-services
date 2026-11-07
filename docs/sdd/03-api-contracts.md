@@ -109,7 +109,7 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 | --- | --- |
 | Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `/swagger-ui.html`, `/v3/api-docs` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
-| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
+| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
 | Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
 
 Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
@@ -577,6 +577,26 @@ Ejemplo:
 `POST /api/teams/1/join?invitationCode=CODIGO_GENERADO`
 
 Respuesta: `201 Created`, con estado `ACTIVO`.
+
+#### Caso 4: Solo con el código de invitación
+
+`POST /api/teams/join-by-code`
+
+Rol requerido: `PRACTICANTE`, con perfil registrado. No se envía el identificador del grupo: el código lo identifica.
+
+```json
+{ "invitationCode": "ABCDEF123456" }
+```
+
+- `invitationCode` es obligatorio. Se recorta y no distingue mayúsculas de minúsculas (`abcdef123456` equivale a `ABCDEF123456`).
+- Un código válido siempre da ingreso directo (`ACTIVO`), tanto en grupos `PUBLICO` como `PROTEGIDO`.
+- Respuesta exitosa: `201 Created`, con el mismo cuerpo de `JoinGroupResponse` (`message`, `membershipId`, `groupId`, `status`).
+- Código inexistente: `404 Not Found`, "El código de invitación no es válido".
+- Límite de intentos: tras 5 códigos inexistentes en 15 minutos por practicante, `429 Too Many Requests`, "Demasiados intentos con códigos de invitación. Espera unos minutos e inténtalo de nuevo". Un código válido no consume el cupo.
+- Código ausente o en blanco: `400 Bad Request`.
+- Un `COACH` recibe `403 Forbidden`.
+- Se aplican las mismas reglas de la lista siguiente (grupo `ACTIVO`, cupo, duplicados, expulsados): un grupo en `BORRADOR` responde `409`, un grupo lleno `409`, y un integrante `ACTIVO` o `EXPULSADO` conserva su respuesta habitual.
+- `POST /api/teams/{id}/join` no cambia: sigue admitiendo `invitationCode` como parámetro de consulta opcional.
 
 Reglas:
 - El grupo debe existir y encontrarse `ACTIVO`.

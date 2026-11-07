@@ -12,6 +12,9 @@ public interface GroupMembershipService {
             String invitationCode
     );
 
+    // US05: Ingresar directamente a un grupo (publico o protegido) usando solo su codigo de invitacion
+    GroupMembership joinByCode(String invitationCode);
+
     // US06: Consultar solicitudes por estado (PENDIENTE o ACLARACION_SOLICITADA)
     List<GroupMembership> getRequests(
             Integer groupId,

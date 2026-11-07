@@ -14,9 +14,12 @@ import com.kodika.kodikalab.teams.studygroup.StudyGroup;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupRepository;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,21 +31,67 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
     private final StudyGroupRepository groupRepository;
     private final PractitionerProfileService practitionerProfileService;
     private final CurrentUserResolver currentUserResolver;
+    private final InvitationCodeAttemptLimiter codeAttemptLimiter;
 
     public GroupMembershipServiceImpl(
             GroupMembershipRepository membershipRepository,
             StudyGroupRepository groupRepository,
             PractitionerProfileService practitionerProfileService,
-            CurrentUserResolver currentUserResolver) {
+            CurrentUserResolver currentUserResolver,
+            InvitationCodeAttemptLimiter codeAttemptLimiter) {
         this.membershipRepository = membershipRepository;
         this.groupRepository = groupRepository;
         this.practitionerProfileService = practitionerProfileService;
         this.currentUserResolver = currentUserResolver;
+        this.codeAttemptLimiter = codeAttemptLimiter;
     }
 
     @Override
     @Transactional
     public GroupMembership requestJoin(Integer groupId, String invitationCode) {
+        return join(
+                () -> groupRepository.findById(groupId)
+                        .orElseThrow(() -> new NotFoundException(
+                                "El grupo solicitado no existe"
+                        )),
+                invitationCode,
+                false
+        );
+    }
+
+    @Override
+    @Transactional
+    public GroupMembership joinByCode(String invitationCode) {
+        String code = normalizeInvitationCode(invitationCode);
+
+        return join(
+                () -> findGroupByCode(code),
+                code,
+                true
+        );
+    }
+
+    /** Cada código inexistente consume un intento del practicante; uno válido lo devuelve. */
+    private StudyGroup findGroupByCode(String code) {
+        Integer userId = currentUserResolver.currentUser().getId();
+        Instant window = codeAttemptLimiter.reserveAttempt(userId);
+        StudyGroup group = groupRepository.findByInvitationCode(code)
+                .orElseThrow(() -> new NotFoundException(
+                        "El código de invitación no es válido"
+                ));
+        codeAttemptLimiter.refundAttempt(userId, window);
+        return group;
+    }
+
+    /**
+     * Flujo de ingreso compartido por {@link #requestJoin} y {@link #joinByCode}: valida la cuenta,
+     * el estado del grupo, duplicados, expulsiones y cupo. Con {@code codeProven} el código ya
+     * identificó al grupo, así que el ingreso es directo aunque sea PROTEGIDO.
+     */
+    private GroupMembership join(
+            Supplier<StudyGroup> groupLookup,
+            String invitationCode,
+            boolean codeProven) {
         User user = currentUserResolver.currentUser();
 
         if (user.getRole() != Role.PRACTICANTE) {
@@ -54,10 +103,8 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
         PractitionerProfile practitioner = practitionerProfileService
                 .requirePractitionerProfile(user.getId());
 
-        StudyGroup group = groupRepository.findById(groupId)
-                .orElseThrow(() -> new NotFoundException(
-                        "El grupo solicitado no existe"
-                ));
+        StudyGroup group = groupLookup.get();
+        Integer groupId = group.getId();
 
         if (group.getStatus() == GroupStatus.BORRADOR) {
             throw new ConflictException(
@@ -71,7 +118,8 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
             );
         }
 
-        boolean directJoin = group.getVisibility() == GroupVisibility.PUBLICO
+        boolean directJoin = codeProven
+                || group.getVisibility() == GroupVisibility.PUBLICO
                 || (invitationCode != null
                 && invitationCode.equals(group.getInvitationCode()));
 
@@ -382,6 +430,15 @@ public class GroupMembershipServiceImpl implements GroupMembershipService {
         membership.setClarificationRequestedAt(null);
         membership.setClarificationResponse(null);
         membership.setClarificationRespondedAt(null);
+    }
+
+    /** El código se compara sin importar espacios ni mayúsculas; se guarda en mayúsculas. */
+    private static String normalizeInvitationCode(String value) {
+        String trimmed = trimToNull(value);
+        if (trimmed == null) {
+            throw new BadRequestException("El código de invitación es obligatorio");
+        }
+        return trimmed.toUpperCase(Locale.ROOT);
     }
 
     private static String trimToNull(String value) {

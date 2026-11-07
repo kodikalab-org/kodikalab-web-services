@@ -90,6 +90,7 @@ public class SecurityConfig {
                         // Solo PRACTICANTE
                         .requestMatchers(HttpMethod.GET, "/users/me/codeforces/stats").hasRole(PRACTICANTE)
                         .requestMatchers(HttpMethod.POST, "/teams/{id}/join").hasRole(PRACTICANTE)                // US-05
+                        .requestMatchers(HttpMethod.POST, "/teams/join-by-code").hasRole(PRACTICANTE)             // US-05
                         .requestMatchers(HttpMethod.POST, "/teams/{id}/memberships/{memberId}/clarification")
                         .hasRole(PRACTICANTE)                                                                     // US-06
                         .requestMatchers(HttpMethod.POST,

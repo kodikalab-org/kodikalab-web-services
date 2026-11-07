@@ -5,6 +5,7 @@ import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
+import com.kodika.kodikalab.common.exception.TooManyRequestsException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Map;
@@ -92,6 +93,12 @@ public class TeamsExceptionHandler {
     public ResponseEntity<ErrorResponse> notFound(
             NotFoundException exception) {
         return error(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> tooManyRequests(
+            TooManyRequestsException exception) {
+        return error(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage());
     }
 
     @ExceptionHandler(ConflictException.class)

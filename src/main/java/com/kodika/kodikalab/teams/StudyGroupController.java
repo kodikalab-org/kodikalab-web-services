@@ -5,6 +5,7 @@ import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
 import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
 import com.kodika.kodikalab.teams.groupmembership.dto.ClarificationResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.ClarificationResponseRequest;
+import com.kodika.kodikalab.teams.groupmembership.dto.JoinByCodeRequest;
 import com.kodika.kodikalab.teams.groupmembership.dto.JoinGroupResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.PendingMembershipResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.ReviewMembershipRequest;
@@ -108,6 +109,19 @@ public class StudyGroupController {
 
         var membership = groupMembershipService.requestJoin(
                 groupId, invitationCode
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(JoinGroupResponse.from(membership));
+    }
+
+    // US05 - Ingresar directamente con solo el codigo de invitacion (grupo publico o protegido)
+    @PostMapping("/join-by-code")
+    public ResponseEntity<JoinGroupResponse> joinByCode(
+            @Valid @RequestBody JoinByCodeRequest request) {
+
+        var membership = groupMembershipService.joinByCode(
+                request.invitationCode()
         );
 
         return ResponseEntity.status(HttpStatus.CREATED)
