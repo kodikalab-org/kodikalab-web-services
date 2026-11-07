@@ -211,7 +211,7 @@ Se conserva el prefijo `/api` y las rutas funcionales inglesas. El nombre físic
 | `/auth/**` | `auth`; registro/login persisten en `usuario` según el ERD nuevo |
 | `/users/**` | Propuesta pendiente de `users` / `profiles`; no publicada |
 | `/teams/**` | `teams`; US04, US05 y US06 implementadas (grupos, borradores, solicitudes, aclaraciones y membresías); requieren token Bearer y rol según la operación |
-| `/problems`, `/problems/assign`, `/problems/assigned/**` | Catálogo (`problems`) y US-07/US-08 (`assignments`) implementadas; requieren token Bearer. `/problems/{id}/submit` y `/problems/{id}/resources` siguen pendientes |
+| `/problems`, `/problems/codeforces/{import,search}`, `/problems/assign`, `/problems/assigned/**` | Catálogo (`problems`) y US-07/US-08 (`assignments`) implementadas; requieren token Bearer. `/problems/{id}/submit` y `/problems/{id}/resources` siguen pendientes |
 | `/analytics/teams/{teamId}/standings` | US-11 implementada; requiere sesión y permisos del equipo |
 | `/analytics/teams/{teamId}/weaknesses` | US-12 implementada; requiere sesión del coach responsable con cuenta activa |
 | `/assistant/**` | Propuesta pendiente de `ai`; no publicada |

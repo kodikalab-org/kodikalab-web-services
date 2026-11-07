@@ -108,7 +108,7 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 | Acceso | Endpoints |
 | --- | --- |
 | Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `/swagger-ui.html`, `/v3/api-docs` |
-| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
+| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/codeforces/import`, `GET /problems/codeforces/search`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
 | Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /competitions/{competitionId}/standings`, `GET /analytics/teams/{teamId}/standings` |
 
@@ -1260,6 +1260,48 @@ origen, sin distinguir mayúsculas; `%` y `_` se buscan como texto), `topicId`, 
 Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos o criterios inválidos (`errors` por campo) o tipo
 incorrecto en el JSON, `401` sin token válido, `403` cuenta no coach (al registrar) o suspendida, `409` la `url` o el
 `sourceCode` de la plataforma ya existen (`errors` indica cuál) y `503`. Detalle: [US-07/US-08](17-us07-us08-asignacion-problemas.md).
+
+### Problems — importar y buscar problemas de Codeforces
+
+Permiten registrar un problema del catálogo con solo su código de Codeforces (por ejemplo `1850A`), sin escribir
+título, URL ni temas. Solo un coach con cuenta `ACTIVO` y sesión; un practicante recibe `403`.
+
+`POST /api/problems/codeforces/import` con `{ "code": "1850A" }`. `code` es el código corto (`1850A`, `1850b2`,
+`CF-1850A`: el índice se normaliza a mayúsculas) o la URL del problema (`https://codeforces.com/problemset/problem/1850/A`
+o `https://codeforces.com/contest/1850/problem/A`). Los concursos de gimnasio (más de 5 cifras) no se admiten.
+
+- `201` `{ "created": true, "problem": {...} }`: el problema se consultó en Codeforces y se registró.
+- `200` `{ "created": false, "problem": {...} }`: ya existía en el catálogo (mismo `sourceCode`, con o sin el prefijo
+  `CF-` del registro manual, o misma `url`); no se consulta Codeforces. Es idempotente, también ante dos importaciones
+  simultáneas.
+
+`problem` es exactamente un elemento de `items` de `GET /api/problems` (`id`, `title`, `url`, `sourcePlatform`,
+`sourceCode`, `difficultyRating`, `timeLimitMs`, `memoryLimitMb`, `topics: [{ "id", "name" }]`). Se guarda con
+`title` = nombre en Codeforces, `sourcePlatform` = `CODEFORCES`, `sourceCode` = concurso + índice (`1850A`), `url` =
+`https://codeforces.com/problemset/problem/{concurso}/{índice}`, `difficultyRating` = rating como texto (`null` si
+Codeforces no lo publica) y `topics` = etiquetas de Codeforces en inglés (`brute force`, `math`), reutilizando el tema
+existente de igual nombre sin distinguir mayúsculas y creando los que falten. La API de Codeforces no publica los
+límites: se guardan `timeLimitMs` = 2000 y `memoryLimitMb` = 256, que el coach puede ajustar después.
+
+`GET /api/problems/codeforces/search?q=watermelon&limit=20` busca en el problemset de Codeforces y responde `200` con
+una lista (vacía si no hay coincidencias):
+
+```json
+[ { "code": "4A", "title": "Watermelon", "difficultyRating": "800", "topics": ["brute force", "math"],
+    "url": "https://codeforces.com/problemset/problem/4/A", "problemId": 12 } ]
+```
+
+`q` (2 a 100 caracteres) coincide con el prefijo del código (`1850` lista `1850A`, `1850B`...) o con una parte del título,
+sin distinguir mayúsculas; los resultados por código van primero. `limit` va de 1 a 50 (20 por defecto). `problemId`
+es el `id` local si el problema ya fue importado y `null` si no. El problemset se descarga la primera vez y se conserva
+en memoria 6 horas (`kodikalab.integrations.codeforces.catalog-ttl-hours`); si la renovación falla se sigue usando la
+copia anterior.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` código con formato inválido (`errors.code`), `q` demasiado
+corta o `limit` fuera de rango (`errors.q`, `errors.limit`) o JSON inválido; `401` sin token válido; `403` cuenta no
+coach o suspendida; `404` `El problema no existe en Codeforces`; `409` conflicto de datos al guardar; `503`
+`Codeforces no está disponible temporalmente. Inténtelo de nuevo más tarde.` (Codeforces caído, con tiempo de espera
+agotado o limitando las llamadas) o catálogo no disponible.
 
 ## US-07 — Asignar problemas a una competencia
 

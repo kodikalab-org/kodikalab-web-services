@@ -63,3 +63,7 @@ kodikalab:
     codeforces:
       base-url: ${CODEFORCES_API_BASE_URL:https://codeforces.com/api}
       timeout-ms: ${CODEFORCES_API_TIMEOUT_MS:3000}
+      # El problemset completo (búsqueda de problemas) pesa varios MB: tiene su propio tiempo máximo.
+      catalog-timeout-ms: ${CODEFORCES_API_CATALOG_TIMEOUT_MS:30000}
+      # Horas que se conserva en memoria la copia del problemset antes de renovarla.
+      catalog-ttl-hours: ${CODEFORCES_CATALOG_TTL_HOURS:6}

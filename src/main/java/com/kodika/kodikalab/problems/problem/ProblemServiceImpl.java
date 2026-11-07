@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +49,8 @@ public class ProblemServiceImpl implements ProblemService {
     static final int MAX_PAGE_SIZE = 100;
     private static final int DEFAULT_TIME_LIMIT_MS = 1000;
     private static final int DEFAULT_MEMORY_LIMIT_MB = 256;
+    /** Prefijo que usaba el registro manual (p. ej. {@code CF-1A}); los importados usan solo {@code 1A}. */
+    private static final String LEGACY_CODE_PREFIX = "CF-";
 
     private final ProblemRepository problemRepository;
     private final ProblemTopicRepository problemTopicRepository;
@@ -197,6 +200,47 @@ public class ProblemServiceImpl implements ProblemService {
                         problem.getSourcePlatform(), problem.getSourceCode(), problem.getDifficultyRating(),
                         problem.getTimeLimitMs(), problem.getMemoryLimitMb()))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ProblemResponse> findExisting(SourcePlatform platform, String sourceCode, String url) {
+        Optional<Problem> found = problemRepository
+                .findFirstBySourcePlatformAndSourceCodeIgnoreCaseOrderByIdAsc(platform, sourceCode);
+        if (found.isEmpty()) {
+            found = problemRepository.findFirstByUrlIgnoreCaseOrderByIdAsc(url);
+        }
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        Problem problem = found.get();
+        List<TopicInfo> topics = problemTopicRepository.findTopicsByProblemIds(Set.of(problem.getId())).stream()
+                .map(data -> new TopicInfo(data.topicId(), data.topicName()))
+                .toList();
+        return Optional.of(response(problem, topics));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Integer> findIdsBySourceCodes(SourcePlatform platform, Collection<String> sourceCodes) {
+        if (sourceCodes.isEmpty()) {
+            return Map.of();
+        }
+        Set<String> candidates = new HashSet<>();
+        for (String code : sourceCodes) {
+            candidates.add(code);
+            candidates.add(LEGACY_CODE_PREFIX + code);
+        }
+        Map<String, Integer> ids = new LinkedHashMap<>();
+        for (Problem problem : problemRepository.findAllBySourcePlatformAndSourceCodeIn(platform, candidates)) {
+            ids.merge(normalizedCode(problem.getSourceCode()), problem.getId(), Math::min);
+        }
+        return ids;
+    }
+
+    private static String normalizedCode(String sourceCode) {
+        String code = sourceCode.toUpperCase(Locale.ROOT);
+        return code.startsWith(LEGACY_CODE_PREFIX) ? code.substring(LEGACY_CODE_PREFIX.length()) : code;
     }
 
     private User activeUser() {

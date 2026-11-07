@@ -6,6 +6,7 @@ import com.kodika.kodikalab.common.exception.FieldValidationException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesUnavailableException;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /** Errores de {@link ProblemController} con el formato {@code { "message": "...", "errors": {} }}. */
-@RestControllerAdvice(assignableTypes = ProblemController.class)
+@RestControllerAdvice(assignableTypes = {ProblemController.class, CodeforcesProblemController.class})
 public class ProblemsExceptionHandler {
     public record ErrorResponse(String message, Map<String, String> errors) {
     }
@@ -57,6 +58,11 @@ public class ProblemsExceptionHandler {
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ErrorResponse> notFound(NotFoundException exception) {
         return error(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(CodeforcesUnavailableException.class)
+    public ResponseEntity<ErrorResponse> codeforcesUnavailable(CodeforcesUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
     @ExceptionHandler(FieldConflictException.class)
