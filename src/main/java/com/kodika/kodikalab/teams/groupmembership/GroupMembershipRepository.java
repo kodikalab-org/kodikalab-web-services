@@ -24,6 +24,8 @@ public interface GroupMembershipRepository
             MembershipStatus status
     );
 
+    boolean existsByGroupIdAndPractitionerUserIdAndStatus(Integer groupId, Integer userId, MembershipStatus status);
+
     /** Membresías del grupo en un estado, con el practicante y su cuenta ya cargados; la solicitud más antigua primero. */
     @Query("""
             select m from GroupMembership m

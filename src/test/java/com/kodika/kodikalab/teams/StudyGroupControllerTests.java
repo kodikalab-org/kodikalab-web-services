@@ -128,6 +128,17 @@ class StudyGroupControllerTests {
     }
 
     @Test
+    void myTeamsIdentityIsNotTakenFromQueryParameters() throws Exception {
+        when(studyGroupService.findMyTeams()).thenReturn(List.of());
+
+        mvc.perform(get("/teams/me").param("userId", "99"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("[]"));
+
+        verify(studyGroupService).findMyTeams();
+    }
+
+    @Test
     void myTeamsRejectsAnAnonymousAndASuspendedAccount() throws Exception {
         when(studyGroupService.findMyTeams()).thenThrow(new UnauthorizedException("Debe iniciar sesión"));
         mvc.perform(get("/teams/me")).andExpect(status().isUnauthorized());
