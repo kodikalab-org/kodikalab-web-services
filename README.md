@@ -1,5 +1,17 @@
 # KodikaLab - Backend Web Services
 
+## Despliegue: Supabase + Render
+
+- `.env` existente se conserva y Spring lo carga automáticamente al iniciar desde la raíz del backend. Variables del sistema/Render tienen prioridad. Usar valores sin comillas y sintaxis `CLAVE=valor`.
+- Importar este repositorio como Blueprint en Render usando `render.yaml` (Docker, Java 21). No subir `.env`.
+- Completar las variables indicadas en `.env.production.example` dentro de Render. `PORT` lo asigna Render automáticamente.
+- Supabase > Connect > **Session pooler**: copiar el host y usuario exactos. Definir `DB_JDBC_URL=jdbc:postgresql://HOST:5432/postgres?sslmode=require`, `DB_USER` y `DB_PASSWORD`. No usar la URL `postgres://` ni el transaction pooler de puerto 6543. El session pooler permite conectividad IPv4.
+- `CORS_ALLOWED_ORIGINS=https://TU-FRONTEND.vercel.app`, sin barra final; varios orígenes se separan con comas. Angular usa `API_BASE_URL=https://TU-BACKEND.onrender.com/api`.
+- El perfil `prod` exige SSL, limita el pool y valida el esquema (`JPA_DDL_AUTO=validate`); no crea ni migra tablas. Antes del primer arranque aplicar una migración aprobada en Supabase. No habilitar `update` sobre datos reales como sustituto de una migración.
+- Render genera `JWT_SECRET` al crear el Blueprint; al configurar manualmente generar un secreto de al menos 32 caracteres. Completar SMTP para recuperación de contraseñas; confirmar restricciones SMTP del plan contratado.
+- Supabase se utiliza como PostgreSQL mediante Spring/JPA: no requiere agregar claves Supabase al frontend ni sustituir la autenticación JWT existente.
+- Estos archivos preparan el despliegue; no crean cuentas/proyectos remotos ni transfieren datos de la base local.
+
 ## Onboarding Guide del Equipo Backend
 
 **KodikaLab - Backend Web Services** es el backend del proyecto académico desarrollado para el curso de **Ingeniería de Software (UPC 2026-2)**, en el contexto de la startup **ProgramaJuntos**.
