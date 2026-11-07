@@ -92,6 +92,8 @@ class SecurityIntegrationTests {
             new Endpoint(HttpMethod.PATCH, "/teams/1/memberships/1", "{\"decision\":\"ACEPTAR\"}"),
             new Endpoint(HttpMethod.POST, "/problems", "{}"),
             new Endpoint(HttpMethod.POST, "/problems/assign", "{}"),
+            new Endpoint(HttpMethod.POST, "/problems/codeforces/import", "{\"code\":\"4A\"}"),
+            new Endpoint(HttpMethod.GET, "/problems/codeforces/search?q=watermelon", null),
             new Endpoint(HttpMethod.POST, "/competitions", "{}"),
             new Endpoint(HttpMethod.PATCH, "/competitions/1/status", "{\"status\":\"EN_CURSO\"}"),
             new Endpoint(HttpMethod.POST, "/competitions/1/official-result", "{}"),

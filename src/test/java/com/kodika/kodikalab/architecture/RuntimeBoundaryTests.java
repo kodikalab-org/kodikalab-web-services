@@ -92,6 +92,7 @@ class RuntimeBoundaryTests {
                         "/teams/{id}/memberships/{memberId}", "/teams/{id}/draft", "/teams/{id}/publish",
                         "/teams/{id}/memberships/{memberId}/clarification",
                         "/problems", "/problems", "/problems/assign", "/problems/assigned",
+                        "/problems/codeforces/import", "/problems/codeforces/search",
                         "/problems/assigned/{competitionProblemId}");
     }
 

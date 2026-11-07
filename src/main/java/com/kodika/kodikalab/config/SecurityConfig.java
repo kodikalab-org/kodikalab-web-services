@@ -80,6 +80,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/teams/{id}/memberships").hasRole(COACH)                // US-06
                         .requestMatchers(HttpMethod.PATCH, "/teams/{id}/memberships/{memberId}").hasRole(COACH)   // US-06
                         .requestMatchers(HttpMethod.POST, "/problems", "/problems/assign").hasRole(COACH)         // US-07
+                        .requestMatchers(HttpMethod.POST, "/problems/codeforces/import").hasRole(COACH)           // US-07
+                        .requestMatchers(HttpMethod.GET, "/problems/codeforces/search").hasRole(COACH)            // US-07
                         .requestMatchers(HttpMethod.POST, "/competitions").hasRole(COACH)                         // US-13
                         .requestMatchers(HttpMethod.PATCH, "/competitions/{competitionId}/status").hasRole(COACH) // US-13
                         .requestMatchers("/competitions/{competitionId}/official-result").hasRole(COACH)          // US-13

@@ -43,7 +43,7 @@ JWT firmado con HMAC-SHA256 (`jjwt`). Claims: `iss=kodikalab`, `sub` (correo), `
 | Acceso | Endpoints |
 | --- | --- |
 | Público | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/{request,verify,confirm}`, `/swagger-ui.html`, `/swagger-ui/**`, `/v3/api-docs/**` |
-| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `PATCH /competitions/{competitionId}/status`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
+| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/codeforces/import`, `GET /problems/codeforces/search`, `POST /problems/assign`, `POST /competitions`, `PATCH /competitions/{competitionId}/status`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me`, `GET /analytics/teams/{teamId}/progress/me/topics` |
 | Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /teams/me`, `GET /competitions?teamId=`, `GET /competitions/{competitionId}/standings`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
 
