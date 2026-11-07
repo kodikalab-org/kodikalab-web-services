@@ -242,7 +242,11 @@
           "c_mbg_est",
           "c_mbg_rol",
           "c_mbg_fpo",
-          "c_pg_salida"
+          "c_pg_salida",
+          "c_mbg_acl",
+          "c_mbg_facl",
+          "c_mbg_aclr",
+          "c_mbg_faclr"
         ],
         "seqColumnIds": [
           "c_mbg_id",
@@ -251,7 +255,11 @@
           "c_mbg_est",
           "c_mbg_rol",
           "c_mbg_fpo",
-          "c_pg_salida"
+          "c_pg_salida",
+          "c_mbg_acl",
+          "c_mbg_facl",
+          "c_mbg_aclr",
+          "c_mbg_faclr"
         ],
         "ui": {
           "x": 205.1496,
@@ -595,7 +603,7 @@
         ],
         "ui": {
           "x": 1051.2171,
-          "y": -400.0,
+          "y": -400,
           "zIndex": 24,
           "widthName": 126,
           "widthComment": 505,
@@ -630,7 +638,7 @@
         ],
         "ui": {
           "x": 2000.591,
-          "y": -430.0,
+          "y": -430,
           "zIndex": 25,
           "widthName": 172,
           "widthComment": 546,
@@ -1152,10 +1160,10 @@
         "id": "c_grp_niv",
         "tableId": "t_grupo_estudio",
         "name": "nivel_esperado",
-        "comment": "Div3 / Div2 / Regional",
+        "comment": "Div3 / Div2 / Regional; nulo mientras el grupo es BORRADOR",
         "dataType": "VARCHAR(50)",
         "default": "",
-        "options": 8,
+        "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 81,
@@ -1172,10 +1180,10 @@
         "id": "c_grp_cup",
         "tableId": "t_grupo_estudio",
         "name": "cupo_maximo",
-        "comment": "Capacidad de integrantes",
+        "comment": "Capacidad de integrantes; nula mientras el grupo es BORRADOR",
         "dataType": "INT",
         "default": "15",
-        "options": 8,
+        "options": 0,
         "ui": {
           "keys": 0,
           "widthName": 76,
@@ -1232,7 +1240,7 @@
         "id": "c_grp_est",
         "tableId": "t_grupo_estudio",
         "name": "estado",
-        "comment": "ACTIVO / ARCHIVADO",
+        "comment": "BORRADOR / ACTIVO / ARCHIVADO",
         "dataType": "VARCHAR(20)",
         "default": "'ACTIVO'",
         "options": 8,
@@ -1332,8 +1340,8 @@
         "id": "c_mbg_est",
         "tableId": "t_miembro_grupo",
         "name": "estado",
-        "comment": "PENDIENTE / ACTIVO / RECHAZADO / RETIRADO / EXPULSADO",
-        "dataType": "VARCHAR(20)",
+        "comment": "PENDIENTE / ACLARACION_SOLICITADA / ACTIVO / RECHAZADO / RETIRADO / EXPULSADO",
+        "dataType": "VARCHAR(30)",
         "default": "'ACTIVO'",
         "options": 8,
         "ui": {
@@ -2887,6 +2895,86 @@
           "updateAt": 1791609606566,
           "createAt": 1791609606566
         }
+      },
+      "c_mbg_acl": {
+        "id": "c_mbg_acl",
+        "tableId": "t_miembro_grupo",
+        "name": "aclaracion_solicitada",
+        "comment": "Mensaje del coach al pedir aclaracion",
+        "dataType": "VARCHAR(500)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 126,
+          "widthComment": 200,
+          "widthDataType": 88,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1793735106996,
+          "createAt": 1793735106996
+        }
+      },
+      "c_mbg_facl": {
+        "id": "c_mbg_facl",
+        "tableId": "t_miembro_grupo",
+        "name": "fecha_aclaracion",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 98,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1793735106996,
+          "createAt": 1793735106996
+        }
+      },
+      "c_mbg_aclr": {
+        "id": "c_mbg_aclr",
+        "tableId": "t_miembro_grupo",
+        "name": "aclaracion_respuesta",
+        "comment": "Respuesta del postulante",
+        "dataType": "VARCHAR(500)",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 120,
+          "widthComment": 150,
+          "widthDataType": 88,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1793735106996,
+          "createAt": 1793735106996
+        }
+      },
+      "c_mbg_faclr": {
+        "id": "c_mbg_faclr",
+        "tableId": "t_miembro_grupo",
+        "name": "fecha_respuesta_aclaracion",
+        "comment": "",
+        "dataType": "TIMESTAMP WITH TIME ZONE",
+        "default": "",
+        "options": 0,
+        "ui": {
+          "keys": 0,
+          "widthName": 150,
+          "widthComment": 60,
+          "widthDataType": 162,
+          "widthDefault": 60
+        },
+        "meta": {
+          "updateAt": 1793735106996,
+          "createAt": 1793735106996
+        }
       }
     },
     "relationshipEntities": {
@@ -3452,7 +3540,7 @@
             "c_ret_gid"
           ],
           "x": 1151.2171,
-          "y": -230.0,
+          "y": -230,
           "direction": 8
         },
         "meta": {
@@ -3482,7 +3570,7 @@
             "c_roc_cid"
           ],
           "x": 2100.591,
-          "y": -110.0,
+          "y": -110,
           "direction": 8
         },
         "meta": {

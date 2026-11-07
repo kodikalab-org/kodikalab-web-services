@@ -51,9 +51,13 @@ public class GroupMembership {
     @JoinColumn(name = "practicante_id", nullable = false)
     private PractitionerProfile practitioner;
 
+    /**
+     * 30 caracteres: el valor mas largo es {@code ACLARACION_SOLICITADA} (22);
+     * el ERD original declaraba 20, insuficiente para ese estado.
+     */
     @Enumerated(EnumType.STRING)
     @ColumnDefault("'ACTIVO'")
-    @Column(name = "estado", nullable = false, length = 20)
+    @Column(name = "estado", nullable = false, length = 30)
     private MembershipStatus status;
 
     @Enumerated(EnumType.STRING)
@@ -67,4 +71,21 @@ public class GroupMembership {
 
     @Column(name = "fecha_salida", columnDefinition = "timestamp with time zone")
     private OffsetDateTime leftAt;
+
+    /**
+     * Mensaje con el que el coach pide una aclaración al postulante.
+     * Se conserva aunque el postulante ya haya respondido, para dar contexto al coach.
+     */
+    @Column(name = "aclaracion_solicitada", length = 500)
+    private String clarificationRequest;
+
+    @Column(name = "fecha_aclaracion", columnDefinition = "timestamp with time zone")
+    private OffsetDateTime clarificationRequestedAt;
+
+    /** Respuesta del postulante a la aclaración solicitada. */
+    @Column(name = "aclaracion_respuesta", length = 500)
+    private String clarificationResponse;
+
+    @Column(name = "fecha_respuesta_aclaracion", columnDefinition = "timestamp with time zone")
+    private OffsetDateTime clarificationRespondedAt;
 }

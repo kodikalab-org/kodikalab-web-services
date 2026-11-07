@@ -1,13 +1,23 @@
-
 package com.kodika.kodikalab.teams;
 
+import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
 import com.kodika.kodikalab.teams.groupmembership.MembershipStatus;
+import com.kodika.kodikalab.teams.groupmembership.dto.ClarificationResponse;
+import com.kodika.kodikalab.teams.groupmembership.dto.ClarificationResponseRequest;
+import com.kodika.kodikalab.teams.groupmembership.dto.JoinByCodeRequest;
 import com.kodika.kodikalab.teams.groupmembership.dto.JoinGroupResponse;
+import com.kodika.kodikalab.teams.groupmembership.dto.PendingMembershipResponse;
 import com.kodika.kodikalab.teams.groupmembership.dto.ReviewMembershipRequest;
 import com.kodika.kodikalab.teams.groupmembership.dto.ReviewMembershipResponse;
 import com.kodika.kodikalab.teams.studygroup.CreateStudyGroupRequest;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
+import com.kodika.kodikalab.teams.studygroup.UpdateStudyGroupDraftRequest;
+import com.kodika.kodikalab.teams.studygroup.dto.CreateStudyGroupResponse;
+import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
+import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupDetailResponse;
+import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -20,16 +30,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
-import com.kodika.kodikalab.teams.studygroup.dto.StudyGroupResponse;
-import com.kodika.kodikalab.teams.studygroup.dto.CreateStudyGroupResponse;
-import com.kodika.kodikalab.teams.groupmembership.dto.PendingMembershipResponse;
-import com.kodika.kodikalab.common.exception.BadRequestException;
-import io.swagger.v3.oas.annotations.tags.Tag;
 
 @RestController
 @RequestMapping("/teams")
-@Tag(name = "Equipos", description = "Grupos de entrenamiento, solicitudes de ingreso y membresías (US-04 a US-06).")
+@Tag(name = "Equipos", description = "Grupos de entrenamiento, borradores, solicitudes de ingreso y membresías (US-04 a US-06).")
 public class StudyGroupController {
 
     private final StudyGroupService studyGroupService;
@@ -41,7 +45,8 @@ public class StudyGroupController {
         this.studyGroupService = studyGroupService;
         this.groupMembershipService = groupMembershipService;
     }
-    // US04 y US05 - Listar grupos disponibles
+
+    // US04 y US05 - Listar grupos publicados y activos
     @GetMapping
     public ResponseEntity<List<StudyGroupResponse>> getAvailableGroups() {
 
@@ -60,7 +65,7 @@ public class StudyGroupController {
         return ResponseEntity.ok(studyGroupService.findMyTeams());
     }
 
-    // US04 - Crear grupo
+    // US04 - Crear grupo publicado o guardar un borrador con "draft": true
     @PostMapping
     public ResponseEntity<CreateStudyGroupResponse> createGroup(
             @Valid @RequestBody CreateStudyGroupRequest request) {
@@ -69,6 +74,31 @@ public class StudyGroupController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(CreateStudyGroupResponse.from(group));
+    }
+
+    // US04 - Guardar cambios de un borrador
+    @PatchMapping("/{id}/draft")
+    public ResponseEntity<StudyGroupDetailResponse> updateDraft(
+            @PathVariable("id") Integer groupId,
+            @Valid @RequestBody UpdateStudyGroupDraftRequest request) {
+
+        return ResponseEntity.ok(
+                StudyGroupDetailResponse.from(
+                        studyGroupService.updateDraft(groupId, request)
+                )
+        );
+    }
+
+    // US04 - Publicar un borrador
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<StudyGroupDetailResponse> publishGroup(
+            @PathVariable("id") Integer groupId) {
+
+        return ResponseEntity.ok(
+                StudyGroupDetailResponse.from(
+                        studyGroupService.publishGroup(groupId)
+                )
+        );
     }
 
     // US05 - Solicitar ingreso o ingresar directamente
@@ -85,19 +115,35 @@ public class StudyGroupController {
                 .body(JoinGroupResponse.from(membership));
     }
 
-    // US06 - Consultar solicitudes pendientes
+    // US05 - Ingresar directamente con solo el codigo de invitacion (grupo publico o protegido)
+    @PostMapping("/join-by-code")
+    public ResponseEntity<JoinGroupResponse> joinByCode(
+            @Valid @RequestBody JoinByCodeRequest request) {
+
+        var membership = groupMembershipService.joinByCode(
+                request.invitationCode()
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(JoinGroupResponse.from(membership));
+    }
+
+    // US06 - Consultar solicitudes o integrantes activos del grupo
     @GetMapping("/{id}/memberships")
     public ResponseEntity<List<PendingMembershipResponse>> getMemberships(
             @PathVariable("id") Integer groupId,
             @RequestParam MembershipStatus status) {
 
-        if (status != MembershipStatus.PENDIENTE) {
+        if (status != MembershipStatus.PENDIENTE
+                && status != MembershipStatus.ACLARACION_SOLICITADA
+                && status != MembershipStatus.ACTIVO
+                && status != MembershipStatus.EXPULSADO) {
             throw new BadRequestException(
-                    "Solo se permite consultar solicitudes PENDIENTE"
+                    "Solo se permite consultar miembros ACTIVO, EXPULSADO, solicitudes PENDIENTE o ACLARACION_SOLICITADA"
             );
         }
 
-        var memberships = groupMembershipService.getPendingRequests(groupId);
+        var memberships = groupMembershipService.getRequests(groupId, status);
 
         return ResponseEntity.ok(
                 memberships.stream()
@@ -106,22 +152,35 @@ public class StudyGroupController {
         );
     }
 
-    // US06 - Aceptar o rechazar solicitud
+    // US06 - Aceptar, rechazar o pedir aclaración
     @PatchMapping("/{id}/memberships/{memberId}")
     public ResponseEntity<ReviewMembershipResponse> reviewRequest(
             @PathVariable("id") Integer groupId,
             @PathVariable("memberId") Integer membershipId,
             @Valid @RequestBody ReviewMembershipRequest request) {
 
-        boolean accept = request.decision()
-                == ReviewMembershipRequest.Decision.ACEPTAR;
-
         var membership = groupMembershipService.reviewRequest(
-                groupId, membershipId, accept
+                groupId, membershipId, request.decision(), request.message()
         );
 
         return ResponseEntity.ok(
                 ReviewMembershipResponse.from(membership)
+        );
+    }
+
+    // US06 - El postulante responde la aclaración solicitada
+    @PostMapping("/{id}/memberships/{memberId}/clarification")
+    public ResponseEntity<ClarificationResponse> respondClarification(
+            @PathVariable("id") Integer groupId,
+            @PathVariable("memberId") Integer membershipId,
+            @Valid @RequestBody ClarificationResponseRequest request) {
+
+        var membership = groupMembershipService.respondClarification(
+                groupId, membershipId, request.message()
+        );
+
+        return ResponseEntity.ok(
+                ClarificationResponse.from(membership)
         );
     }
 }

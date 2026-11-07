@@ -12,14 +12,28 @@ public interface GroupMembershipService {
             String invitationCode
     );
 
-    // US06: Consultar solicitudes pendientes
-    List<GroupMembership> getPendingRequests(Integer groupId);
+    // US05: Ingresar directamente a un grupo (publico o protegido) usando solo su codigo de invitacion
+    GroupMembership joinByCode(String invitationCode);
 
-    // US06: Aceptar o rechazar una solicitud
+    // US06: Consultar solicitudes por estado (PENDIENTE o ACLARACION_SOLICITADA)
+    List<GroupMembership> getRequests(
+            Integer groupId,
+            MembershipStatus status
+    );
+
+    // US06: Aceptar, rechazar o pedir una aclaración al postulante
     GroupMembership reviewRequest(
             Integer groupId,
             Integer membershipId,
-            boolean accept
+            MembershipDecision decision,
+            String message
+    );
+
+    // US06: El postulante responde la aclaración y la solicitud vuelve a PENDIENTE
+    GroupMembership respondClarification(
+            Integer groupId,
+            Integer membershipId,
+            String response
     );
 
     // Consulta de integrantes del equipo (ranking y reportes de analytics)

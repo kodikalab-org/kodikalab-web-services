@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
     context-path: /api
 # Configuración de respuestas de error
@@ -7,13 +7,14 @@ server:
     include-stacktrace: never
     include-exception: false
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: kodikalab
 
   # 1. Conexión a Base de Datos
   datasource:
-    url: >-
-      jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kodikalab_db}
+    url: ${DB_JDBC_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kodikalab_db}}
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
@@ -21,8 +22,8 @@ spring:
   # 2. Configuración de JPA / Hibernate
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
@@ -63,3 +64,7 @@ kodikalab:
     codeforces:
       base-url: ${CODEFORCES_API_BASE_URL:https://codeforces.com/api}
       timeout-ms: ${CODEFORCES_API_TIMEOUT_MS:3000}
+      # El problemset completo (búsqueda de problemas) pesa varios MB: tiene su propio tiempo máximo.
+      catalog-timeout-ms: ${CODEFORCES_API_CATALOG_TIMEOUT_MS:30000}
+      # Horas que se conserva en memoria la copia del problemset antes de renovarla.
+      catalog-ttl-hours: ${CODEFORCES_CATALOG_TTL_HOURS:6}

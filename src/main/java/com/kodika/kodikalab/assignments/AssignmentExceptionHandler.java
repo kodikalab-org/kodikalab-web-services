@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/** Errores de {@link AssignmentController} con el formato {@code { "message": "...", "errors": {} }}. */
-@RestControllerAdvice(assignableTypes = AssignmentController.class)
+/** Errores de {@link AssignmentController} y {@link CompetitionStandingsController} con el formato {@code { "message": "...", "errors": {} }}. */
+@RestControllerAdvice(assignableTypes = {AssignmentController.class, CompetitionStandingsController.class})
 public class AssignmentExceptionHandler {
     public record ErrorResponse(String message, Map<String, String> errors) {
     }

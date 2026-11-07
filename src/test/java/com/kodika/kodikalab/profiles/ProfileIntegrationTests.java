@@ -112,6 +112,7 @@ class ProfileIntegrationTests {
         assertThat(created.getBody()).containsEntry("message", "Perfil actualizado correctamente");
         Map<String, Object> profile = profile(created);
         assertThat(profile).containsEntry("email", user.getEmail()).containsEntry("role", "PRACTICANTE")
+                .containsEntry("fullName", user.getFullName())
                 .containsEntry("codeforcesHandle", "tourist").containsEntry("codeforcesRating", 3800)
                 .doesNotContainKeys("passwordHash", "usuarioId", "leetcodeHandle");
 
@@ -122,12 +123,14 @@ class ProfileIntegrationTests {
         Map<String, Object> update = practitionerBody(String.valueOf(row.get("codigo_estudiante")), "tourist");
         update.put("carrera", "Ciencias de la Computación");
         update.put("nivelCompetitivo", "AVANZADO");
+        update.put("fullName", "Nombre no autorizado");
         assertThat(put(session, update).getStatusCode().value()).isEqualTo(200);
 
         assertThat(count("practicante", user.getId())).isEqualTo(1);
         assertThat(practitionerRow(user.getId()).orElseThrow())
                 .containsEntry("carrera", "Ciencias de la Computación").containsEntry("nivel_competitivo", "AVANZADO");
-        assertThat(profile(get(session))).containsEntry("carrera", "Ciencias de la Computación");
+        assertThat(profile(get(session))).containsEntry("carrera", "Ciencias de la Computación")
+                .containsEntry("fullName", user.getFullName());
         assertRoleUnchanged(user, "PRACTICANTE");
     }
 
@@ -264,6 +267,7 @@ class ProfileIntegrationTests {
         var created = put(session, coachBody("Grafos", 4));
         assertThat(created.getStatusCode().value()).isEqualTo(200);
         assertThat(profile(created)).containsEntry("email", user.getEmail()).containsEntry("role", "COACH")
+                .containsEntry("fullName", user.getFullName())
                 .containsEntry("especialidadPrincipal", "Grafos").containsEntry("aniosExperiencia", 4)
                 .doesNotContainKeys("passwordHash", "usuarioId", "codigoEstudiante");
         assertThat(coachRow(user.getId()).orElseThrow())
@@ -271,12 +275,15 @@ class ProfileIntegrationTests {
                 .containsEntry("organizacion_club", "Club de Programación Competitiva")
                 .containsEntry("anios_experiencia", 4);
 
-        put(session, coachBody("Flujo en redes", 6));
+        Map<String, Object> update = coachBody("Flujo en redes", 6);
+        update.put("fullName", "Nombre no autorizado");
+        put(session, update);
 
         assertThat(count("coach", user.getId())).isEqualTo(1);
         assertThat(coachRow(user.getId()).orElseThrow())
                 .containsEntry("especialidad_principal", "Flujo en redes").containsEntry("anios_experiencia", 6);
-        assertThat(profile(get(session))).containsEntry("especialidadPrincipal", "Flujo en redes");
+        assertThat(profile(get(session))).containsEntry("especialidadPrincipal", "Flujo en redes")
+                .containsEntry("fullName", user.getFullName());
         assertRoleUnchanged(user, "COACH");
     }
 

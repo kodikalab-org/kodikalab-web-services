@@ -11,7 +11,8 @@ public record CoachProfileResponse(String message, CoachProfileData profile) {
                 profile.getMainSpecialty(),
                 profile.getOrganization(),
                 profile.getYearsOfExperience(),
-                profile.getPresentation()
+                profile.getPresentation(),
+                profile.getUser().getFullName()
         ));
     }
 
@@ -21,7 +22,8 @@ public record CoachProfileResponse(String message, CoachProfileData profile) {
             String especialidadPrincipal,
             String organizacionClub,
             Integer aniosExperiencia,
-            String presentacion
+            String presentacion,
+            String fullName
     ) {
     }
 }

@@ -5,6 +5,7 @@ import com.kodika.kodikalab.common.exception.FieldValidationException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.problems.problem.dto.CreateProblemRequest;
+import com.kodika.kodikalab.problems.problem.dto.ProblemResponse;
 import com.kodika.kodikalab.problems.problem.dto.ProblemSearch;
 import com.kodika.kodikalab.problems.problemtopic.ProblemTopic;
 import com.kodika.kodikalab.problems.problemtopic.ProblemTopicRepository;
@@ -18,6 +19,8 @@ import com.kodika.kodikalab.users.UserStatus;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -325,6 +329,53 @@ class ProblemServiceTests {
         assertThat(summaries.get(0).title()).isEqualTo("Alfa");
         assertThat(summaries.get(0).url()).isEqualTo(URL);
         assertThat(summaries.get(0).timeLimitMs()).isEqualTo(1000);
+    }
+
+    // ---- Codeforces import support
+
+    @Test
+    void findsAnExistingProblemBySourceCodeWithItsTopics() {
+        var found = problem(3, "Watermelon");
+        when(repository.findFirstBySourcePlatformAndSourceCodeIgnoreCaseOrderByIdAsc(SourcePlatform.CODEFORCES, "4A"))
+                .thenReturn(Optional.of(found));
+        when(topicLinks.findTopicsByProblemIds(Set.of(3)))
+                .thenReturn(List.of(new ProblemTopicData(3, 100, "math")));
+
+        var response = service.findExisting(SourcePlatform.CODEFORCES, "4A", URL).orElseThrow();
+
+        assertThat(response.id()).isEqualTo(3);
+        assertThat(response.topics()).extracting("name").containsExactly("math");
+        verify(repository, never()).findFirstByUrlIgnoreCaseOrderByIdAsc(any());
+    }
+
+    @Test
+    void fallsBackToTheUrlAndReturnsEmptyWhenNothingMatches() {
+        when(repository.findFirstBySourcePlatformAndSourceCodeIgnoreCaseOrderByIdAsc(any(), any()))
+                .thenReturn(Optional.empty());
+        when(repository.findFirstByUrlIgnoreCaseOrderByIdAsc(URL)).thenReturn(Optional.of(problem(4, "Manual")));
+
+        assertThat(service.findExisting(SourcePlatform.CODEFORCES, "1A", URL)).map(ProblemResponse::id).contains(4);
+        assertThat(service.findExisting(SourcePlatform.CODEFORCES, "1A", "https://other")).isEmpty();
+    }
+
+    @Test
+    void mapsSourceCodesToLocalIdsAlsoRecognisingTheLegacyPrefix() {
+        Problem imported = problem(7, "Watermelon");
+        imported.setSourceCode("4A");
+        Problem manual = problem(9, "Theatre Square");
+        manual.setSourceCode("cf-1A");
+        Problem duplicate = problem(11, "Watermelon again");
+        duplicate.setSourceCode("CF-4A");
+        when(repository.findAllBySourcePlatformAndSourceCodeIn(eq(SourcePlatform.CODEFORCES), anyCollection()))
+                .thenReturn(List.of(imported, manual, duplicate));
+
+        var ids = service.findIdsBySourceCodes(SourcePlatform.CODEFORCES, List.of("4A", "1A", "9Z"));
+
+        assertThat(ids).containsOnly(Map.entry("4A", 7), Map.entry("1A", 9));
+        ArgumentCaptor<java.util.Collection<String>> asked = ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(repository).findAllBySourcePlatformAndSourceCodeIn(eq(SourcePlatform.CODEFORCES), asked.capture());
+        assertThat(asked.getValue()).containsExactlyInAnyOrder("4A", "1A", "9Z", "CF-4A", "CF-1A", "CF-9Z");
+        assertThat(service.findIdsBySourceCodes(SourcePlatform.CODEFORCES, List.of())).isEmpty();
     }
 
     private static CreateProblemRequest valid() {

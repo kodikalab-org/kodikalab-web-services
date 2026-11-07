@@ -108,9 +108,9 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 | Acceso | Endpoints |
 | --- | --- |
 | Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `/swagger-ui.html`, `/v3/api-docs` |
-| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
-| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
-| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /analytics/teams/{teamId}/standings` |
+| Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/codeforces/import`, `GET /problems/codeforces/search`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
+| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
+| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /competitions/{competitionId}/standings`, `GET /analytics/teams/{teamId}/standings` |
 
 Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
 dependen de datos (coach responsable del equipo, membresía activa, cuenta `ACTIVO`).
@@ -201,6 +201,13 @@ Tres pasos públicos, sin token. El código tiene **6 dígitos**, llega por corr
 Los tres endpoints nunca devuelven el código, la contraseña ni datos de la cuenta, y `toString` de las solicitudes los oculta.
 
 ## Users/Profile
+
+Las respuestas de `GET /api/users/me` y `PUT /api/users/me` incluyen
+`profile.fullName` y `profile.email` para los dos roles. `fullName` procede del
+nombre completo registrado en `usuario.nombre_completo`; no se deduce del correo.
+Es un campo de respuesta de solo lectura: enviarlo en el PUT no cambia el nombre
+de la cuenta. Los clientes deben mostrar el nombre como identidad principal y el
+correo por separado. Este cambio es aditivo y no agrega columnas ni modifica el ERD.
 
 `GET /api/users/me` y `PUT /api/users/me` operan sobre el perfil del usuario autenticado y **dependen del rol de la cuenta autenticada**: `PRACTICANTE` gestiona la tabla `practicante` y `COACH` gestiona la tabla `coach`. Requieren el token Bearer obtenido con `POST /api/auth/login`. El cliente no envía `usuarioId` ni rol; ambos se resuelven desde el token. Un body con los campos del otro rol se rechaza con `400` (faltan los campos obligatorios del rol propio) y nunca escribe en la tabla del otro rol.
 
@@ -344,6 +351,7 @@ Respuesta exitosa: `200 OK`.
 
 Reglas:
 - Solamente se listan grupos con estado `ACTIVO`.
+- Los borradores (`BORRADOR`) no se listan y tampoco aparecen los grupos `ARCHIVADO`.
 - El código de invitación no se incluye en el listado.
 - Si no existen grupos activos, se devuelve una lista vacía.
 
@@ -352,7 +360,7 @@ Reglas:
 Cualquier cuenta autenticada y `ACTIVO`. Devuelve `200 OK` con un arreglo ordenado por `groupId`, vacío si no hay
 nada que mostrar. La forma depende del rol del token y los campos del otro rol no se incluyen.
 
-**Coach:** los grupos que creó (de cualquier estado), con el código de invitación y los contadores. Es el único lugar
+**Coach:** los grupos que creó (de cualquier estado, incluidos los borradores), con el código de invitación y los contadores. Es el único lugar
 donde el coach puede volver a consultar el código de un grupo.
 
 ```json
@@ -374,7 +382,8 @@ donde el coach puede volver a consultar el código de un grupo.
 ```
 
 **Practicante:** los grupos donde tiene o tuvo una membresía, con el estado de esa membresía. Así sabe si lo aceptaron
-(`ACTIVO`) o lo rechazaron (`RECHAZADO`) sin necesidad de una notificación.
+(`ACTIVO`), si lo rechazaron (`RECHAZADO`) o si el coach le pidió una aclaración (`ACLARACION_SOLICITADA`) sin
+necesidad de una notificación.
 
 ```json
 [
@@ -389,10 +398,16 @@ donde el coach puede volver a consultar el código de un grupo.
     "visibility": "PROTEGIDO",
     "membership": {
       "membershipId": 2,
-      "status": "PENDIENTE",
+      "status": "ACLARACION_SOLICITADA",
       "teamRole": "MIEMBRO",
       "joinedAt": "2026-10-09T19:00:00-05:00",
-      "leftAt": null
+      "leftAt": null,
+      "clarification": {
+        "request": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?",
+        "requestedAt": "2026-10-09T20:00:00-05:00",
+        "response": null,
+        "respondedAt": null
+      }
     }
   }
 ]
@@ -401,16 +416,17 @@ donde el coach puede volver a consultar el código de un grupo.
 Reglas:
 - `invitationCode`, `activeMembers` y `pendingRequests` solo aparecen para el coach; `membership` solo para el practicante.
 - `joinedAt` es la fecha de la solicitud mientras la membresía está `PENDIENTE` y la de ingreso cuando pasa a `ACTIVO`.
-- Los contadores del coach cuentan solo membresías `ACTIVO` y `PENDIENTE`.
+- `clarification` solo aparece si el coach pidió una aclaración; incluye la respuesta cuando el postulante ya respondió.
+- Los contadores del coach cuentan membresías `ACTIVO` y solicitudes abiertas (`PENDIENTE` y `ACLARACION_SOLICITADA`).
 - `401` sin token válido; `403` cuenta que no está `ACTIVO`.
 
-### US04 — Crear grupo de estudio
+### US04 — Crear grupo de estudio (publicado o borrador)
 
 `POST /api/teams`
 
 Rol requerido: `COACH`, con perfil de coach registrado.
 
-Request:
+Request para publicar el grupo de inmediato:
 
 ```json
 {
@@ -423,25 +439,92 @@ Request:
 }
 ```
 
-Respuesta exitosa: `201 Created`.
+Request para guardar un borrador (solo el nombre es obligatorio):
+
+```json
+{
+  "name": "Entrenamiento de Grafos",
+  "draft": true
+}
+```
+
+Respuesta exitosa: `201 Created`. El campo `status` indica si quedó `ACTIVO` o `BORRADOR`.
 
 ```json
 {
   "message": "Grupo creado correctamente",
   "groupId": 1,
   "name": "Entrenamiento de Grafos",
+  "status": "ACTIVO",
+  "invitationCode": "CODIGO_GENERADO"
+}
+```
+
+Con `"draft": true` el mensaje es `"Borrador del grupo guardado correctamente"` y `status` es `BORRADOR`.
+
+Reglas:
+- Solamente un usuario `COACH` puede crear grupos.
+- El coach debe tener su perfil registrado.
+- Sin `draft`, el grupo se crea con estado `ACTIVO` y debe incluir nombre, nivel esperado y cupo válido.
+- Con `draft: true`, el grupo se crea con estado `BORRADOR`; solo el nombre es obligatorio.
+- Se genera automáticamente un código único de invitación en ambos casos.
+- La capacidad máxima debe estar entre 1 y 1000.
+- La visibilidad `ARCHIVADO` no está permitida al crear grupos.
+- El grupo se guarda en `grupo_estudio`.
+
+### US04 — Guardar cambios de un borrador
+
+`PATCH /api/teams/{id}/draft`
+
+Rol requerido: `COACH` responsable del grupo.
+
+Request (todos los campos son opcionales; `null` significa "no modificar"):
+
+```json
+{
+  "description": "Preparación para competencias ICPC",
+  "expectedLevel": "Div3",
+  "maxCapacity": 15,
+  "sessionSchedule": "Lunes de 18:00 a 20:00",
+  "visibility": "PROTEGIDO"
+}
+```
+
+Respuesta exitosa: `200 OK`, con el detalle completo del grupo (`StudyGroupDetailResponse`):
+
+```json
+{
+  "groupId": 1,
+  "name": "Entrenamiento de Grafos",
+  "description": "Preparación para competencias ICPC",
+  "expectedLevel": "Div3",
+  "maxCapacity": 15,
+  "sessionSchedule": "Lunes de 18:00 a 20:00",
+  "status": "BORRADOR",
+  "visibility": "PROTEGIDO",
   "invitationCode": "CODIGO_GENERADO"
 }
 ```
 
 Reglas:
-- Solamente un usuario `COACH` puede crear grupos.
-- El coach debe tener su perfil registrado.
-- El grupo se crea con estado `ACTIVO`.
-- Se genera automáticamente un código único de invitación.
-- La capacidad máxima debe estar entre 1 y 1000.
-- La visibilidad `ARCHIVADO` no está permitida al crear grupos.
-- El grupo se guarda en `grupo_estudio`.
+- Solo el coach responsable puede editar el borrador.
+- Solo se puede editar un grupo en estado `BORRADOR`; si ya está publicado, responde `409 Conflict`.
+- El nombre no puede quedar vacío.
+- La visibilidad `ARCHIVADO` no está permitida.
+
+### US04 — Publicar un borrador
+
+`POST /api/teams/{id}/publish`
+
+Rol requerido: `COACH` responsable del grupo. No requiere cuerpo.
+
+Respuesta exitosa: `200 OK`, con el mismo detalle del grupo y `status` en `ACTIVO`.
+
+Reglas:
+- El grupo debe estar en `BORRADOR`; si ya está `ACTIVO` o está `ARCHIVADO`, responde `409 Conflict`.
+- Se exige nombre, nivel esperado y cupo entre 1 y 1000; si falta algo, responde `400 Bad Request`.
+- Si la visibilidad es `ARCHIVADO`, se publica como `PUBLICO`.
+- Al publicarse, el grupo aparece en `GET /api/teams` y admite solicitudes de ingreso.
 
 ### US05 — Ingresar o solicitar ingreso a un grupo
 
@@ -495,22 +578,50 @@ Ejemplo:
 
 Respuesta: `201 Created`, con estado `ACTIVO`.
 
+#### Caso 4: Solo con el código de invitación
+
+`POST /api/teams/join-by-code`
+
+Rol requerido: `PRACTICANTE`, con perfil registrado. No se envía el identificador del grupo: el código lo identifica.
+
+```json
+{ "invitationCode": "ABCDEF123456" }
+```
+
+- `invitationCode` es obligatorio. Se recorta y no distingue mayúsculas de minúsculas (`abcdef123456` equivale a `ABCDEF123456`).
+- Un código válido siempre da ingreso directo (`ACTIVO`), tanto en grupos `PUBLICO` como `PROTEGIDO`.
+- Respuesta exitosa: `201 Created`, con el mismo cuerpo de `JoinGroupResponse` (`message`, `membershipId`, `groupId`, `status`).
+- Código inexistente: `404 Not Found`, "El código de invitación no es válido".
+- Límite de intentos: tras 5 códigos inexistentes en 15 minutos por practicante, `429 Too Many Requests`, "Demasiados intentos con códigos de invitación. Espera unos minutos e inténtalo de nuevo". Un código válido no consume el cupo.
+- Código ausente o en blanco: `400 Bad Request`.
+- Un `COACH` recibe `403 Forbidden`.
+- Se aplican las mismas reglas de la lista siguiente (grupo `ACTIVO`, cupo, duplicados, expulsados): un grupo en `BORRADOR` responde `409`, un grupo lleno `409`, y un integrante `ACTIVO` o `EXPULSADO` conserva su respuesta habitual.
+- `POST /api/teams/{id}/join` no cambia: sigue admitiendo `invitationCode` como parámetro de consulta opcional.
+
 Reglas:
 - El grupo debe existir y encontrarse `ACTIVO`.
+- No se permite ingresar a un grupo `BORRADOR`: responde `409 Conflict` ("El grupo todavía no está publicado").
 - No se permite ingresar a grupos con visibilidad `ARCHIVADO`.
 - Solo un `PRACTICANTE` con perfil registrado puede ingresar.
 - Se verifica el cupo disponible antes de registrar el ingreso o la solicitud.
 - Únicamente las membresías `ACTIVO` cuentan para el cupo.
-- No se permite crear una solicitud duplicada `PENDIENTE`.
+- No se permite crear una solicitud duplicada `PENDIENTE` ni mientras hay una `ACLARACION_SOLICITADA` abierta.
 - Un practicante que ya es miembro `ACTIVO` no puede ingresar nuevamente.
 - Las membresías `RECHAZADO` y `RETIRADO` pueden regresar a `PENDIENTE` mediante una nueva solicitud.
 - Una membresía `EXPULSADO` no puede volver a solicitar ingreso según la política implementada.
+- Al reingresar se limpian los datos de aclaraciones anteriores.
 - Las solicitudes se almacenan en `practicante_grupo`, reutilizando el registro del practicante cuando corresponde.
 - `fecha_ingreso` representa inicialmente la fecha de solicitud y se actualiza cuando la membresía pasa a `ACTIVO`.
 
-### US06 — Consultar solicitudes pendientes
+### US06 — Consultar solicitudes por estado
 
 `GET /api/teams/{id}/memberships?status=PENDIENTE`
+
+`GET /api/teams/{id}/memberships?status=ACLARACION_SOLICITADA`
+
+`GET /api/teams/{id}/memberships?status=ACTIVO` (integrantes del grupo)
+
+`GET /api/teams/{id}/memberships?status=EXPULSADO` (integrantes expulsados, para readmitir)
 
 Rol requerido: `COACH` responsable del grupo.
 
@@ -522,8 +633,14 @@ Respuesta exitosa: `200 OK`.
     "membershipId": 2,
     "groupId": 1,
     "practitionerId": 5,
-    "status": "PENDIENTE",
+    "status": "ACLARACION_SOLICITADA",
     "requestedAt": "2026-10-09T19:00:00-05:00",
+    "clarification": {
+      "request": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?",
+      "requestedAt": "2026-10-09T20:00:00-05:00",
+      "response": null,
+      "respondedAt": null
+    },
     "practitioner": {
       "fullName": "Ana Prueba",
       "studentCode": "U2020001",
@@ -541,13 +658,16 @@ Respuesta exitosa: `200 OK`.
 
 Reglas:
 - Solamente el coach responsable puede consultar las solicitudes.
-- El parámetro `status` debe ser `PENDIENTE`.
-- Si no existen solicitudes pendientes, se devuelve una lista vacía.
+- El parámetro `status` solo admite `ACTIVO`, `EXPULSADO`, `PENDIENTE` o `ACLARACION_SOLICITADA`; cualquier otro valor responde `400 Bad Request`.
+- Con `status=ACTIVO` se devuelven los integrantes vigentes del grupo, con `requestedAt` como fecha de ingreso y sin `clarification`.
+- Con `status=EXPULSADO` se devuelven los integrantes expulsados, con su fecha de salida en `requestedAt`.
+- Si no existen solicitudes en ese estado, se devuelve una lista vacía.
 - `membershipId` identifica un registro real de `practicante_grupo`.
+- `clarification` solo se incluye cuando el coach pidió una aclaración; muestra la pregunta y, si ya existe, la respuesta del postulante.
 - `practitioner` trae el perfil académico y competitivo del postulante para que el coach decida con información. No incluye el correo.
 - Las solicitudes salen de la más antigua a la más reciente.
 
-### US06 — Aceptar o rechazar solicitudes
+### US06 — Aceptar, rechazar o pedir aclaración
 
 `PATCH /api/teams/{id}/memberships/{memberId}`
 
@@ -570,6 +690,15 @@ Request para rechazar:
 ```json
 {
   "decision": "RECHAZAR"
+}
+```
+
+Request para pedir una aclaración (`message` es obligatorio, máximo 500 caracteres):
+
+```json
+{
+  "decision": "SOLICITAR_ACLARACION",
+  "message": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?"
 }
 ```
 
@@ -614,11 +743,127 @@ Reglas:
 - No se crea una tabla ni un registro adicional de solicitud.
 - El practicante puede solicitar ingreso nuevamente.
 
+#### Aclaración solicitada
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Aclaración solicitada al postulante",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "ACLARACION_SOLICITADA",
+  "clarificationRequest": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?"
+}
+```
+
+Reglas:
+- La membresía debe estar `PENDIENTE`; si ya está en `ACLARACION_SOLICITADA`, responde `409 Conflict`.
+- `message` es obligatorio y no puede superar 500 caracteres; si falta, responde `400 Bad Request`.
+- El estado cambia de `PENDIENTE` a `ACLARACION_SOLICITADA` y se registra la pregunta con su fecha.
+- Mientras la aclaración siga sin respuesta, `ACEPTAR` y `RECHAZAR` responden `409 Conflict`.
+- Se conserva una única fila de `practicante_grupo`: no se crea una solicitud nueva.
+
+### US06 — Expulsar a un integrante
+
+`PATCH /api/teams/{id}/memberships/{memberId}` con `decision: "EXPULSAR"`.
+
+Rol requerido: `COACH` responsable del grupo.
+
+```json
+{
+  "decision": "EXPULSAR"
+}
+```
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Solicitud revisada correctamente",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "EXPULSADO"
+}
+```
+
+Reglas:
+- Solo se puede expulsar a una membresía `ACTIVO`; en cualquier otro estado responde `409 Conflict`.
+- La membresía pasa a `EXPULSADO` y se registra la fecha de salida, por lo que libera cupo.
+- Una persona `EXPULSADO` no puede volver a solicitar ingreso al grupo.
+- No se elimina la fila de `practicante_grupo`: se conserva el historial.
+
+### US06 — Readmitir a un integrante expulsado
+
+`PATCH /api/teams/{id}/memberships/{memberId}` con `decision: "READMITIR"`.
+
+Rol requerido: `COACH` responsable del grupo.
+
+```json
+{
+  "decision": "READMITIR"
+}
+```
+
+Respuesta exitosa: `200 OK`, con `status: "ACTIVO"`.
+
+Reglas:
+- Solo aplica a una membresía `EXPULSADO`; en otro estado responde `409 Conflict`.
+- El grupo debe estar `ACTIVO` y tener cupo disponible.
+- Se actualiza `fecha_ingreso`, se limpia `fecha_salida` y se descartan aclaraciones anteriores.
+- El practicante no puede readmitirse por su cuenta: lo hace el coach.
+
+### US06 — El postulante responde la aclaración
+
+`POST /api/teams/{id}/memberships/{memberId}/clarification`
+
+Rol requerido: `PRACTICANTE` dueño de la solicitud.
+
+Request (`message` obligatorio, máximo 500 caracteres):
+
+```json
+{
+  "message": "Mi usuario es practicante_2026"
+}
+```
+
+Respuesta exitosa: `200 OK`.
+
+```json
+{
+  "message": "Aclaración enviada; la solicitud vuelve a revisión del coach",
+  "membershipId": 2,
+  "groupId": 1,
+  "status": "PENDIENTE",
+  "clarificationRequest": "¿Puedes adjuntar el enlace de tu perfil de Codeforces?",
+  "clarificationResponse": "Mi usuario es practicante_2026",
+  "respondedAt": "2026-10-10T09:00:00-05:00"
+}
+```
+
+Reglas:
+- Solo el practicante dueño de la membresía puede responder; otro practicante recibe `403 Forbidden`.
+- La membresía debe estar en `ACLARACION_SOLICITADA`; en cualquier otro estado responde `409 Conflict`.
+- La respuesta no puede estar vacía (`400 Bad Request`).
+- Al responder, el estado vuelve a `PENDIENTE`, se guarda la respuesta con su fecha y el coach puede aceptar o rechazar.
+- El coach ve la respuesta en el listado de solicitudes y en `GET /api/teams/me` del practicante.
+
+### Estados del grupo
+
+La columna `grupo_estudio.estado` utiliza los siguientes valores:
+
+- `BORRADOR`: grupo guardado por el coach, todavía no publicado; no se lista ni admite solicitudes.
+- `ACTIVO`: grupo publicado y visible.
+- `ARCHIVADO`: grupo cerrado.
+
+Los estados se representan con `GroupStatus` y se persisten como texto mediante `EnumType.STRING`.
+
 ### Estados de membresía
 
 La columna `practicante_grupo.estado` utiliza los siguientes valores:
 
-- `PENDIENTE`: solicitud a la espera de respuesta.
+- `PENDIENTE`: solicitud a la espera de respuesta del coach.
+- `ACLARACION_SOLICITADA`: el coach pidió información adicional y espera la respuesta del postulante.
 - `ACTIVO`: practicante integrante del grupo.
 - `RECHAZADO`: solicitud rechazada.
 - `RETIRADO`: practicante que abandonó el grupo.
@@ -638,25 +883,31 @@ Las respuestas de error de Teams siguen el formato:
 ```
 
 Códigos HTTP:
-- `400 Bad Request`: datos inválidos, decisión desconocida o parámetros incorrectos.
+- `400 Bad Request`: datos inválidos, decisión desconocida, `status` no permitido, aclaración sin mensaje o parámetros incorrectos.
 - `401 Unauthorized`: ausencia de sesión válida.
-- `403 Forbidden`: rol no autorizado, coach ajeno o acceso prohibido.
+- `403 Forbidden`: rol no autorizado, coach ajeno, postulante ajeno o acceso prohibido.
 - `404 Not Found`: grupo, membresía o perfil inexistente.
-- `409 Conflict`: solicitud duplicada, membresía activa, cupo lleno o solicitud ya respondida.
+- `409 Conflict`: solicitud duplicada, membresía activa, cupo lleno, grupo no publicado, borrador ya publicado o solicitud ya respondida.
 
 No se exponen trazas internas ni detalles SQL en las respuestas.
 
 ### Persistencia y compatibilidad
 
-US04 utiliza `grupo_estudio`.
+US04 utiliza `grupo_estudio`; el borrador es un valor más de `grupo_estudio.estado` (`BORRADOR`).
 
-US05 y US06 utilizan exclusivamente `practicante_grupo`.
+US05 y US06 utilizan exclusivamente `practicante_grupo`. La aclaración se guarda en la misma fila, en las columnas
+`aclaracion_solicitada`, `fecha_aclaracion`, `aclaracion_respuesta` y `fecha_respuesta_aclaracion`.
 
 La implementación no requiere la entidad ni la tabla adicional `solicitud_grupo`.
 
-Las instalaciones existentes de PostgreSQL deben admitir los estados `PENDIENTE` y `RECHAZADO` en la restricción CHECK de `practicante_grupo.estado`. Este ajuste debe aplicarse mediante una migración reproducible antes del despliegue.
+Las instalaciones existentes de PostgreSQL deben admitir los nuevos valores en las restricciones CHECK y las columnas de
+aclaración. El ajuste se aplica con `assets/migracion_borrador_aclaracion.sql`, que amplía `grupo_estudio.estado` con
+`BORRADOR`, amplía `practicante_grupo.estado` a `VARCHAR(30)` y con `ACLARACION_SOLICITADA`, permite `NULL` en
+`nivel_esperado` y `cupo_maximo` mientras el grupo es borrador, y agrega las cuatro columnas indicadas.
 
-Las pruebas de integración verifican creación de grupos, solicitudes pendientes, aceptación, rechazo, autorización del coach, duplicados y capacidad.
+Las pruebas de integración verifican creación de grupos (publicados y borradores), publicación, ocultamiento del borrador,
+solicitudes pendientes, aclaración y respuesta del postulante, aceptación, rechazo, autorización del coach, duplicados y
+capacidad.
 
 ## Analytics — US-10
 
@@ -865,6 +1116,58 @@ La de inicio más reciente primero y, con el mismo inicio, la creada después; `
 competencias. Nunca incluye la clave de acceso. Errores: `400` sin `teamId` o no numérico (`errors.teamId`), `401` sin token
 válido, `403` cuenta no activa, practicante sin membresía `ACTIVO` o coach de otro equipo, `404` equipo inexistente.
 
+## Clasificación por concurso
+
+`GET /api/competitions/{competitionId}/standings`. El coach responsable del equipo de la competencia o un integrante con
+membresía `ACTIVO` de ese equipo. Es la clasificación estilo Codeforces de un solo concurso; el ranking acumulado del
+equipo sigue en `GET /api/analytics/teams/{teamId}/standings`.
+
+```json
+{
+  "competitionId": 5,
+  "teamId": 3,
+  "eventName": "Semanal 12",
+  "status": "EN_CURSO",
+  "penaltyRule": "ICPC_20_MIN",
+  "startsAt": "2026-10-20T14:00:00-05:00",
+  "endsAt": "2026-10-20T19:00:00-05:00",
+  "problems": [
+    { "competitionProblemId": 11, "letter": "A", "title": "Watermelon", "score": 100 }
+  ],
+  "rows": [
+    {
+      "position": 1,
+      "userId": 7,
+      "fullName": "Ana Pérez",
+      "solved": 2,
+      "score": 200,
+      "penaltyMinutes": 45,
+      "cells": [
+        { "competitionProblemId": 11, "letter": "A", "result": "RESUELTO", "attempts": 1, "minutes": 12 }
+      ]
+    }
+  ]
+}
+```
+
+- `problems` va ordenado por letra (`A < B < … < Z < AA`) y cada fila trae una celda por problema, en el mismo orden.
+- `rows` incluye a todo integrante `ACTIVO` del equipo, aunque no tenga intentos. Solo cuentan las resoluciones de
+  membresías de ese equipo sobre los problemas de esa competencia: el progreso de cada `(equipo, usuario)` está aislado.
+- `result` usa los estados de `GET /problems/assigned`: `RESUELTO` (hay un intento aceptado), `PENDIENTE` (hay un
+  intento por verificar y ninguno aceptado), `EN_PROGRESO` (solo intentos fallidos) y `SIN_INTENTOS`.
+- `attempts` son los intentos hasta el primer aceptado (incluido), o todos si no lo resolvió. `minutes` son los minutos
+  desde `startsAt` hasta ese aceptado; es `null` si no está resuelto.
+- `ICPC_20_MIN`: orden por `solved` descendente y luego `penaltyMinutes` ascendente, donde la penalización suma, por
+  cada problema resuelto, sus `minutes` más 20 por cada respuesta fallida anterior a la aceptada (un intento aún
+  `PENDIENTE` no penaliza). `IOI_POINTS`: orden por `score` descendente (suma del `score` de los problemas resueltos)
+  y `penaltyMinutes` es `0`. `score` se informa con ambas reglas.
+- Los empates comparten `position` (`1, 1, 3`), igual que el ranking del equipo; entre empatados se muestra primero el
+  nombre menor.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` identificador no numérico o no positivo
+(`errors.competitionId`), `401` sin token válido, `403` cuenta no activa, practicante sin membresía `ACTIVO` o coach de
+otro equipo, `404` competencia inexistente, `503` persistencia no disponible.
+
 ## US-13 — Resultados oficiales de competencias
 
 Solo el coach responsable con cuenta activa y sesión puede utilizar estas rutas:
@@ -957,6 +1260,48 @@ origen, sin distinguir mayúsculas; `%` y `_` se buscan como texto), `topicId`, 
 Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` datos o criterios inválidos (`errors` por campo) o tipo
 incorrecto en el JSON, `401` sin token válido, `403` cuenta no coach (al registrar) o suspendida, `409` la `url` o el
 `sourceCode` de la plataforma ya existen (`errors` indica cuál) y `503`. Detalle: [US-07/US-08](17-us07-us08-asignacion-problemas.md).
+
+### Problems — importar y buscar problemas de Codeforces
+
+Permiten registrar un problema del catálogo con solo su código de Codeforces (por ejemplo `1850A`), sin escribir
+título, URL ni temas. Solo un coach con cuenta `ACTIVO` y sesión; un practicante recibe `403`.
+
+`POST /api/problems/codeforces/import` con `{ "code": "1850A" }`. `code` es el código corto (`1850A`, `1850b2`,
+`CF-1850A`: el índice se normaliza a mayúsculas) o la URL del problema (`https://codeforces.com/problemset/problem/1850/A`
+o `https://codeforces.com/contest/1850/problem/A`). Los concursos de gimnasio (más de 5 cifras) no se admiten.
+
+- `201` `{ "created": true, "problem": {...} }`: el problema se consultó en Codeforces y se registró.
+- `200` `{ "created": false, "problem": {...} }`: ya existía en el catálogo (mismo `sourceCode`, con o sin el prefijo
+  `CF-` del registro manual, o misma `url`); no se consulta Codeforces. Es idempotente, también ante dos importaciones
+  simultáneas.
+
+`problem` es exactamente un elemento de `items` de `GET /api/problems` (`id`, `title`, `url`, `sourcePlatform`,
+`sourceCode`, `difficultyRating`, `timeLimitMs`, `memoryLimitMb`, `topics: [{ "id", "name" }]`). Se guarda con
+`title` = nombre en Codeforces, `sourcePlatform` = `CODEFORCES`, `sourceCode` = concurso + índice (`1850A`), `url` =
+`https://codeforces.com/problemset/problem/{concurso}/{índice}`, `difficultyRating` = rating como texto (`null` si
+Codeforces no lo publica) y `topics` = etiquetas de Codeforces en inglés (`brute force`, `math`), reutilizando el tema
+existente de igual nombre sin distinguir mayúsculas y creando los que falten. La API de Codeforces no publica los
+límites: se guardan `timeLimitMs` = 2000 y `memoryLimitMb` = 256, que el coach puede ajustar después.
+
+`GET /api/problems/codeforces/search?q=watermelon&limit=20` busca en el problemset de Codeforces y responde `200` con
+una lista (vacía si no hay coincidencias):
+
+```json
+[ { "code": "4A", "title": "Watermelon", "difficultyRating": "800", "topics": ["brute force", "math"],
+    "url": "https://codeforces.com/problemset/problem/4/A", "problemId": 12 } ]
+```
+
+`q` (2 a 100 caracteres) coincide con el prefijo del código (`1850` lista `1850A`, `1850B`...) o con una parte del título,
+sin distinguir mayúsculas; los resultados por código van primero. `limit` va de 1 a 50 (20 por defecto). `problemId`
+es el `id` local si el problema ya fue importado y `null` si no. El problemset se descarga la primera vez y se conserva
+en memoria 6 horas (`kodikalab.integrations.codeforces.catalog-ttl-hours`); si la renovación falla se sigue usando la
+copia anterior.
+
+Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` código con formato inválido (`errors.code`), `q` demasiado
+corta o `limit` fuera de rango (`errors.q`, `errors.limit`) o JSON inválido; `401` sin token válido; `403` cuenta no
+coach o suspendida; `404` `El problema no existe en Codeforces`; `409` conflicto de datos al guardar; `503`
+`Codeforces no está disponible temporalmente. Inténtelo de nuevo más tarde.` (Codeforces caído, con tiempo de espera
+agotado o limitando las llamadas) o catálogo no disponible.
 
 ## US-07 — Asignar problemas a una competencia
 
@@ -1111,3 +1456,7 @@ La respuesta no usa wrapper:
   `user.status` solicita historial completo (`from=1`, sin `count`); primera consulta puede tardar más que un cache hit.
 - Configuración conservada: `CODEFORCES_API_BASE_URL` (default `https://codeforces.com/api`),
   `CODEFORCES_API_TIMEOUT_MS` (default 3000 por petición). API pública sin credenciales Codeforces.
+
+## Navegación por equipo (US-11 a US-14)
+
+El cliente elige el contexto sin escribir IDs con endpoints ya documentados arriba: `GET /api/teams/me` (equipos del usuario), `GET /api/competitions?teamId=` (competencias del equipo) y `GET /api/problems/assigned?teamId=` (problemas asignados). No hay endpoints de navegación adicionales. Ver [Navegación de equipos](17-navegacion-equipos.md).

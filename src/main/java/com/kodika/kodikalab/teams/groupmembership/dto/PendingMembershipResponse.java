@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.teams.groupmembership.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerLevel;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfile;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
@@ -13,6 +14,7 @@ public record PendingMembershipResponse(
         Integer practitionerId,
         MembershipStatus status,
         OffsetDateTime requestedAt,
+        @JsonInclude(JsonInclude.Include.NON_NULL) Clarification clarification,
         Applicant practitioner
 ) {
     /** Perfil académico y competitivo del postulante; no incluye el correo. */
@@ -29,6 +31,15 @@ public record PendingMembershipResponse(
     ) {
     }
 
+    /** Aclaración pedida por el coach y, si ya existe, la respuesta del postulante. */
+    public record Clarification(
+            String request,
+            OffsetDateTime requestedAt,
+            String response,
+            OffsetDateTime respondedAt
+    ) {
+    }
+
     public static PendingMembershipResponse from(GroupMembership membership) {
         PractitionerProfile profile = membership.getPractitioner();
         return new PendingMembershipResponse(
@@ -37,6 +48,7 @@ public record PendingMembershipResponse(
                 profile.getUserId(),
                 membership.getStatus(),
                 membership.getJoinedAt(),
+                clarificationOf(membership),
                 new Applicant(
                         profile.getUser().getFullName(),
                         profile.getStudentCode(),
@@ -48,6 +60,18 @@ public record PendingMembershipResponse(
                         profile.getAtcoderHandle(),
                         profile.getVjudgeHandle()
                 )
+        );
+    }
+
+    private static Clarification clarificationOf(GroupMembership membership) {
+        if (membership.getClarificationRequest() == null) {
+            return null;
+        }
+        return new Clarification(
+                membership.getClarificationRequest(),
+                membership.getClarificationRequestedAt(),
+                membership.getClarificationResponse(),
+                membership.getClarificationRespondedAt()
         );
     }
 }

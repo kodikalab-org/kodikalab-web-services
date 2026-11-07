@@ -1,8 +1,11 @@
 package com.kodika.kodikalab.teams.studygroup;
 
+import com.kodika.kodikalab.common.exception.BadRequestException;
+import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
+import com.kodika.kodikalab.profiles.coach.CoachProfile;
 import com.kodika.kodikalab.profiles.coach.CoachProfileService;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipRepository;
@@ -15,6 +18,7 @@ import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -34,6 +38,7 @@ class StudyGroupServiceTests {
     StudyGroupRepository groups;
     GroupMembershipRepository memberships;
     CurrentUserResolver resolver;
+    CoachProfileService coachProfiles;
     StudyGroupService service;
 
     @BeforeEach
@@ -41,7 +46,8 @@ class StudyGroupServiceTests {
         groups = mock(StudyGroupRepository.class);
         memberships = mock(GroupMembershipRepository.class);
         resolver = mock(CurrentUserResolver.class);
-        service = new StudyGroupServiceImpl(groups, mock(CoachProfileService.class), resolver, memberships);
+        coachProfiles = mock(CoachProfileService.class);
+        service = new StudyGroupServiceImpl(groups, coachProfiles, resolver, memberships);
     }
 
     @Test
@@ -124,6 +130,104 @@ class StudyGroupServiceTests {
 
         assertThatThrownBy(() -> service.findMyTeams()).isInstanceOf(UnauthorizedException.class);
         verifyNoInteractions(groups, memberships);
+    }
+
+    @Test
+    void draftOnlyRequiresAName() {
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
+        when(coachProfiles.requireCoachProfile(10)).thenReturn(coach(10));
+        when(groups.save(any(StudyGroup.class))).thenAnswer(call -> call.getArgument(0));
+
+        StudyGroup draft = service.createGroup(new CreateStudyGroupRequest(
+                "  Mi grupo en preparación  ", null, null, null, null, null, true));
+
+        assertThat(draft.getStatus()).isEqualTo(GroupStatus.BORRADOR);
+        assertThat(draft.getName()).isEqualTo("Mi grupo en preparación");
+        assertThat(draft.getVisibility()).isEqualTo(GroupVisibility.PUBLICO);
+        assertThat(draft.getInvitationCode()).isNotBlank();
+        verify(groups).save(draft);
+    }
+
+    @Test
+    void draftWithoutNameIsRejected() {
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
+        when(coachProfiles.requireCoachProfile(10)).thenReturn(coach(10));
+
+        assertThatThrownBy(() -> service.createGroup(new CreateStudyGroupRequest(
+                "   ", null, null, null, null, null, true)))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("nombre");
+
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void publishingAGroupRequiresLevelAndCapacity() {
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
+        when(coachProfiles.requireCoachProfile(10)).thenReturn(coach(10));
+
+        assertThatThrownBy(() -> service.createGroup(new CreateStudyGroupRequest(
+                "Grupo completo", null, null, 10, null, null, false)))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("nivel esperado");
+
+        verify(groups, never()).save(any());
+    }
+
+    @Test
+    void draftCanBePublishedWhenItHasTheRequiredData() {
+        StudyGroup draft = group(5, "Borrador", GroupVisibility.PUBLICO);
+        draft.setCoach(coach(10));
+        draft.setStatus(GroupStatus.BORRADOR);
+        draft.setExpectedLevel("Div3");
+        draft.setMaxCapacity(8);
+
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
+        when(groups.findById(5)).thenReturn(Optional.of(draft));
+        when(groups.save(any(StudyGroup.class))).thenAnswer(call -> call.getArgument(0));
+
+        StudyGroup published = service.publishGroup(5);
+
+        assertThat(published.getStatus()).isEqualTo(GroupStatus.ACTIVO);
+        assertThat(published.getVisibility()).isEqualTo(GroupVisibility.PUBLICO);
+        verify(groups).save(draft);
+    }
+
+    @Test
+    void anotherCoachCannotPublishOrEditTheDraft() {
+        StudyGroup draft = group(5, "Borrador", GroupVisibility.PUBLICO);
+        draft.setStatus(GroupStatus.BORRADOR);
+        draft.setCoach(coach(99));
+
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
+        when(groups.findById(5)).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> service.publishGroup(5))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("coach responsable");
+    }
+
+    @Test
+    void aPublishedGroupCannotBeEditedAsDraft() {
+        StudyGroup published = group(5, "Publicado", GroupVisibility.PUBLICO);
+        published.setStatus(GroupStatus.ACTIVO);
+        published.setCoach(coach(10));
+
+        when(resolver.currentUser()).thenReturn(user(10, Role.COACH, UserStatus.ACTIVO));
+        when(groups.findById(5)).thenReturn(Optional.of(published));
+
+        assertThatThrownBy(() -> service.updateDraft(5, new UpdateStudyGroupDraftRequest(
+                "Nuevo nombre", null, null, null, null, null)))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("borrador");
+
+        verify(groups, never()).save(any());
+    }
+
+    private static CoachProfile coach(int userId) {
+        CoachProfile coach = new CoachProfile();
+        coach.setUserId(userId);
+        return coach;
     }
 
     private static StudyGroup group(int id, String name, GroupVisibility visibility) {

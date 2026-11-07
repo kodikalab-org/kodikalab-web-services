@@ -1,6 +1,7 @@
 package com.kodika.kodikalab.competitions.competition;
 
 import com.kodika.kodikalab.competitions.competition.dto.ChangeCompetitionStatusRequest;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionDetail;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionListResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionResponse;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionSummary;
@@ -23,6 +24,9 @@ public interface CompetitionService {
 
     /** Equipo y estado de la competencia, sin bloqueo. */
     Optional<CompetitionSummary> findSummaryById(Integer competitionId);
+
+    /** Datos de la competencia (nombre, regla de penalización, fechas) para mostrar su clasificación. */
+    Optional<CompetitionDetail> findDetailById(Integer competitionId);
 
     /**
      * Igual que {@link #findSummaryById} pero bloquea la competencia hasta el fin de la transacción, para que dos

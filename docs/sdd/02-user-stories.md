@@ -6,7 +6,7 @@ Las historias funcionales se conservan. El modelo físico de referencia es `asse
 
 - US01/US02 usan la cuenta base `usuario`, con roles SQL `COACH`/`PRACTICANTE` y estados `ACTIVO`/`SUSPENDIDO`; ver `03-api-contracts.md` para la correspondencia Java/HTTP.
 - US03 implementa el perfil del rol de la sesión: `practicante` (datos académicos, nivel y handles de Codeforces/AtCoder/VJudge) y `coach` (especialidad, organización, experiencia y presentación). No se crean perfiles con datos ficticios durante el registro base.
-- US05/US06 (solicitud de ingreso y aceptación/rechazo) no usan una tabla de solicitudes propia; su mecanismo se define al implementar esas historias.
+- US05/US06 (solicitud de ingreso, aceptación/rechazo y pedido de aclaración) no usan una tabla de solicitudes propia: una solicitud es una fila de `practicante_grupo` en estado `PENDIENTE`, y la aclaración se guarda en esa misma fila.
 - Equipos, competencias y catálogo se describen con las tablas oficiales nuevas, pero su código se adapta únicamente en la tarea del módulo correspondiente.
 - El escenario de recuperación de acceso de US02 sigue pendiente de contrato, no se da por completado por tener login.
 
@@ -26,7 +26,13 @@ Como usuario, quiero gestionar mi perfil y vincular mis plataformas externas par
 
 ### US04 - Creación de grupo
 
-Como usuario, quiero crear un grupo para practicar programación competitiva con otros integrantes.
+Como coach, quiero crear un grupo y poder guardarlo como borrador para practicar programación competitiva con otros integrantes.
+
+Criterios implementados:
+- `POST /api/teams` con `"draft": true` guarda un borrador con solo el nombre; sin la bandera el grupo se publica completo.
+- `PATCH /api/teams/{id}/draft` guarda cambios del borrador (solo el coach responsable).
+- `POST /api/teams/{id}/publish` valida nombre, nivel esperado y cupo, y publica el grupo.
+- Un borrador no aparece en `GET /api/teams` y nadie puede solicitar ingreso hasta que se publique.
 
 ### US05 - Solicitud de ingreso
 
@@ -34,7 +40,13 @@ Como usuario, quiero solicitar ingreso a un grupo para participar con sus miembr
 
 ### US06 - Aceptación/rechazo de postulantes
 
-Como administrador o responsable de grupo, quiero aceptar o rechazar postulantes para controlar la membresía del equipo.
+Como administrador o responsable de grupo, quiero aceptar o rechazar postulantes, o pedirle una aclaración al postulante, para controlar la membresía del equipo.
+
+Criterios implementados:
+- `PATCH /api/teams/{id}/memberships/{memberId}` acepta `ACEPTAR`, `RECHAZAR` o `SOLICITAR_ACLARACION`; esta última exige un `message`.
+- La solicitud pasa a `ACLARACION_SOLICITADA` y el coach no puede aceptar ni rechazar hasta que el postulante responda.
+- `POST /api/teams/{id}/memberships/{memberId}/clarification` permite al postulante dueño de la solicitud responder; vuelve a `PENDIENTE`.
+- El coach consulta las solicitudes por estado (`PENDIENTE` o `ACLARACION_SOLICITADA`) y ve la pregunta y la respuesta en `/api/teams/me` y en el listado.
 
 ### US07 - Asignación de problemas
 

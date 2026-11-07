@@ -210,12 +210,17 @@ public class AssignedProblemsServiceImpl implements AssignedProblemsService {
     }
 
     static AssignmentStatus statusOf(List<MemberAttempt> attempts) {
+        return statusOfVerdicts(attempts.stream().map(MemberAttempt::verdict).toList());
+    }
+
+    /** Misma derivación de {@link #statusOf} a partir de los veredictos de los intentos, en cualquier orden. */
+    static AssignmentStatus statusOfVerdicts(List<Verdict> attempts) {
         boolean pending = false;
-        for (MemberAttempt attempt : attempts) {
-            if (attempt.verdict() == Verdict.ACCEPTED) {
+        for (Verdict verdict : attempts) {
+            if (verdict == Verdict.ACCEPTED) {
                 return AssignmentStatus.RESUELTO;
             }
-            pending |= attempt.verdict() == Verdict.PENDIENTE;
+            pending |= verdict == Verdict.PENDIENTE;
         }
         if (attempts.isEmpty()) {
             return AssignmentStatus.SIN_INTENTOS;
