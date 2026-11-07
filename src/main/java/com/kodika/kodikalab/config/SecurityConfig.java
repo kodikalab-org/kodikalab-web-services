@@ -101,8 +101,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/progress/me/topics")
                         .hasRole(PRACTICANTE)                                                                     // US-10
 
-                        // Cualquier cuenta autenticada: perfil, mis equipos, grupos, competencias del equipo, catálogo,
-                        // problemas asignados, ranking (los servicios exigen coach responsable o membresía ACTIVO)
+                        // Cualquier cuenta autenticada: perfil, mis equipos, grupos, competencias del equipo y su clasificación,
+                        // catálogo, problemas asignados, ranking (los servicios exigen coach responsable o membresía ACTIVO)
                         .anyRequest().authenticated())
                 .addFilterBefore(new JwtAuthenticationFilter(jwtService, userService, accessDeniedHandler,
                         publicEndpoints), UsernamePasswordAuthenticationFilter.class)

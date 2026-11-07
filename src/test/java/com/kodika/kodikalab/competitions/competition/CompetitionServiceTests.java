@@ -6,6 +6,7 @@ import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.competitions.competition.dto.ChangeCompetitionStatusRequest;
+import com.kodika.kodikalab.competitions.competition.dto.CompetitionDetail;
 import com.kodika.kodikalab.competitions.competition.dto.CompetitionListItem;
 import com.kodika.kodikalab.competitions.competition.dto.CreateCompetitionRequest;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
@@ -80,6 +81,27 @@ class CompetitionServiceTests {
             competition.setId(7);
             return competition;
         });
+    }
+
+    @Test
+    void findsTheDetailWithoutExposingTheAccessKey() {
+        StudyGroup group = new StudyGroup();
+        group.setId(1);
+        Competition competition = new Competition();
+        competition.setId(7);
+        competition.setGroup(group);
+        competition.setEventName("Semanal 12");
+        competition.setAccessKey("$2a$hash");
+        competition.setPenaltyRule(PenaltyRule.IOI_POINTS);
+        competition.setStatus(CompetitionStatus.EN_CURSO);
+        competition.setStartsAt(START);
+        competition.setEndsAt(END);
+        when(repository.findById(7)).thenReturn(Optional.of(competition));
+        when(repository.findById(8)).thenReturn(Optional.empty());
+
+        assertThat(service.findDetailById(7)).contains(new CompetitionDetail(7, 1, "Semanal 12",
+                CompetitionStatus.EN_CURSO, PenaltyRule.IOI_POINTS, START, END));
+        assertThat(service.findDetailById(8)).isEmpty();
     }
 
     @Test
