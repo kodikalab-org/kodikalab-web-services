@@ -113,6 +113,7 @@ class SecurityIntegrationTests {
             new Endpoint(HttpMethod.GET, "/users/me", null),
             new Endpoint(HttpMethod.PUT, "/users/me", "{}"),
             new Endpoint(HttpMethod.POST, "/auth/recovery-code", "{\"password\":\"Password123\"}"),
+            new Endpoint(HttpMethod.POST, "/auth/refresh", null),
             new Endpoint(HttpMethod.GET, "/teams", null),
             new Endpoint(HttpMethod.GET, "/teams/me", null),
             new Endpoint(HttpMethod.GET, "/competitions?teamId=1", null),

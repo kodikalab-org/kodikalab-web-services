@@ -9,4 +9,7 @@ import jakarta.validation.constraints.NotNull;
 public interface AuthService {
     AuthResponse register(@NotNull @Valid RegisterRequest request);
     AuthResponse login(@NotNull @Valid LoginRequest request);
+
+    /** Emite un token nuevo para la cuenta autenticada en la petición actual (cuenta {@code ACTIVO}). */
+    AuthResponse refresh();
 }

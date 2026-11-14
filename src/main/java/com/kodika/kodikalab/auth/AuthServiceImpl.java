@@ -5,6 +5,7 @@ import com.kodika.kodikalab.auth.dto.RegisterRequest;
 import com.kodika.kodikalab.auth.dto.LoginRequest;
 import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.security.JwtService;
 import com.kodika.kodikalab.users.User;
 import com.kodika.kodikalab.users.UserService;
@@ -21,17 +22,20 @@ public class AuthServiceImpl implements AuthService {
     private static final String DUMMY_PASSWORD_HASH =
             "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
     private static final String INVALID_CREDENTIALS = "Credenciales inválidas";
+    private static final String INVALID_TOKEN = "El token es inválido o expiró: inicie sesión nuevamente";
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RecoveryCodeService recoveryCodes;
+    private final CurrentUserResolver currentUser;
 
     public AuthServiceImpl(UserService userService, PasswordEncoder passwordEncoder, JwtService jwtService,
-                           RecoveryCodeService recoveryCodes) {
+                           RecoveryCodeService recoveryCodes, CurrentUserResolver currentUser) {
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.recoveryCodes = recoveryCodes;
+        this.currentUser = currentUser;
     }
 
     @Override
@@ -66,6 +70,17 @@ public class AuthServiceImpl implements AuthService {
         }
         JwtService.IssuedToken issued = jwtService.issue(user);
         return new AuthResponse("Inicio de sesión exitoso", user.getEmail(), user.getRole(),
+                issued.token(), issued.tokenType(), issued.expiresInSeconds());
+    }
+
+    @Override
+    public AuthResponse refresh() {
+        User user = currentUser.currentUser();
+        if (user.getStatus() != UserStatus.ACTIVO || user.getRole() == null) {
+            throw new UnauthorizedException(INVALID_TOKEN);
+        }
+        JwtService.IssuedToken issued = jwtService.issue(user);
+        return new AuthResponse("Sesión renovada", user.getEmail(), user.getRole(),
                 issued.token(), issued.tokenType(), issued.expiresInSeconds());
     }
 }

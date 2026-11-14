@@ -53,6 +53,7 @@ public class SecurityConfig {
                 paths.matcher(HttpMethod.POST, "/auth/password-reset/request"),
                 paths.matcher(HttpMethod.POST, "/auth/password-reset/verify"),
                 paths.matcher(HttpMethod.POST, "/auth/password-reset/confirm"),
+                paths.matcher(HttpMethod.GET, "/health"),
                 paths.matcher("/swagger-ui.html"),
                 paths.matcher("/swagger-ui/**"),
                 paths.matcher("/v3/api-docs"),

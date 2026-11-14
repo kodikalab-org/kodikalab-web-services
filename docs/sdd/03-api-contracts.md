@@ -19,6 +19,8 @@ El ERD no define los nombres del JSON. Se conservan las claves existentes (`firs
 ```txt
 POST /auth/register
 POST /auth/login
+POST /auth/refresh
+GET /health
 ```
 
 ### US-01 — Registro de cuenta
@@ -107,10 +109,10 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 
 | Acceso | Endpoints |
 | --- | --- |
-| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `/swagger-ui.html`, `/v3/api-docs` |
+| Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `GET /health`, `/swagger-ui.html`, `/v3/api-docs` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/codeforces/import`, `GET /problems/codeforces/search`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
 | Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
-| Cualquier cuenta autenticada | El resto: `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /competitions/{competitionId}/standings`, `GET /analytics/teams/{teamId}/standings` |
+| Cualquier cuenta autenticada | El resto: `POST /auth/refresh`, `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /competitions/{competitionId}/standings`, `GET /analytics/teams/{teamId}/standings` |
 
 Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
 dependen de datos (coach responsable del equipo, membresía activa, cuenta `ACTIVO`).
@@ -127,6 +129,27 @@ El token es un JWT firmado con HMAC-SHA256 que contiene `sub` (correo), `uid`, `
 `iss=kodikalab`; nunca contraseñas ni hashes. El rol efectivo se lee siempre de la base de datos, no del token.
 Configuración: `JWT_SECRET` (obligatorio, mínimo 32 caracteres), `JWT_EXPIRATION` (milisegundos, por defecto 24 h) y
 `CORS_ALLOWED_ORIGINS`. Detalle y decisiones: `06-security-strategy.md`.
+
+### Renovar la sesión y comprobar disponibilidad
+
+`POST /api/auth/refresh` (requiere token Bearer válido de una cuenta `ACTIVO`, cualquier rol; sin cuerpo). Devuelve `200` con la misma forma que el login y un token nuevo; el anterior sigue válido hasta su vencimiento:
+
+```json
+{
+  "message": "Sesión renovada",
+  "email": "test@gmail.com",
+  "role": "PRACTICANTE",
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": 86400
+}
+```
+
+Sin token o con token inválido responde el `401` estándar de la cadena de seguridad (con `WWW-Authenticate: Bearer`); una cuenta que dejó de estar `ACTIVO` recibe `403 La cuenta no está habilitada`.
+
+`GET /api/health` (público, sin token y sin acceder a la base de datos) devuelve `200` con `{ "status": "UP" }`. Sirve para que el frontend despierte el servicio en Render.
+
+CORS expone la cabecera `WWW-Authenticate` (`Access-Control-Expose-Headers`) para que el navegador distinga un `401` de token inválido.
 
 ### Recuperación de acceso sin correo (US-02, escenario alternativo)
 

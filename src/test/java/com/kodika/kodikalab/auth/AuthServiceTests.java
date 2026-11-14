@@ -2,6 +2,7 @@ package com.kodika.kodikalab.auth;
 
 import com.kodika.kodikalab.auth.dto.RegisterRequest;
 import com.kodika.kodikalab.common.exception.BadRequestException;
+import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.support.TestJwt;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.UserService;
@@ -22,7 +23,7 @@ class AuthServiceTests {
     void hashesPasswordAndDelegatesThroughPublicUserService() {
         UserService users = mock(UserService.class);
         PasswordEncoder encoder = new BCryptPasswordEncoder();
-        AuthService service = new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes());
+        AuthService service = new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes(), mock(CurrentUserResolver.class));
         var result = service.register(new RegisterRequest("  Usuario  ", "  Prueba  ",
                 "  TEST@GMAIL.COM  ", "Password123", Role.PRACTICANTE));
         assertThat(result.message()).isEqualTo("Registro exitoso");
@@ -39,7 +40,7 @@ class AuthServiceTests {
     void rejectsPasswordExceedingBcryptByteLimitWithoutHashing() {
         UserService users = mock(UserService.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
-        AuthService service = new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes());
+        AuthService service = new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes(), mock(CurrentUserResolver.class));
         assertThatThrownBy(() -> service.register(new RegisterRequest("Usuario", "Prueba", "test@gmail.com",
                 "A1" + "ñ".repeat(36), Role.COACH))).isInstanceOf(BadRequestException.class);
         verifyNoInteractions(users, encoder);
@@ -50,7 +51,7 @@ class AuthServiceTests {
         UserService users = mock(UserService.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         try (var factory = Validation.buildDefaultValidatorFactory()) {
-            ProxyFactory proxy = new ProxyFactory(new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes()));
+            ProxyFactory proxy = new ProxyFactory(new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes(), mock(CurrentUserResolver.class)));
             proxy.addAdvice(new MethodValidationInterceptor(factory.getValidator()));
             AuthService service = (AuthService) proxy.getProxy();
             assertThatThrownBy(() -> service.register(new RegisterRequest("Usuario", "Prueba", "test@gmail.com",
@@ -63,7 +64,7 @@ class AuthServiceTests {
     void rejectsCombinedNameOver150BeforeHashing() {
         UserService users = mock(UserService.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
-        AuthService service = new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes());
+        AuthService service = new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes(), mock(CurrentUserResolver.class));
         assertThatThrownBy(() -> service.register(new RegisterRequest("a".repeat(80), "b".repeat(70),
                 "test@gmail.com", "Password123", Role.COACH)))
                 .isInstanceOf(BadRequestException.class)
@@ -76,7 +77,7 @@ class AuthServiceTests {
         UserService users = mock(UserService.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
         when(encoder.encode("Password123")).thenReturn("HASH");
-        new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes()).register(new RegisterRequest("a".repeat(80), "b".repeat(69),
+        new AuthServiceImpl(users, encoder, TestJwt.service(), TestJwt.recoveryCodes(), mock(CurrentUserResolver.class)).register(new RegisterRequest("a".repeat(80), "b".repeat(69),
                 "test@gmail.com", "Password123", Role.COACH));
         verify(users).createUser("a".repeat(80) + " " + "b".repeat(69), "test@gmail.com", "HASH", Role.COACH);
     }

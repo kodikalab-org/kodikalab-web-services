@@ -3,6 +3,7 @@ package com.kodika.kodikalab.auth;
 import com.kodika.kodikalab.auth.dto.LoginRequest;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.security.JwtService;
+import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.support.TestJwt;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
@@ -35,7 +36,7 @@ class LoginServiceTests {
     void setUp() {
         users = mock(UserService.class);
         encoder = mock(PasswordEncoder.class);
-        service = new AuthServiceImpl(users, encoder, jwt, TestJwt.recoveryCodes());
+        service = new AuthServiceImpl(users, encoder, jwt, TestJwt.recoveryCodes(), mock(CurrentUserResolver.class));
         user = new User();
         user.setEmail("test@gmail.com");
         user.setPasswordHash("HASH");
@@ -115,7 +116,7 @@ class LoginServiceTests {
         String password = " Password123 ";
         user.setPasswordHash(bcrypt.encode(password));
         when(users.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        AuthService realService = new AuthServiceImpl(users, bcrypt, jwt, TestJwt.recoveryCodes());
+        AuthService realService = new AuthServiceImpl(users, bcrypt, jwt, TestJwt.recoveryCodes(), mock(CurrentUserResolver.class));
         assertThat(realService.login(new LoginRequest(user.getEmail(), password)).role()).isEqualTo(Role.PRACTICANTE);
         assertThatThrownBy(() -> realService.login(new LoginRequest(user.getEmail(), password.strip())))
                 .isInstanceOf(UnauthorizedException.class).hasMessage("Credenciales inválidas");

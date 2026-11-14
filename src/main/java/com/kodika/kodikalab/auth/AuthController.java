@@ -48,6 +48,15 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @Operation(summary = "Renovar la sesión",
+            description = "Requiere un token Bearer válido de una cuenta ACTIVO (cualquier rol). Devuelve la misma forma "
+                    + "que el login con un token nuevo; el token anterior sigue válido hasta su vencimiento.")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh() {
+        return ResponseEntity.ok(authService.refresh());
+    }
+
     @Operation(summary = "Recuperar el acceso sin correo (US-02, escenario alternativo)",
             description = "El titular verifica su identidad con el `recoveryCode` de su cuenta y define una contraseña "
                     + "nueva; después puede iniciar sesión de nuevo. El código es de un solo uso: la respuesta trae el "
