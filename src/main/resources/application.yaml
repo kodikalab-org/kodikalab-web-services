@@ -19,6 +19,12 @@ spring:
     password: ${DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
 
+  # Subida de código fuente para la verificación (el servicio valida el máximo de 64 kB; esto corta antes).
+  servlet:
+    multipart:
+      max-file-size: 256KB
+      max-request-size: 512KB
+
   # 2. Configuración de JPA / Hibernate
   jpa:
     hibernate:

@@ -114,7 +114,7 @@ public class TopicProgressCalculator {
             activity.attempted.add(assignment.problemId());
             if (attempt.verdict() == Verdict.ACCEPTED) {
                 activity.solved.add(assignment.problemId());
-            } else if (attempt.verdict() == Verdict.PENDIENTE) {
+            } else if (attempt.verdict().isPending()) {
                 activity.pending.add(assignment.problemId());
             }
         }

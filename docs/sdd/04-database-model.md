@@ -375,3 +375,33 @@ todas nullable y sin defaults para no inventar datos históricos.
 Se mantiene el enfoque code-first actual (Hibernate ddl-auto update en desarrollo),
 sin introducir Flyway/Liquibase. En despliegues con DDL desactivado, agregar esas
 cinco columnas nullable antes de iniciar esta versión; no modifica filas previas.
+
+## Verificación de envíos con Codeforces (`resolucion_problema`)
+
+KodikaLab solo lee los envíos del practicante en Codeforces (nunca envía soluciones) y los registra como intentos.
+`resolucion_problema` agrega columnas **nullable** (las filas existentes no cambian de significado) y amplía el
+`veredicto`. Script idempotente: [`assets/migracion_verificacion_envios.sql`](assets/migracion_verificacion_envios.sql)
+(probado dos veces seguidas sobre una copia de la tabla). En desarrollo con `ddl-auto: update` Hibernate agrega las
+columnas, **pero no amplía el CHECK `resolucion_problema_veredicto_check` ni crea el índice único parcial**: hay que
+ejecutar el script antes de guardar veredictos nuevos (`COMPILATION_ERROR`, `RUNTIME_ERROR`, `EN_EVALUACION`, `OTRO`) o
+importar envíos.
+
+| Columna | Tipo | Restricción / significado |
+| --- | --- | --- |
+| `origen` | `VARCHAR(20)` | `PLATAFORMA` (importado) o `MANUAL` (autodeclarado); las filas existentes se actualizan a `MANUAL` |
+| `id_envio_externo` | `BIGINT` | Id del envío en Codeforces; nulo en intentos manuales |
+| `pruebas_superadas` | `INTEGER` | Pruebas superadas informadas por Codeforces |
+| `nombre_archivo` | `VARCHAR(255)` | Archivo opcional adjunto por el practicante |
+| `codigo_fuente` | `TEXT` | Texto UTF-8 del archivo (máximo 64 kB, validado en el servicio) |
+| `sha256` | `VARCHAR(64)` | Huella hexadecimal del archivo |
+| `comparacion_archivo` | `VARCHAR(20)` | `COINCIDE` / `DIFERENTE` / `NO_COMPARADO` (hoy siempre `NO_COMPARADO`) |
+
+- `veredicto` (`VARCHAR(30)`): `PENDIENTE`, `ACCEPTED`, `WRONG_ANSWER`, `TLE`, `MLE`, `ERROR`, `COMPILATION_ERROR`,
+  `RUNTIME_ERROR`, `EN_EVALUACION`, `OTRO`.
+- Índice único parcial `uq_resolucion_problema_envio_externo` en `(competencia_problema_id, practicante_grupo_id,
+  id_envio_externo) WHERE id_envio_externo IS NOT NULL`: un mismo envío no se importa dos veces. El servicio además
+  bloquea la membresía y consulta antes de insertar; el índice es la garantía de última instancia.
+- `tiempo_ejecucion_ms` y `memoria_usada_kb` (existentes) guardan el tiempo y la memoria (kB) del envío real.
+- `fecha_envio` es la fecha real del envío en Codeforces; `url_evidencia`, el enlace al envío.
+- `.erd`: no se modificó `oficial.erd`; las columnas son una extensión del modelo documentada aquí (ver
+  [03-api-contracts.md](03-api-contracts.md#verificación-de-envíos-con-codeforces-solo-lectura)).

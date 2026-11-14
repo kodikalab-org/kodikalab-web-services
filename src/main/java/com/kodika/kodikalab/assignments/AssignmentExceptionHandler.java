@@ -6,6 +6,7 @@ import com.kodika.kodikalab.common.exception.FieldValidationException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
+import com.kodika.kodikalab.profiles.practitioner.integration.CodeforcesUnavailableException;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,11 +15,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.transaction.TransactionException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /** Errores de {@link AssignmentController} y {@link CompetitionStandingsController} con el formato {@code { "message": "...", "errors": {} }}. */
-@RestControllerAdvice(assignableTypes = {AssignmentController.class, CompetitionStandingsController.class})
+@RestControllerAdvice(assignableTypes = {AssignmentController.class, CompetitionStandingsController.class,
+        SubmissionVerificationController.class})
 public class AssignmentExceptionHandler {
     public record ErrorResponse(String message, Map<String, String> errors) {
     }
@@ -42,6 +46,18 @@ public class AssignmentExceptionHandler {
     public ResponseEntity<ErrorResponse> invalidParameter(MethodArgumentTypeMismatchException exception) {
         return ResponseEntity.badRequest().body(new ErrorResponse("Los criterios de consulta deben corregirse",
                 Map.of(exception.getName(), "El valor no es válido")));
+    }
+
+    @ExceptionHandler({MaxUploadSizeExceededException.class, MultipartException.class})
+    public ResponseEntity<ErrorResponse> invalidUpload(Exception exception) {
+        return ResponseEntity.badRequest().body(new ErrorResponse("El archivo adjunto no es válido",
+                Map.of("file", exception instanceof MaxUploadSizeExceededException
+                        ? "El archivo supera el máximo de 64 kB" : "La solicitud multipart no es válida")));
+    }
+
+    @ExceptionHandler(CodeforcesUnavailableException.class)
+    public ResponseEntity<ErrorResponse> codeforcesUnavailable(CodeforcesUnavailableException exception) {
+        return error(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage());
     }
 
     @ExceptionHandler(UnauthorizedException.class)

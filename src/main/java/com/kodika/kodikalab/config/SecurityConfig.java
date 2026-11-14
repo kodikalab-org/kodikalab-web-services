@@ -99,6 +99,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,
                                 "/competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions")
                         .hasRole(PRACTICANTE)                                                                     // US-09/14
+                        .requestMatchers(HttpMethod.POST, "/problems/assigned/{competitionProblemId}/verification")
+                        .hasRole(PRACTICANTE)                                                                     // verificación Codeforces
+                        .requestMatchers(HttpMethod.GET, "/problems/assigned/{competitionProblemId}/platform-submissions")
+                        .hasRole(PRACTICANTE)                                                                     // verificación Codeforces
                         .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/progress/me")
                         .hasRole(PRACTICANTE)                                                                     // US-14
                         .requestMatchers(HttpMethod.GET, "/analytics/teams/{teamId}/progress/me/topics")

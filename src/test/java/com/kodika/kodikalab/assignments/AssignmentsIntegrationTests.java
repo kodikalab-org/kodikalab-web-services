@@ -508,6 +508,43 @@ class AssignmentsIntegrationTests {
     }
 
     @Test
+    void codeforcesProblemsRejectManualRegistrationAndTheVerificationEndpointsEnforceTheirRules() throws Exception {
+        int competitionId = createCompetition("Simulacro verificación", "EN_CURSO");
+        int cses = createProblem("Verificación CSES", null, null);
+        String codeforces = body(send("/api/problems", coachSession, "{\"title\":\"Verificación CF\",\"url\":"
+                + "\"https://codeforces.com/problemset/problem/9" + (1000 + new java.util.Random().nextInt(8000))
+                + "/A\"}").andExpect(status().isCreated()));
+        int cfProblem = JsonPath.read(codeforces, "$.id");
+        String assigned = body(assign(coachSession, competitionId, "[{\"problemId\":" + cses + "},{\"problemId\":"
+                + cfProblem + "}]").andExpect(status().isCreated()));
+        int csesAssignment = JsonPath.read(assigned, "$.assigned[0].competitionProblemId");
+        int cfAssignment = JsonPath.read(assigned, "$.assigned[1].competitionProblemId");
+
+        // El registro manual se rechaza para Codeforces y sigue funcionando para otras plataformas (origen MANUAL).
+        resolve(memberSession, cfAssignment, "{\"language\":\"Java\"}").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Este problema se verifica automáticamente con Codeforces"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM resolucion_problema WHERE competencia_problema_id = ?",
+                Integer.class, cfAssignment)).isZero();
+        resolve(memberSession, csesAssignment, "{\"language\":\"Java\"}").andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT origen FROM resolucion_problema WHERE competencia_problema_id = ?",
+                String.class, csesAssignment)).isEqualTo("MANUAL");
+        mvc.perform(get("/api/problems/assigned/" + csesAssignment).contextPath("/api").with(Bearer.of(memberSession)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.attempts[0].origin").value("MANUAL"))
+                .andExpect(jsonPath("$.attempts[0].externalSubmissionId").doesNotExist());
+
+        // Verificación: solo practicantes; sin handle vinculado y para otras plataformas responde 409 sin llamar a Codeforces.
+        String verification = "/api/problems/assigned/" + cfAssignment + "/verification";
+        mvc.perform(post(verification).contextPath("/api").with(Bearer.of(coachSession)))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(verification).contextPath("/api")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/problems/assigned/" + csesAssignment + "/verification").contextPath("/api")
+                        .with(Bearer.of(memberSession))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("La verificación automática solo está disponible para Codeforces"));
+        mvc.perform(get("/api/problems/assigned/" + cfAssignment + "/platform-submissions").contextPath("/api")
+                        .with(Bearer.of(coachSession))).andExpect(status().isForbidden());
+    }
+
+    @Test
     void twoSimultaneousStartsChangeTheStatusOnlyOnce() throws Exception {
         int competitionId = createCompetition("Simulacro inicio concurrente", "PROGRAMADA");
 
@@ -706,8 +743,9 @@ class AssignmentsIntegrationTests {
 
     private int createProblem(String title, String sourceCode, String difficulty, String... topics) throws Exception {
         String suffix = UUID.randomUUID().toString();
+        // ATCODER y no Codeforces: los problemas de Codeforces se verifican con la plataforma y rechazan el registro manual.
         StringBuilder json = new StringBuilder("{\"title\":\"" + title + "\",\"url\":\"https://judge.example/p/" + suffix
-                + "\"");
+                + "\",\"sourcePlatform\":\"ATCODER\"");
         if (sourceCode != null) {
             json.append(",\"sourceCode\":\"").append(sourceCode).append("\"");
         }

@@ -4,6 +4,8 @@ import com.kodika.kodikalab.assignments.AssignmentStatus;
 import com.kodika.kodikalab.competitions.competition.CompetitionAccessType;
 import com.kodika.kodikalab.competitions.competition.CompetitionStatus;
 import com.kodika.kodikalab.competitions.competition.PenaltyRule;
+import com.kodika.kodikalab.competitions.problemresolution.FileComparison;
+import com.kodika.kodikalab.competitions.problemresolution.ResolutionOrigin;
 import com.kodika.kodikalab.competitions.problemresolution.Verdict;
 import com.kodika.kodikalab.problems.problem.SourcePlatform;
 import java.time.OffsetDateTime;
@@ -31,7 +33,19 @@ public record AssignedProblemResponse(Integer competitionProblemId, String lette
         }
     }
 
+    /**
+     * Intento propio. {@code origin} es {@code MANUAL} para filas anteriores a la verificación con la plataforma.
+     * {@code externalSubmissionId} y {@code passedTests} solo existen en intentos {@code PLATAFORMA};
+     * {@code fileName}/{@code fileComparison} solo si el practicante adjuntó su código.
+     */
     public record AttemptInfo(Integer resolutionId, Verdict verdict, String language, OffsetDateTime submittedAt,
-                              String evidenceUrl) {
+                              String evidenceUrl, Integer executionTimeMs, Integer memoryUsedKb, Integer passedTests,
+                              ResolutionOrigin origin, Long externalSubmissionId, String fileName,
+                              FileComparison fileComparison) {
+        public AttemptInfo(Integer resolutionId, Verdict verdict, String language, OffsetDateTime submittedAt,
+                           String evidenceUrl) {
+            this(resolutionId, verdict, language, submittedAt, evidenceUrl, null, null, null, ResolutionOrigin.MANUAL,
+                    null, null, null);
+        }
     }
 }

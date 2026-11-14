@@ -4,6 +4,9 @@ import com.kodika.kodikalab.competitions.problemresolution.dto.CompetitionAttemp
 import com.kodika.kodikalab.competitions.problemresolution.dto.MemberAttempt;
 import com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData;
 import com.kodika.kodikalab.competitions.problemresolution.dto.ManualResolutionRequest;
+import com.kodika.kodikalab.competitions.problemresolution.dto.PlatformImportResult;
+import com.kodika.kodikalab.competitions.problemresolution.dto.PlatformSubmissionData;
+import com.kodika.kodikalab.competitions.problemresolution.dto.SubmittedFile;
 import com.kodika.kodikalab.competitions.competition.CompetitionStatus;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblem;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblemRepository;
@@ -11,6 +14,7 @@ import com.kodika.kodikalab.common.exception.BadRequestException;
 import com.kodika.kodikalab.common.exception.ConflictException;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.common.exception.NotFoundException;
+import com.kodika.kodikalab.problems.problem.SourcePlatform;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembership;
 import com.kodika.kodikalab.teams.groupmembership.GroupMembershipService;
@@ -21,15 +25,22 @@ import com.kodika.kodikalab.users.UserStatus;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ProblemResolutionServiceImpl implements ProblemResolutionService {
+    static final String CODEFORCES_IS_VERIFIED = "Este problema se verifica automáticamente con Codeforces";
+    private static final int MAX_LANGUAGE_LENGTH = 30;
+
     private final ProblemResolutionRepository problemResolutionRepository;
     private final CompetitionProblemRepository assignmentRepository;
     private final GroupMembershipService membershipService;
@@ -96,6 +107,9 @@ public class ProblemResolutionServiceImpl implements ProblemResolutionService {
         CompetitionProblem assignment = assignmentRepository.findById(competitionProblemId)
                 .orElseThrow(() -> new NotFoundException("El problema no está asignado a una competencia existente"));
         validateAssignment(teamId, competitionProblemId, assignment);
+        if (assignment.getProblem().getSourcePlatform() == SourcePlatform.CODEFORCES) {
+            throw new ConflictException(CODEFORCES_IS_VERIFIED);
+        }
         validateRequest(request);
         if (assignment.getCompetition().getStatus() == CompetitionStatus.PROGRAMADA) {
             throw new ConflictException(
@@ -109,6 +123,7 @@ public class ProblemResolutionServiceImpl implements ProblemResolutionService {
         resolution.setMembership(membership);
         resolution.setCompetitionProblem(assignment);
         resolution.setVerdict(Verdict.ACCEPTED);
+        resolution.setOrigin(ResolutionOrigin.MANUAL);
         resolution.setLanguage(request.language().strip());
         resolution.setEvidenceUrl(request.evidenceUrl() == null || request.evidenceUrl().isBlank()
                 ? null : request.evidenceUrl().strip());
@@ -116,6 +131,77 @@ public class ProblemResolutionServiceImpl implements ProblemResolutionService {
         ProblemResolution saved = problemResolutionRepository.saveAndFlush(resolution);
         return new TeamResolutionData(saved.getId(), membership.getId(), teamId, assignment.getId(),
                 assignment.getCompetition().getId(), teamId, assignment.getProblem().getId(), saved.getVerdict());
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public PlatformImportResult importPlatformSubmissions(Integer teamId, Integer competitionProblemId,
+                                                          List<PlatformSubmissionData> submissions,
+                                                          SubmittedFile file, Long fileSubmissionId) {
+        var user = currentUserResolver.currentUser();
+        if (user.getStatus() != UserStatus.ACTIVO || user.getRole() != Role.PRACTICANTE || user.getId() == null) {
+            throw new ForbiddenException("Solo un practicante activo puede verificar sus envíos");
+        }
+        // El bloqueo de la membresía serializa importaciones simultáneas del mismo practicante.
+        GroupMembership membership = membershipService.findForUpdate(teamId, user.getId())
+                .orElseThrow(this::invalidMembership);
+        if (membership.getStatus() != MembershipStatus.ACTIVO) {
+            throw invalidMembership();
+        }
+        CompetitionProblem assignment = assignmentRepository.findById(competitionProblemId)
+                .orElseThrow(() -> new NotFoundException("El problema no está asignado a una competencia existente"));
+        validateAssignment(teamId, competitionProblemId, assignment);
+
+        Map<Long, ProblemResolution> existing = problemResolutionRepository
+                .findByMembershipIdAndCompetitionProblemIdAndExternalSubmissionIdIn(membership.getId(),
+                        competitionProblemId, submissions.stream().map(PlatformSubmissionData::externalId).toList())
+                .stream().collect(Collectors.toMap(ProblemResolution::getExternalSubmissionId, Function.identity(),
+                        (first, second) -> first));
+        Set<Long> imported = new HashSet<>();
+        Set<Long> updated = new HashSet<>();
+        for (PlatformSubmissionData submission : submissions) {
+            ProblemResolution row = existing.get(submission.externalId());
+            if (row == null) {
+                row = new ProblemResolution();
+                row.setMembership(membership);
+                row.setCompetitionProblem(assignment);
+                row.setOrigin(ResolutionOrigin.PLATAFORMA);
+                row.setExternalSubmissionId(submission.externalId());
+                copy(submission, row);
+                existing.put(submission.externalId(), problemResolutionRepository.save(row));
+                imported.add(submission.externalId());
+            } else if (row.getVerdict() != submission.verdict() && row.getVerdict() == Verdict.EN_EVALUACION) {
+                // Se importó mientras Codeforces aún lo juzgaba: ahora tiene su veredicto real.
+                copy(submission, row);
+                problemResolutionRepository.save(row);
+                updated.add(submission.externalId());
+            }
+        }
+        boolean fileStored = false;
+        ProblemResolution target = fileSubmissionId == null ? null : existing.get(fileSubmissionId);
+        if (file != null && target != null) {
+            target.setFileName(file.fileName());
+            target.setSourceCode(file.sourceCode());
+            target.setSha256(file.sha256());
+            target.setFileComparison(FileComparison.NO_COMPARADO);
+            problemResolutionRepository.save(target);
+            fileStored = true;
+        }
+        problemResolutionRepository.flush();
+        return new PlatformImportResult(imported, updated, fileStored);
+    }
+
+    private static void copy(PlatformSubmissionData submission, ProblemResolution row) {
+        row.setVerdict(submission.verdict());
+        String language = submission.language() == null || submission.language().isBlank() ? "Desconocido"
+                : submission.language().strip();
+        row.setLanguage(language.length() > MAX_LANGUAGE_LENGTH ? language.substring(0, MAX_LANGUAGE_LENGTH)
+                : language);
+        row.setExecutionTimeMs(submission.executionTimeMs());
+        row.setMemoryUsedKb(submission.memoryUsedKb());
+        row.setPassedTests(submission.passedTests());
+        row.setSubmittedAt(submission.submittedAt());
+        row.setEvidenceUrl(submission.url());
     }
 
     private void validateAssignment(Integer teamId, Integer assignmentId, CompetitionProblem assignment) {

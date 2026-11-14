@@ -13,6 +13,7 @@ import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.competitions.competitionproblem.CompetitionProblemService;
 import com.kodika.kodikalab.competitions.competitionproblem.dto.AssignmentView;
 import com.kodika.kodikalab.competitions.problemresolution.ProblemResolutionService;
+import com.kodika.kodikalab.competitions.problemresolution.ResolutionOrigin;
 import com.kodika.kodikalab.competitions.problemresolution.Verdict;
 import com.kodika.kodikalab.competitions.problemresolution.dto.MemberAttempt;
 import com.kodika.kodikalab.problems.problem.ProblemService;
@@ -220,7 +221,7 @@ public class AssignedProblemsServiceImpl implements AssignedProblemsService {
             if (verdict == Verdict.ACCEPTED) {
                 return AssignmentStatus.RESUELTO;
             }
-            pending |= verdict == Verdict.PENDIENTE;
+            pending |= verdict.isPending();
         }
         if (attempts.isEmpty()) {
             return AssignmentStatus.SIN_INTENTOS;
@@ -230,7 +231,9 @@ public class AssignedProblemsServiceImpl implements AssignedProblemsService {
 
     private static AttemptInfo attemptInfo(MemberAttempt attempt) {
         return new AttemptInfo(attempt.resolutionId(), attempt.verdict(), attempt.language(), attempt.submittedAt(),
-                attempt.evidenceUrl());
+                attempt.evidenceUrl(), attempt.executionTimeMs(), attempt.memoryUsedKb(), attempt.passedTests(),
+                attempt.origin() == null ? ResolutionOrigin.MANUAL : attempt.origin(),
+                attempt.externalSubmissionId(), attempt.fileName(), attempt.fileComparison());
     }
 
     private static List<AssignedProblemResponse> filter(List<AssignedProblemResponse> items,

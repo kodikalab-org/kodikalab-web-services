@@ -111,7 +111,7 @@ La API es **sin estado**: no hay sesión HTTP ni cookies. Tras `POST /api/auth/l
 | --- | --- |
 | Público (sin token) | `POST /auth/register`, `POST /auth/login`, `POST /auth/recovery`, `POST /auth/password-reset/request`, `POST /auth/password-reset/verify`, `POST /auth/password-reset/confirm`, `GET /health`, `/swagger-ui.html`, `/v3/api-docs` |
 | Solo `COACH` | `POST /teams`, `GET /teams/{id}/memberships`, `PATCH /teams/{id}/memberships/{memberId}`, `POST /problems`, `POST /problems/codeforces/import`, `GET /problems/codeforces/search`, `POST /problems/assign`, `POST /competitions`, `POST`/`PUT`/`GET /competitions/{competitionId}/official-result`, `GET /competitions/teams/{teamId}/official-results`, `GET /analytics/teams/{teamId}/weaknesses` |
-| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `GET /analytics/teams/{teamId}/progress/me` |
+| Solo `PRACTICANTE` | `POST /teams/{id}/join`, `POST /teams/join-by-code`, `POST /competitions/teams/{teamId}/problems/{competitionProblemId}/resolutions`, `POST /problems/assigned/{competitionProblemId}/verification`, `GET /problems/assigned/{competitionProblemId}/platform-submissions`, `GET /analytics/teams/{teamId}/progress/me` |
 | Cualquier cuenta autenticada | El resto: `POST /auth/refresh`, `POST /auth/recovery-code`, `GET`/`PUT /users/me`, `GET /teams`, `GET /problems`, `GET /problems/assigned` y `/{id}`, `GET /competitions/{competitionId}/standings`, `GET /analytics/teams/{teamId}/standings` |
 
 Las reglas por rol de la tabla se declaran en `config.SecurityConfig`. Los servicios conservan las verificaciones que
@@ -1230,6 +1230,11 @@ Ambas rutas requieren sesión, cuenta `ACTIVO`, rol `PRACTICANTE` y membresía `
 se obtiene del contexto autenticado. El problema asignado y la membresía deben pertenecer al equipo de la ruta.
 `competitionProblemId` es el ID de `competencia_problema`, no el del catálogo.
 
+**Cambio (verificación con Codeforces):** si el problema asignado es de **Codeforces**, el POST se rechaza con
+`409 { "message": "Este problema se verifica automáticamente con Codeforces" }` y no escribe nada: esos problemas se
+verifican leyendo los envíos reales (ver [Verificación de envíos con Codeforces](#verificación-de-envíos-con-codeforces-solo-lectura)).
+Sigue disponible para los problemas de otras plataformas (AtCoder, CSES) y guarda `origen = MANUAL`.
+
 POST recibe `language` (texto obligatorio, máximo 30) y `evidenceUrl` (URL HTTP/HTTPS opcional, máximo 500).
 Registra un `ACCEPTED` manual provisional y devuelve `201` con `resolution` (DTO `TeamResolutionData`),
 `registrationMethod: "MANUAL_PROVISIONAL"` y `progress`. No constituye verificación automática: este `ACCEPTED`
@@ -1399,12 +1404,103 @@ competencia. Sin `sort` el orden es competencia más reciente primero y por letr
 quedan al final al ordenar por ella.
 
 `GET /api/problems/assigned/{competitionProblemId}` devuelve `{ "assignment": { ...igual que un elemento... },
-"attempts": [ ... ] }` con el historial de intentos propios, el más reciente primero (vacío para el coach).
+"attempts": [ ... ] }` con el historial de intentos propios, el más reciente primero (vacío para el coach). Cada
+intento conserva `resolutionId`, `verdict`, `language`, `submittedAt` y `evidenceUrl`, y agrega (todos pueden ser
+`null` salvo `origin`):
+
+```json
+{ "resolutionId": 9, "verdict": "TLE", "language": "GNU C++17 (64)", "submittedAt": "...", "evidenceUrl": "https://codeforces.com/contest/1850/submission/301234571",
+  "executionTimeMs": 2000, "memoryUsedKb": 4096, "passedTests": 5, "origin": "PLATAFORMA",
+  "externalSubmissionId": 301234571, "fileName": "sol.cpp", "fileComparison": "NO_COMPARADO" }
+```
+
+`origin` es `PLATAFORMA` (importado de Codeforces) o `MANUAL` (autodeclarado; las filas anteriores a la verificación
+se devuelven como `MANUAL`). `fileName`/`fileComparison` solo existen si el practicante adjuntó su código.
 
 Errores con cuerpo `{ "message": "...", "errors": {} }`: `400` `teamId` ausente o criterios inválidos, `401` sin token válido,
 `403` cuenta suspendida, practicante que no pertenece al equipo (o con membresía retirada) o coach que no es el
 responsable, `404` equipo o asignación inexistente y `503` si no se pudo recuperar la información (el mensaje invita
 a reintentar). Detalle y decisiones: [US-07/US-08](17-us07-us08-asignacion-problemas.md).
+
+### Veredictos de un intento
+
+`verdict` toma uno de: `PENDIENTE`, `ACCEPTED`, `WRONG_ANSWER`, `TLE`, `MLE`, `ERROR`, `COMPILATION_ERROR`,
+`RUNTIME_ERROR`, `EN_EVALUACION`, `OTRO`. `ACCEPTED` resuelve el problema; `PENDIENTE` y `EN_EVALUACION` (el envío
+aún se está juzgando) **no resuelven ni penalizan** y dejan el estado en `PENDIENTE`; el resto cuenta como intento
+fallido (`EN_PROGRESO`, y penaliza en la clasificación ICPC). Mapa desde la API de Codeforces (`Verdict.fromCodeforces`):
+
+| Veredicto de Codeforces | `verdict` |
+| --- | --- |
+| `OK` | `ACCEPTED` |
+| `WRONG_ANSWER` | `WRONG_ANSWER` |
+| `TIME_LIMIT_EXCEEDED` | `TLE` |
+| `MEMORY_LIMIT_EXCEEDED` | `MLE` |
+| `COMPILATION_ERROR` | `COMPILATION_ERROR` |
+| `RUNTIME_ERROR` | `RUNTIME_ERROR` |
+| `TESTING` o ausente | `EN_EVALUACION` |
+| cualquier otro (`PRESENTATION_ERROR`, `PARTIAL`, `CHALLENGED`, ...) | `OTRO` |
+
+## Verificación de envíos con Codeforces (solo lectura)
+
+KodikaLab **nunca envía soluciones**: el practicante envía en Codeforces con su cuenta y KodikaLab lee (GET
+`user.status?handle=H&from=1&count=N`, sin descargar el historial completo) los últimos envíos del handle registrado en
+su perfil (`practicante.codeforces_handle`) y registra el veredicto real. Ambas rutas son solo `PRACTICANTE` con
+membresía `ACTIVO` en el equipo de la competencia (`403` en otro caso; `404` si la asignación no existe).
+
+### POST /api/problems/assigned/{competitionProblemId}/verification
+
+Cuerpo opcional `multipart/form-data` con `file` (también se acepta la petición sin cuerpo) y parámetro opcional
+`count` (últimos N envíos a leer; por defecto 10, entre 1 y 100). Lee los envíos, filtra los del problema asignado
+(concurso e índice tomados de `sourceCode` o de la URL del problema) e importa los que aún no existan. Es **idempotente**:
+un envío ya importado (mismo id externo, restricción única parcial) no se duplica; solo uno importado mientras
+Codeforces aún lo juzgaba (`EN_EVALUACION`) se actualiza cuando recibe su veredicto. Solo cuentan los envíos
+posteriores al inicio de la competencia: los anteriores se devuelven con `beforeCompetition: true` y no se importan.
+La fecha del intento es la del envío real y `evidenceUrl` el enlace `https://codeforces.com/contest/{id}/submission/{id}`.
+
+Archivo opcional: extensión `.cpp .c .cc .py .java .kt .rs .js .go`, máximo 64 kB, texto UTF-8. Se guarda (texto y
+`sha256`) asociado al envío más reciente del problema con `comparacion_archivo = NO_COMPARADO` (la comparación con el
+código real queda para otra tarea). Un archivo se guarda solo si hay un envío válido del problema.
+
+`200`:
+
+```json
+{
+  "competitionProblemId": 40,
+  "found": true,
+  "status": "RESUELTO",
+  "fileStored": true,
+  "submissions": [
+    { "externalId": 301234571, "verdict": "ACCEPTED", "language": "GNU C++17 (64)", "timeMs": 31, "memoryKb": 3400,
+      "passedTests": 12, "submittedAt": "2026-10-20T14:12:00Z",
+      "url": "https://codeforces.com/contest/1850/submission/301234571", "imported": true, "beforeCompetition": false }
+  ]
+}
+```
+
+`found` indica si apareció algún envío del problema en la ventana consultada (aunque sea anterior a la competencia) y
+`status` es el estado personal resultante (`AssignmentStatus`). `memoryKb` son los bytes de Codeforces / 1024.
+
+### GET /api/problems/assigned/{competitionProblemId}/platform-submissions?count=10
+
+Solo lectura, no guarda nada: los últimos N envíos de la cuenta de Codeforces del practicante (de **todos** los
+problemas), cada uno con `externalId`, `contestId`, `problemIndex`, `verdict` (mapeado), `platformVerdict` (texto
+original de Codeforces), `language`, `timeMs`, `memoryKb`, `passedTests`, `submittedAt`, `url` y `matchesProblem`
+(corresponde al problema asignado consultado). Respuesta: `{ "competitionProblemId", "handle", "count", "submissions": [...] }`.
+No exige que la competencia haya comenzado.
+
+### Errores (ambas rutas, `{ "message": "...", "errors": {} }`)
+
+| Código | Causa |
+| --- | --- |
+| `400` | `count` fuera de 1..100 o no numérico; archivo inválido (extensión, vacío, > 64 kB, no UTF-8) con `errors.file` |
+| `401` / `403` | sin sesión / rol, cuenta o membresía no autorizados |
+| `404` | la asignación no existe |
+| `409` | «Vincula tu usuario de Codeforces en tu perfil para verificar» (sin handle, o el handle ya no existe en Codeforces); la competencia aún no comenzó (solo `POST`); «La verificación automática solo está disponible para Codeforces» |
+| `503` | Codeforces no responde (`CodeforcesUnavailableException`) |
+
+Las lecturas a Codeforces se espacian al menos 2 s entre sí y los envíos recientes se guardan en una caché de ~20 s por
+`(handle, count)`, de modo que repetir la verificación enseguida no genera llamadas nuevas. Migración:
+[`assets/migracion_verificacion_envios.sql`](assets/migracion_verificacion_envios.sql).
 
 ## Rutas pendientes: no implementadas ni publicadas
 

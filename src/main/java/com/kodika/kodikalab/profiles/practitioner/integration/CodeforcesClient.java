@@ -15,4 +15,12 @@ public interface CodeforcesClient {
     default List<CodeforcesSubmission> findSubmissions(String handle) {
         throw new CodeforcesUnavailableException();
     }
+
+    /**
+     * Los últimos {@code count} envíos del usuario, el más reciente primero. Solo lectura: no se descarga el
+     * historial completo.
+     */
+    default List<CodeforcesSubmission> recentSubmissions(String handle, int count) {
+        throw new CodeforcesUnavailableException();
+    }
 }

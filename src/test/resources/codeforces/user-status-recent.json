@@ -1,0 +1,71 @@
+{
+  "status": "OK",
+  "result": [
+    {
+      "id": 301234571,
+      "contestId": 1850,
+      "creationTimeSeconds": 1793970000,
+      "relativeTimeSeconds": 2147483647,
+      "problem": {
+        "contestId": 1850,
+        "index": "A",
+        "name": "To My Critics",
+        "type": "PROGRAMMING",
+        "points": 800.0,
+        "rating": 800,
+        "tags": ["implementation", "math"]
+      },
+      "author": {
+        "contestId": 1850,
+        "members": [{"handle": "test_handle"}],
+        "participantType": "PRACTICE",
+        "ghost": false,
+        "startTimeSeconds": 1690209900
+      },
+      "programmingLanguage": "GNU C++17 (64)",
+      "verdict": "OK",
+      "testset": "TESTS",
+      "passedTestCount": 12,
+      "timeConsumedMillis": 31,
+      "memoryConsumedBytes": 3481600
+    },
+    {
+      "id": 301234100,
+      "contestId": 1850,
+      "creationTimeSeconds": 1793969000,
+      "relativeTimeSeconds": 2147483647,
+      "problem": {"contestId": 1850, "index": "A", "name": "To My Critics", "type": "PROGRAMMING", "points": 800.0, "rating": 800, "tags": ["implementation"]},
+      "author": {"contestId": 1850, "members": [{"handle": "test_handle"}], "participantType": "PRACTICE", "ghost": false},
+      "programmingLanguage": "GNU C++17 (64)",
+      "verdict": "WRONG_ANSWER",
+      "testset": "TESTS",
+      "passedTestCount": 2,
+      "timeConsumedMillis": 15,
+      "memoryConsumedBytes": 102400
+    },
+    {
+      "id": 301233900,
+      "contestId": 1850,
+      "creationTimeSeconds": 1793968000,
+      "relativeTimeSeconds": 2147483647,
+      "problem": {"contestId": 1850, "index": "B", "name": "Ten Words of Wisdom", "type": "PROGRAMMING", "points": 800.0, "tags": ["implementation", "sortings"]},
+      "author": {"contestId": 1850, "members": [{"handle": "test_handle"}], "participantType": "PRACTICE", "ghost": false},
+      "programmingLanguage": "Python 3.12",
+      "verdict": "TESTING",
+      "testset": "TESTS",
+      "passedTestCount": 0,
+      "timeConsumedMillis": 0,
+      "memoryConsumedBytes": 0
+    },
+    {
+      "id": 301233000,
+      "contestId": 4,
+      "creationTimeSeconds": 1793967000,
+      "relativeTimeSeconds": 2147483647,
+      "problem": {"contestId": 4, "index": "A", "name": "Watermelon", "type": "PROGRAMMING", "points": 0.0, "rating": 800, "tags": ["brute force", "math"]},
+      "author": {"contestId": 4, "members": [{"handle": "test_handle"}], "participantType": "PRACTICE", "ghost": false},
+      "programmingLanguage": "Java 21 64bit",
+      "testset": "TESTS"
+    }
+  ]
+}

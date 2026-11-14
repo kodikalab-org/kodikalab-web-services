@@ -115,6 +115,34 @@ class ManualResolutionServiceTests {
     }
 
     @Test
+    void manualRegistrationStoresManualOriginAndNoPlatformData() {
+        service.registerManualAccepted(1, 50, request);
+
+        var captor = org.mockito.ArgumentCaptor.forClass(ProblemResolution.class);
+        verify(repository).saveAndFlush(captor.capture());
+        assertThat(captor.getValue().getOrigin()).isEqualTo(ResolutionOrigin.MANUAL);
+        assertThat(captor.getValue().getExternalSubmissionId()).isNull();
+    }
+
+    @Test
+    void codeforcesProblemsAreVerifiedAutomaticallyAndRejectManualRegistration() {
+        assignment.getProblem().setSourcePlatform(com.kodika.kodikalab.problems.problem.SourcePlatform.CODEFORCES);
+
+        assertThatThrownBy(() -> service.registerManualAccepted(1, 50, request))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Este problema se verifica automáticamente con Codeforces");
+        verify(repository, never()).saveAndFlush(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = com.kodika.kodikalab.problems.problem.SourcePlatform.class, names = {"ATCODER", "CSES"})
+    void otherPlatformsKeepTheManualRegistration(com.kodika.kodikalab.problems.problem.SourcePlatform platform) {
+        assignment.getProblem().setSourcePlatform(platform);
+
+        assertThat(service.registerManualAccepted(1, 50, request).verdict()).isEqualTo(Verdict.ACCEPTED);
+    }
+
+    @Test
     void competitionThatHasNotStartedRejectsTheRegistrationAndWritesNothing() {
         assignment.getCompetition().setStatus(CompetitionStatus.PROGRAMADA);
 

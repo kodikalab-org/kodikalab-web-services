@@ -85,7 +85,8 @@ class RankingServiceTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"PENDIENTE", "WRONG_ANSWER", "TLE", "MLE", "ERROR"})
+    @ValueSource(strings = {"PENDIENTE", "WRONG_ANSWER", "TLE", "MLE", "ERROR", "COMPILATION_ERROR", "RUNTIME_ERROR",
+            "EN_EVALUACION", "OTRO"})
     void recordedAttemptsWithoutAcceptancesGiveSharedZeroScores(String verdict) {
         var response = service.calculate(1, List.of(member(1), member(2)),
                 List.of(resolution(1, 1, 10, verdict)));

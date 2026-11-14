@@ -362,7 +362,7 @@ class IndependentProgressIntegrationTests {
 
     private int problem() {
         int id = jdbc.queryForObject("""
-                INSERT INTO problema(titulo, url_problema) VALUES ('Problema Prueba', 'https://example.com/problem') RETURNING id
+                INSERT INTO problema(titulo, url_problema, plataforma_origen) VALUES ('Problema Prueba', 'https://example.com/problem', 'CSES') RETURNING id
                 """, Integer.class);
         jdbc.update("INSERT INTO problema_tema(problema_id, tema_id) VALUES (?, ?)", id, topicId);
         return id;

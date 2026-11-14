@@ -36,11 +36,24 @@ class ErdSchemaIntegrationTests {
     private static final String INT = "integer";
     private static final String VARCHAR = "character varying";
     private static final String TIMESTAMPTZ = "timestamp with time zone";
+    private static final String BIGINT = "bigint";
+    private static final String TEXT = "text";
     private static final boolean NULL = true;
     private static final boolean NOT_NULL = false;
 
     /** tabla -> columnas en el orden del ERD: nombre, tipo, longitud, nullable, default esperado (fragmento). */
     static final Map<String, List<Col>> ERD = new LinkedHashMap<>();
+
+    /**
+     * Columnas añadidas al modelo por extensiones fuera de {@code oficial.erd} (que {@code OficialErdFileTests} sigue
+     * comparando contra {@link #ERD}): verificación de envíos con Codeforces, ver
+     * {@code docs/sdd/assets/migracion_verificacion_envios.sql}. Todas nullable.
+     */
+    static final Map<String, List<Col>> EXTENSION_COLUMNS = Map.of("resolucion_problema", List.of(
+            col("origen", VARCHAR, 20, NULL), col("id_envio_externo", BIGINT, null, NULL),
+            col("pruebas_superadas", INT, null, NULL), col("nombre_archivo", VARCHAR, 255, NULL),
+            col("codigo_fuente", TEXT, null, NULL), col("sha256", VARCHAR, 64, NULL),
+            col("comparacion_archivo", VARCHAR, 20, NULL)));
 
     static {
         ERD.put("usuario", List.of(
@@ -188,7 +201,9 @@ class ErdSchemaIntegrationTests {
 
     @Test
     void columnsMatchErdTypesLengthsNullabilityAndDefaults() {
-        ERD.forEach((table, columns) -> {
+        ERD.forEach((table, baseColumns) -> {
+            List<Col> columns = new java.util.ArrayList<>(baseColumns);
+            columns.addAll(EXTENSION_COLUMNS.getOrDefault(table, List.of()));
             List<List<Object>> actual = query("""
                     SELECT column_name, data_type, character_maximum_length, is_nullable, column_default
                     FROM information_schema.columns WHERE table_schema = ? AND table_name = ?""", SCHEMA, table);

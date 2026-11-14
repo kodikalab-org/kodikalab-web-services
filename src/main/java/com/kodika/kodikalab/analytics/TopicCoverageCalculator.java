@@ -143,7 +143,7 @@ public class TopicCoverageCalculator {
                     || members.get(resolution.membershipId()).status() != MembershipStatus.ACTIVO) {
                 continue;
             }
-            if (resolution.verdict() == Verdict.PENDIENTE) {
+            if (resolution.verdict().isPending()) {
                 result.pendingCount++;
                 result.pendingByProblem.merge(resolution.problemId(), 1, Integer::sum);
             } else {

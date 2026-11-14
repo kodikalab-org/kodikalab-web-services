@@ -221,4 +221,87 @@ class CodeforcesApiClientTests {
         status.set(429);
         assertThatThrownBy(() -> client.findSubmissions("test_handle")).isInstanceOf(CodeforcesUnavailableException.class);
     }
+
+    private static String fixture() throws IOException {
+        try (var stream = CodeforcesApiClientTests.class.getResourceAsStream("/codeforces/user-status-recent.json")) {
+            return new String(java.util.Objects.requireNonNull(stream).readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    @Test
+    void recentSubmissionsAsksOnlyForTheLastPageAndParsesRealisticPayload() throws IOException {
+        body.set(fixture());
+
+        var submissions = client.recentSubmissions(" test_handle ", 10);
+
+        assertThat(lastQuery.get()).isEqualTo("handle=test_handle&from=1&count=10");
+        assertThat(submissions).hasSize(4);
+        assertThat(submissions.get(0)).isEqualTo(new CodeforcesSubmission(301234571L, 1793970000L, 1850, "A", 800,
+                "OK", "GNU C++17 (64)", 31, 3481600L, 12));
+        assertThat(submissions.get(1).verdict()).isEqualTo("WRONG_ANSWER");
+        assertThat(submissions.get(1).passedTestCount()).isEqualTo(2);
+        assertThat(submissions.get(2).verdict()).isEqualTo("TESTING");
+        assertThat(submissions.get(2).rating()).isNull();
+        // Sin veredicto ni métricas (aún en cola): los campos opcionales quedan nulos.
+        var queued = submissions.get(3);
+        assertThat(queued.verdict()).isNull();
+        assertThat(queued.timeConsumedMillis()).isNull();
+        assertThat(queued.memoryConsumedBytes()).isNull();
+        assertThat(queued.passedTestCount()).isNull();
+        assertThat(queued.id()).isEqualTo(301233000L);
+    }
+
+    @Test
+    void fullHistoryStillWorksAndAlsoKeepsTheNewFields() throws IOException {
+        body.set(fixture());
+
+        var submissions = client.findSubmissions("test_handle");
+
+        assertThat(lastQuery.get()).isEqualTo("handle=test_handle&from=1");
+        assertThat(submissions).hasSize(4);
+        assertThat(submissions.get(0).id()).isEqualTo(301234571L);
+        assertThat(submissions.get(0).programmingLanguage()).isEqualTo("GNU C++17 (64)");
+    }
+
+    @Test
+    void recentSubmissionsAreCachedPerHandleAndCountForAShortTime() throws IOException {
+        body.set(fixture());
+
+        var first = client.recentSubmissions("Test_Handle", 10);
+        var second = client.recentSubmissions("test_handle", 10);
+
+        assertThat(second).isSameAs(first);
+        assertThat(requests.get()).isEqualTo(1);
+        client.recentSubmissions("test_handle", 20);
+        assertThat(requests.get()).isEqualTo(2);
+        assertThat(lastQuery.get()).isEqualTo("handle=test_handle&from=1&count=20");
+    }
+
+    @Test
+    void failuresOfRecentSubmissionsAreNotCached() throws IOException {
+        status.set(503);
+        body.set("<html>down</html>");
+        assertThatThrownBy(() -> client.recentSubmissions("test_handle", 10))
+                .isInstanceOf(CodeforcesUnavailableException.class);
+        status.set(200);
+        body.set(fixture());
+
+        assertThat(client.recentSubmissions("test_handle", 10)).hasSize(4);
+        assertThat(requests.get()).isEqualTo(2);
+    }
+
+    @Test
+    void recentSubmissionsRejectsNonPositiveCount() {
+        assertThatThrownBy(() -> client.recentSubmissions("test_handle", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void recentSubmissionsOfAnUnknownHandleIsNotFound() {
+        status.set(400);
+        body.set("{\"status\":\"FAILED\",\"comment\":\"handle: User with handle nobody not found\"}");
+
+        assertThatThrownBy(() -> client.recentSubmissions("nobody", 10))
+                .isInstanceOf(com.kodika.kodikalab.common.exception.NotFoundException.class);
+    }
 }

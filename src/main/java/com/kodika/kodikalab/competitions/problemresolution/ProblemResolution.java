@@ -71,4 +71,33 @@ public class ProblemResolution {
 
     @Column(name = "url_evidencia", length = 500)
     private String evidenceUrl;
+
+    /** Anulable: las filas anteriores a la verificación con la plataforma se tratan como {@code MANUAL}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen", length = 20)
+    private ResolutionOrigin origin;
+
+    /**
+     * Identificador del envío en la plataforma (id de envío de Codeforces). Un índice único parcial en
+     * {@code (competencia_problema_id, practicante_grupo_id, id_envio_externo)} evita importarlo dos veces
+     * (ver {@code docs/sdd/assets/migracion_verificacion_envios.sql}).
+     */
+    @Column(name = "id_envio_externo")
+    private Long externalSubmissionId;
+
+    @Column(name = "pruebas_superadas")
+    private Integer passedTests;
+
+    @Column(name = "nombre_archivo", length = 255)
+    private String fileName;
+
+    @Column(name = "codigo_fuente", columnDefinition = "text")
+    private String sourceCode;
+
+    @Column(name = "sha256", length = 64)
+    private String sha256;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "comparacion_archivo", length = 20)
+    private FileComparison fileComparison;
 }

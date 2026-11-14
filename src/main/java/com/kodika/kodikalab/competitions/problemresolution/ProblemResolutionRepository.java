@@ -12,6 +12,10 @@ public interface ProblemResolutionRepository extends JpaRepository<ProblemResolu
     boolean existsByMembershipIdAndCompetitionProblemIdAndVerdict(Integer membershipId,
                                                                   Integer competitionProblemId, Verdict verdict);
 
+    /** Resoluciones ya importadas de la plataforma con alguno de esos ids de envío externo. */
+    List<ProblemResolution> findByMembershipIdAndCompetitionProblemIdAndExternalSubmissionIdIn(
+            Integer membershipId, Integer competitionProblemId, java.util.Collection<Long> externalSubmissionIds);
+
     @Query("""
             select new com.kodika.kodikalab.competitions.problemresolution.dto.TeamResolutionData(
                 r.id, m.id, mg.id, cp.id, c.id, cg.id, p.id, r.verdict)
@@ -29,7 +33,8 @@ public interface ProblemResolutionRepository extends JpaRepository<ProblemResolu
 
     @Query("""
             select new com.kodika.kodikalab.competitions.problemresolution.dto.MemberAttempt(
-                r.id, cp.id, r.verdict, r.language, r.submittedAt, r.evidenceUrl)
+                r.id, cp.id, r.verdict, r.language, r.submittedAt, r.evidenceUrl, r.executionTimeMs,
+                r.memoryUsedKb, r.passedTests, r.origin, r.externalSubmissionId, r.fileName, r.fileComparison)
             from ProblemResolution r
             join r.competitionProblem cp
             where r.membership.id = :membershipId

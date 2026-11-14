@@ -14,6 +14,9 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.function.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,13 +26,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemClient {
     private static final Duration DEFAULT_CATALOG_TIMEOUT = Duration.ofSeconds(30);
+    /** Espaciado mínimo entre peticiones a Codeforces (su API limita a ~1 petición cada 2 s). */
+    private static final Duration MIN_REQUEST_SPACING = Duration.ofSeconds(2);
+    /** Los envíos recientes cambian poco en segundos: se reutilizan por (handle, count) para no saturar la API. */
+    private static final Duration RECENT_CACHE_TTL = Duration.ofSeconds(20);
+    private static final int RECENT_CACHE_MAX_ENTRIES = 256;
 
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
     private final String baseUrl;
     private final Duration timeout;
     private final Duration catalogTimeout;
+    private final Object spacingLock = new Object();
     private long nextRequestNanos;
+    private final Map<String, CachedSubmissions> recentCache = new ConcurrentHashMap<>();
+
+    private record CachedSubmissions(List<CodeforcesSubmission> submissions, long storedAtNanos) {
+    }
 
     public CodeforcesApiClient(ObjectMapper objectMapper, String baseUrl, long timeoutMs) {
         this(objectMapper, baseUrl, timeoutMs, DEFAULT_CATALOG_TIMEOUT.toMillis());
@@ -78,18 +91,53 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
     @Override
     public List<CodeforcesSubmission> findSubmissions(String handle) {
         // Omitting count returns the complete history, not only a recent page.
-        JsonNode submissions = request("/user.status?handle=" + encode(handle) + "&from=1");
+        return parseSubmissions(request("/user.status?handle=" + encode(handle) + "&from=1"));
+    }
+
+    @Override
+    public List<CodeforcesSubmission> recentSubmissions(String handle, int count) {
+        if (count < 1) {
+            throw new IllegalArgumentException("count debe ser positivo");
+        }
+        String key = handle.trim().toLowerCase(Locale.ROOT) + "#" + count;
+        long now = System.nanoTime();
+        CachedSubmissions cached = recentCache.get(key);
+        if (cached != null && now - cached.storedAtNanos() < RECENT_CACHE_TTL.toNanos()) {
+            return cached.submissions();
+        }
+        List<CodeforcesSubmission> result = parseSubmissions(
+                request("/user.status?handle=" + encode(handle) + "&from=1&count=" + count));
+        if (recentCache.size() >= RECENT_CACHE_MAX_ENTRIES) {
+            recentCache.values().removeIf(entry -> now - entry.storedAtNanos() >= RECENT_CACHE_TTL.toNanos());
+            if (recentCache.size() >= RECENT_CACHE_MAX_ENTRIES) {
+                recentCache.clear();
+            }
+        }
+        recentCache.put(key, new CachedSubmissions(result, System.nanoTime()));
+        return result;
+    }
+
+    private static List<CodeforcesSubmission> parseSubmissions(JsonNode submissions) {
         List<CodeforcesSubmission> result = new ArrayList<>();
         for (JsonNode submission : submissions) {
             JsonNode problem = submission.path("problem");
             if (!submission.path("creationTimeSeconds").isIntegralNumber() || !problem.path("index").isTextual()) {
                 throw new CodeforcesUnavailableException();
             }
-            result.add(new CodeforcesSubmission(submission.get("creationTimeSeconds").asLong(),
+            result.add(new CodeforcesSubmission(
+                    submission.path("id").isIntegralNumber() ? submission.get("id").asLong() : null,
+                    submission.get("creationTimeSeconds").asLong(),
                     problem.hasNonNull("contestId") ? problem.get("contestId").asInt() : null,
                     problem.get("index").asText(),
                     problem.hasNonNull("rating") ? problem.get("rating").asInt() : null,
-                    submission.path("verdict").asText(null)));
+                    submission.path("verdict").asText(null),
+                    submission.path("programmingLanguage").asText(null),
+                    submission.path("timeConsumedMillis").isIntegralNumber()
+                            ? submission.get("timeConsumedMillis").asInt() : null,
+                    submission.path("memoryConsumedBytes").isIntegralNumber()
+                            ? submission.get("memoryConsumedBytes").asLong() : null,
+                    submission.path("passedTestCount").isIntegralNumber()
+                            ? submission.get("passedTestCount").asInt() : null));
         }
         return List.copyOf(result);
     }
@@ -199,16 +247,29 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
         }
     }
 
-    private synchronized HttpResponse<String> sendSpaced(HttpRequest request) throws IOException, InterruptedException {
-        long remaining = nextRequestNanos - System.nanoTime();
-        if (remaining > 0) {
-            java.util.concurrent.TimeUnit.NANOSECONDS.sleep(remaining);
+    /**
+     * Reserva un turno bajo un candado breve (solo aritmética) y espera su turno fuera de él: las peticiones quedan
+     * separadas al menos {@link #MIN_REQUEST_SPACING}, pero el candado no se retiene durante el viaje de red ni los
+     * hilos que esperan se bloquean entre sí más de lo necesario.
+     */
+    private HttpResponse<String> sendSpaced(HttpRequest request) throws IOException, InterruptedException {
+        long wait;
+        synchronized (spacingLock) {
+            long now = System.nanoTime();
+            long start = Math.max(now, nextRequestNanos);
+            nextRequestNanos = start + MIN_REQUEST_SPACING.toNanos();
+            wait = start - now;
+        }
+        if (wait > 0) {
+            TimeUnit.NANOSECONDS.sleep(wait);
         }
         try {
             return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         } finally {
-            // Space from completion: transport initialization can delay upstream arrival.
-            nextRequestNanos = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+            // Una petición lenta retrasa también a la siguiente: se espacia desde que termina.
+            synchronized (spacingLock) {
+                nextRequestNanos = Math.max(nextRequestNanos, System.nanoTime() + MIN_REQUEST_SPACING.toNanos());
+            }
         }
     }
 }

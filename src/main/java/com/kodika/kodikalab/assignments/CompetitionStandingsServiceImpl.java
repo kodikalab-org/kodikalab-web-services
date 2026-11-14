@@ -203,9 +203,9 @@ public class CompetitionStandingsServiceImpl implements CompetitionStandingsServ
             return new Evaluated(new Cell(assignment.competitionProblemId(), assignment.letter(), result,
                     attempts.size(), null), 0);
         }
-        // Una respuesta pendiente de verificar no penaliza: solo las ya juzgadas como fallidas.
+        // Solo penalizan los intentos ya juzgados como fallidos: PENDIENTE y EN_EVALUACION no penalizan.
         int wrong = (int) attempts.subList(0, accepted).stream()
-                .filter(attempt -> attempt.verdict() != Verdict.PENDIENTE).count();
+                .filter(attempt -> attempt.verdict().isFailure()).count();
         Integer minutes = startsAt == null || attempts.get(accepted).submittedAt() == null ? null
                 : (int) Math.max(0, Duration.between(startsAt, attempts.get(accepted).submittedAt()).toMinutes());
         return new Evaluated(new Cell(assignment.competitionProblemId(), assignment.letter(), result, accepted + 1,

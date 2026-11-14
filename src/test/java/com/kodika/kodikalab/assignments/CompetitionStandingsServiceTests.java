@@ -236,6 +236,31 @@ class CompetitionStandingsServiceTests {
         assertThat(ana.penaltyMinutes()).isEqualTo(35); // 15 + una sola respuesta fallida
     }
 
+    @Test
+    void newVerdictsPenalizeExceptEnEvaluacionWhichNeitherPenalizesNorResolves() {
+        when(resolutions.findAttemptsByCompetition(5, 3)).thenReturn(List.of(
+                attempt(1, 31, 11, Verdict.COMPILATION_ERROR, 3), attempt(2, 31, 11, Verdict.RUNTIME_ERROR, 4),
+                attempt(3, 31, 11, Verdict.OTRO, 5), attempt(4, 31, 11, Verdict.EN_EVALUACION, 6),
+                attempt(5, 31, 11, Verdict.ACCEPTED, 15)));
+
+        Row ana = service.standings(5).rows().get(0);
+
+        assertThat(ana.cells().get(0).attempts()).isEqualTo(5);
+        assertThat(ana.penaltyMinutes()).isEqualTo(15 + 3 * 20); // tres fallos juzgados; EN_EVALUACION no penaliza
+    }
+
+    @Test
+    void onlyEnEvaluacionAttemptsLeaveTheProblemPendingWithoutPenaltyOrSolve() {
+        when(resolutions.findAttemptsByCompetition(5, 3)).thenReturn(List.of(
+                attempt(1, 31, 11, Verdict.EN_EVALUACION, 3)));
+
+        Row ana = service.standings(5).rows().get(0);
+
+        assertThat(ana.cells().get(0).result()).isEqualTo(AssignmentStatus.PENDIENTE);
+        assertThat(ana.solved()).isZero();
+        assertThat(ana.penaltyMinutes()).isZero();
+    }
+
     // ---- aislamiento del progreso
 
     @Test

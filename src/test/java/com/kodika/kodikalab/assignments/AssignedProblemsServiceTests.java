@@ -177,6 +177,20 @@ class AssignedProblemsServiceTests {
                 attempt(2, 1, Verdict.ACCEPTED, 2), attempt(3, 1, Verdict.MLE, 3)))).isEqualTo(AssignmentStatus.RESUELTO);
     }
 
+    @Test
+    void newPlatformVerdictsAreFailedAttemptsExceptEnEvaluacionWhichIsPending() {
+        for (Verdict failed : List.of(Verdict.COMPILATION_ERROR, Verdict.RUNTIME_ERROR, Verdict.OTRO)) {
+            assertThat(AssignedProblemsServiceImpl.statusOf(List.of(attempt(1, 1, failed, 1))))
+                    .as(failed.name()).isEqualTo(AssignmentStatus.EN_PROGRESO);
+        }
+        assertThat(AssignedProblemsServiceImpl.statusOf(List.of(attempt(1, 1, Verdict.EN_EVALUACION, 1))))
+                .isEqualTo(AssignmentStatus.PENDIENTE);
+        assertThat(AssignedProblemsServiceImpl.statusOf(List.of(attempt(1, 1, Verdict.EN_EVALUACION, 1),
+                attempt(2, 1, Verdict.OTRO, 2)))).isEqualTo(AssignmentStatus.PENDIENTE);
+        assertThat(AssignedProblemsServiceImpl.statusOf(List.of(attempt(1, 1, Verdict.EN_EVALUACION, 1),
+                attempt(2, 1, Verdict.ACCEPTED, 2)))).isEqualTo(AssignmentStatus.RESUELTO);
+    }
+
     // ---- filtros
 
     @ParameterizedTest
@@ -338,6 +352,34 @@ class AssignedProblemsServiceTests {
         assertThat(detail.attempts()).extracting("resolutionId").containsExactly(901, 903);
         assertThat(detail.attempts()).extracting("verdict").containsExactly(Verdict.ACCEPTED, Verdict.WRONG_ANSWER);
         assertThat(detail.attempts().get(0).language()).isEqualTo("Java");
+    }
+
+    @Test
+    void detailExposesPlatformDataAndTreatsLegacyRowsAsManual() {
+        when(resolutions.findAttemptsByMembershipId(31)).thenReturn(List.of(
+                new MemberAttempt(910, 1, Verdict.TLE, "GNU C++17 (64)", DAY1.plusMinutes(9), "https://cf/910", 2000,
+                        4096, 5, com.kodika.kodikalab.competitions.problemresolution.ResolutionOrigin.PLATAFORMA, 777L,
+                        "sol.cpp", com.kodika.kodikalab.competitions.problemresolution.FileComparison.NO_COMPARADO),
+                attempt(901, 1, Verdict.ACCEPTED, 5)));
+
+        var attempts = service.detail(1).attempts();
+
+        var platform = attempts.get(0);
+        assertThat(platform.executionTimeMs()).isEqualTo(2000);
+        assertThat(platform.memoryUsedKb()).isEqualTo(4096);
+        assertThat(platform.passedTests()).isEqualTo(5);
+        assertThat(platform.origin()).isEqualTo(
+                com.kodika.kodikalab.competitions.problemresolution.ResolutionOrigin.PLATAFORMA);
+        assertThat(platform.externalSubmissionId()).isEqualTo(777L);
+        assertThat(platform.fileName()).isEqualTo("sol.cpp");
+        assertThat(platform.fileComparison()).isEqualTo(
+                com.kodika.kodikalab.competitions.problemresolution.FileComparison.NO_COMPARADO);
+        var legacy = attempts.get(1);
+        assertThat(legacy.origin()).isEqualTo(
+                com.kodika.kodikalab.competitions.problemresolution.ResolutionOrigin.MANUAL);
+        assertThat(legacy.externalSubmissionId()).isNull();
+        assertThat(legacy.language()).isEqualTo("Java");
+        assertThat(legacy.evidenceUrl()).isEqualTo("https://evidence/901");
     }
 
     @Test

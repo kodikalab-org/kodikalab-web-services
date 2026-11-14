@@ -19,8 +19,9 @@ public class RankingService {
     private static final String ORDERING_CRITERION = "DISTINCT_ACCEPTED_PROBLEMS_DESC";
     private static final String TIE_CRITERION = "SHARED_POSITION_1_1_3";
     private static final Set<String> MEMBERSHIP_STATUSES = Set.of("ACTIVO", "RETIRADO", "EXPULSADO");
-    private static final Set<String> VERDICTS = Set.of(
-            "PENDIENTE", "ACCEPTED", "WRONG_ANSWER", "TLE", "MLE", "ERROR");
+    private static final Set<String> VERDICTS = java.util.Arrays.stream(
+            com.kodika.kodikalab.competitions.problemresolution.Verdict.values())
+            .map(Enum::name).collect(java.util.stream.Collectors.toUnmodifiableSet());
 
     public TeamRankingResponse calculate(Integer teamId, List<RankingMemberData> members,
                                          List<RankingResolutionData> resolutions) {
