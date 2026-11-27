@@ -65,6 +65,13 @@ class CodeforcesApiClientTests {
     }
 
     @Test
+    void unreadableBodyIsReportedAsUnavailable() {
+        body.set("<html><body>Codeforces is under maintenance</body></html>");
+
+        assertThatThrownBy(() -> client.requireUser("tourist")).isInstanceOf(CodeforcesUnavailableException.class);
+    }
+
+    @Test
     void confirmedUserReturnsCanonicalHandleAndRating() {
         body.set("""
                 {"status":"OK","result":[{"handle":"Tourist","rating":3800,"rank":"legendary grandmaster"}]}

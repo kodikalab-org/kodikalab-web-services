@@ -1,5 +1,6 @@
 package com.kodika.kodikalab.profiles.practitioner.integration;
 
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.common.exception.NotFoundException;
@@ -194,7 +195,7 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new CodeforcesUnavailableException();
-        } catch (IOException | IllegalArgumentException exception) {
+        } catch (IOException | JacksonException | IllegalArgumentException exception) {
             throw new CodeforcesUnavailableException();
         }
     }
