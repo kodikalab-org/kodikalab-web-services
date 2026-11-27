@@ -66,6 +66,8 @@ class AiProviderProfilesTests {
             assertThat(context.getBean(OpenAiEmbeddingProperties.class).getModel()).isEqualTo("embed-v4.0");
             assertThat(context.getBean(OpenAiAudioTranscriptionProperties.class).getModel())
                     .isEqualTo("whisper-large-v3-turbo");
+            assertThat(context.getBean(OpenAiChatProperties.class).getExtraBody())
+                    .containsEntry("include_reasoning", false);
             var env = context.getEnvironment();
             assertThat(env.getProperty("spring.ai.openai.base-url")).isEqualTo("https://api.groq.com/openai/v1");
             assertThat(env.getProperty("spring.ai.openai.api-key")).isEqualTo("test-groq");

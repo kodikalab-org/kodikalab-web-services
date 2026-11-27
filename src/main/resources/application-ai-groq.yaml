@@ -15,6 +15,9 @@ spring:
       chat:
         model: ${GROQ_CHAT_MODEL:openai/gpt-oss-20b}
         temperature: 0
+        # gpt-oss devuelve reasoning_content y Groq lo rechaza cuando Spring AI lo reenvía en el ciclo de tools.
+        extra-body:
+          include_reasoning: false
       embedding:
         api-key: ${COHERE_API_KEY}
         base-url: https://api.cohere.ai/compatibility/v1
