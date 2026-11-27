@@ -15,6 +15,10 @@ import com.kodika.kodikalab.analytics.dto.TeamTopicReportResponse;
 import com.kodika.kodikalab.analytics.dto.TeamTopicReportResponse.TopicPerformance;
 import com.kodika.kodikalab.common.exception.ForbiddenException;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
+import com.kodika.kodikalab.recommendations.ProblemRecommendation;
+import com.kodika.kodikalab.recommendations.ProblemRecommendationService;
+import com.kodika.kodikalab.recommendations.RecommendationCriteria;
+import com.kodika.kodikalab.recommendations.RecommendationResult;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
 import com.kodika.kodikalab.teams.studygroup.dto.MyTeamResponse;
 import com.kodika.kodikalab.users.Role;
@@ -35,7 +39,11 @@ class InsightToolsTests {
     private final CurrentUserResolver currentUser = mock(CurrentUserResolver.class);
     private final StudyGroupService groups = mock(StudyGroupService.class);
     private final TeamTopicReportService reports = mock(TeamTopicReportService.class);
-    private final ToolCallback weakTopics = ToolCallbacks.from(new InsightTools(currentUser, groups, reports))[0];
+    private final ProblemRecommendationService recommendations = mock(ProblemRecommendationService.class);
+    private final ToolCallback[] callbacks =
+            ToolCallbacks.from(new InsightTools(currentUser, groups, reports, recommendations));
+    private final ToolCallback weakTopics = callback("getWeakTopics");
+    private final ToolCallback recommend = callback("recommendProblems");
     private final ResponseData data = new ResponseData();
     private final User user = mock(User.class);
 
@@ -132,13 +140,75 @@ class InsightToolsTests {
         assertThat(result).contains("INSUFFICIENT_DATA").contains("No hay integrantes activos");
     }
 
+    @Test
+    void theRecommendationSchemaOffersFiltersButNoIdentity() {
+        assertThat(recommend.getToolDefinition().inputSchema())
+                .contains("teamName", "topic", "minDifficulty", "maxDifficulty")
+                .doesNotContain("teamId").doesNotContain("userId");
+    }
+
+    @Test
+    void recommendedProblemsReachTheScreenAndNotTheModelText() {
+        var criteria = new RecommendationCriteria(1000, 1200, "Grafos");
+        when(recommendations.recommend(7, criteria)).thenReturn(new RecommendationResult(
+                report(topic(1, "Grafos", 4, 1, "25.00", true)),
+                List.of(new ProblemRecommendation(null, "Shortest path", "https://example.test/p", "Grafos", "1100",
+                        ProblemRecommendation.Source.CODEFORCES, "motivo")),
+                1000, 1200, List.of()));
+
+        String result = call(recommend, "{\"topic\":\"Grafos\",\"minDifficulty\":1000,\"maxDifficulty\":1200}", 7);
+
+        assertThat(result).contains("\"status\":\"OK\"").contains("Grafos").doesNotContain("Shortest path")
+                .doesNotContain("1100");
+        AgentResponse response = data.toResponse("c-1", "insights", "text");
+        assertThat(response.problems()).singleElement().satisfies(problem -> {
+            assertThat(problem.title()).isEqualTo("Shortest path");
+            assertThat(problem.problemId()).isNull();
+            assertThat(problem.source()).isEqualTo("CODEFORCES");
+        });
+        assertThat(response.chart()).isNotNull();
+    }
+
+    @Test
+    void withoutOptionsTheReasonIsReturnedAndNoProblemCardsAreShown() {
+        when(recommendations.recommend(7, RecommendationCriteria.NONE)).thenReturn(new RecommendationResult(
+                report(topic(1, "Grafos", 4, 1, "25.00", true)), List.of(), null, null,
+                List.of("No hay problemas adecuados")));
+
+        String result = call(recommend, "{}", 7);
+
+        assertThat(result).contains("INSUFFICIENT_DATA").contains("No hay problemas adecuados");
+        assertThat(data.toResponse("c-1", "insights", "text").problems()).isNull();
+    }
+
+    @Test
+    void recommendationsAreDeniedForAnotherCoachsTeam() {
+        when(recommendations.recommend(99, RecommendationCriteria.NONE))
+                .thenThrow(new ForbiddenException("No tiene autorización"));
+
+        assertThat(call(recommend, "{}", 99)).contains("DENIED");
+    }
+
+    private ToolCallback callback(String name) {
+        for (ToolCallback candidate : callbacks) {
+            if (candidate.getToolDefinition().name().equals(name)) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("Missing tool " + name);
+    }
+
     private String call(String input, Integer openTeamId) {
+        return call(weakTopics, input, openTeamId);
+    }
+
+    private String call(ToolCallback tool, String input, Integer openTeamId) {
         Map<String, Object> context = new HashMap<>();
         context.put(ResponseData.CONTEXT_KEY, data);
         if (openTeamId != null) {
             context.put(ResponseData.TEAM_ID_KEY, openTeamId);
         }
-        return weakTopics.call(input, new ToolContext(context));
+        return tool.call(input, new ToolContext(context));
     }
 
     private static MyTeamResponse team(int id, String name) {

@@ -11,6 +11,7 @@ import com.kodika.kodikalab.analytics.TeamTopicReportService;
 import com.kodika.kodikalab.analytics.dto.TeamTopicReportResponse;
 import com.kodika.kodikalab.analytics.dto.TeamTopicReportResponse.TopicPerformance;
 import com.kodika.kodikalab.profiles.CurrentUserResolver;
+import com.kodika.kodikalab.recommendations.ProblemRecommendationService;
 import com.kodika.kodikalab.teams.studygroup.StudyGroupService;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
@@ -54,7 +55,8 @@ class InsightToolsLiveTests {
         when(currentUser.currentUser()).thenReturn(coach);
         when(reports.getReport(any())).thenReturn(new TeamTopicReportResponse(7, "m", "c", "e", 3, 0, List.of(
                 new TopicPerformance(1, "Programación dinámica", 4, 1, 3, 1, 0, new BigDecimal("25.00"), true))));
-        var tools = new InsightTools(currentUser, mock(StudyGroupService.class), reports);
+        var tools = new InsightTools(currentUser, mock(StudyGroupService.class), reports,
+                mock(ProblemRecommendationService.class));
         var data = new ResponseData();
 
         runner.run(context -> {
