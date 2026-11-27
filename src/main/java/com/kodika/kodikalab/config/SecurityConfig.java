@@ -1,6 +1,6 @@
 package com.kodika.kodikalab.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.security.JwtAuthenticationFilter;
 import com.kodika.kodikalab.security.JwtProperties;
 import com.kodika.kodikalab.security.JwtService;

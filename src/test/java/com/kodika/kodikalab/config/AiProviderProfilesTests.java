@@ -10,16 +10,19 @@ import org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfigura
 import org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration;
+import org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechProperties;
+import org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionProperties;
+import org.springframework.ai.model.openai.autoconfigure.OpenAiChatProperties;
+import org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingProperties;
 import org.springframework.ai.model.tool.autoconfigure.ToolCallingAutoConfiguration;
 import org.springframework.ai.moderation.ModerationModel;
 import org.springframework.ai.image.ImageModel;
 import org.springframework.ai.openai.OpenAiAudioSpeechModel;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
 import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.retry.autoconfigure.SpringAiRetryAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
-import org.springframework.boot.autoconfigure.web.client.RestClientAutoConfiguration;
-import org.springframework.boot.autoconfigure.web.reactive.function.client.WebClientAutoConfiguration;
+import org.springframework.boot.restclient.autoconfigure.RestClientAutoConfiguration;
+import org.springframework.boot.webclient.autoconfigure.WebClientAutoConfiguration;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -30,7 +33,7 @@ class AiProviderProfilesTests {
             .withInitializer(new ConfigDataApplicationContextInitializer())
             .withConfiguration(AutoConfigurations.of(
                     RestClientAutoConfiguration.class, WebClientAutoConfiguration.class,
-                    SpringAiRetryAutoConfiguration.class, ToolCallingAutoConfiguration.class,
+                    ToolCallingAutoConfiguration.class,
                     OpenAiChatAutoConfiguration.class, OpenAiEmbeddingAutoConfiguration.class,
                     OpenAiAudioTranscriptionAutoConfiguration.class, OpenAiAudioSpeechAutoConfiguration.class,
                     OpenAiImageAutoConfiguration.class, OpenAiModerationAutoConfiguration.class))
@@ -58,12 +61,16 @@ class AiProviderProfilesTests {
             assertThat(context).hasSingleBean(EmbeddingModel.class);
             assertThat(context).hasSingleBean(OpenAiAudioTranscriptionModel.class);
             assertThat(context).doesNotHaveBean(OpenAiAudioSpeechModel.class);
+            // Bound values, not raw YAML: a renamed property would silently fall back to the library default.
+            assertThat(context.getBean(OpenAiChatProperties.class).getModel()).isEqualTo("openai/gpt-oss-20b");
+            assertThat(context.getBean(OpenAiEmbeddingProperties.class).getModel()).isEqualTo("embed-v4.0");
+            assertThat(context.getBean(OpenAiAudioTranscriptionProperties.class).getModel())
+                    .isEqualTo("whisper-large-v3-turbo");
             var env = context.getEnvironment();
-            assertThat(env.getProperty("spring.ai.openai.base-url")).isEqualTo("https://api.groq.com/openai");
+            assertThat(env.getProperty("spring.ai.openai.base-url")).isEqualTo("https://api.groq.com/openai/v1");
             assertThat(env.getProperty("spring.ai.openai.api-key")).isEqualTo("test-groq");
             assertThat(env.getProperty("spring.ai.openai.embedding.base-url"))
                     .isEqualTo("https://api.cohere.ai/compatibility/v1");
-            assertThat(env.getProperty("spring.ai.openai.embedding.embeddings-path")).isEqualTo("/embeddings");
             assertThat(env.getProperty("spring.ai.openai.embedding.api-key")).isEqualTo("test-cohere");
         });
     }
@@ -78,8 +85,11 @@ class AiProviderProfilesTests {
             assertThat(context).doesNotHaveBean(ImageModel.class);
             var env = context.getEnvironment();
             assertThat(env.getProperty("spring.ai.openai.api-key")).isEqualTo("test-openai");
-            assertThat(env.getProperty("spring.ai.openai.embedding.options.model"))
-                    .isEqualTo("text-embedding-3-small");
+            assertThat(env.getProperty("spring.ai.openai.base-url")).isNull();
+            assertThat(context.getBean(OpenAiChatProperties.class).getModel()).isEqualTo("gpt-4.1-mini");
+            assertThat(context.getBean(OpenAiEmbeddingProperties.class).getModel()).isEqualTo("text-embedding-3-small");
+            assertThat(context.getBean(OpenAiAudioTranscriptionProperties.class).getModel()).isEqualTo("whisper-1");
+            assertThat(context.getBean(OpenAiAudioSpeechProperties.class).getModel()).isEqualTo("gpt-4o-mini-tts");
         });
     }
 }

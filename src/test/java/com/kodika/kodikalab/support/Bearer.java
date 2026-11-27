@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.support;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
@@ -26,11 +26,11 @@ public final class Bearer {
     public static String tokenFrom(String loginResponseBody) {
         try {
             var token = MAPPER.readTree(loginResponseBody).get("token");
-            if (token == null || !token.isTextual()) {
+            if (token == null || !token.isString()) {
                 throw new IllegalStateException("La respuesta de login no contiene token: " + loginResponseBody);
             }
-            return token.textValue();
-        } catch (JsonProcessingException exception) {
+            return token.stringValue();
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Respuesta de login ilegible", exception);
         }
     }

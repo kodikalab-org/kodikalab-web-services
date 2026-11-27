@@ -1,6 +1,6 @@
 package com.kodika.kodikalab.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.support.TestJwt;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;

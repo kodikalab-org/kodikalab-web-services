@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.competitions.competition.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.competitions.competition.CompetitionStatus;
 import com.kodika.kodikalab.competitions.competition.CompetitionValidationException;
 import java.util.Arrays;
@@ -21,11 +21,11 @@ public record ChangeCompetitionStatusRequest(CompetitionStatus status) {
         if (value == null || value.isNull()) {
             return new ChangeCompetitionStatusRequest(null);
         }
-        if (!value.isTextual()) {
+        if (!value.isString()) {
             throw new CompetitionValidationException(Map.of("status", "Debe ser una cadena de texto"));
         }
         for (CompetitionStatus constant : CompetitionStatus.values()) {
-            if (constant.name().equals(value.textValue())) {
+            if (constant.name().equals(value.stringValue())) {
                 return new ChangeCompetitionStatusRequest(constant);
             }
         }

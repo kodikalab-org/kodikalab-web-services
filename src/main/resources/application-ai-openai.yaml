@@ -10,17 +10,13 @@ spring:
     openai:
       api-key: ${OPENAI_API_KEY}
       chat:
-        options:
-          model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
-          temperature: 0
+        model: ${OPENAI_CHAT_MODEL:gpt-4.1-mini}
+        temperature: 0
       embedding:
-        options:
-          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+        model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
       audio:
         transcription:
-          options:
-            model: ${OPENAI_TRANSCRIPTION_MODEL:whisper-1}
+          model: ${OPENAI_TRANSCRIPTION_MODEL:whisper-1}
         speech:
-          options:
-            model: ${OPENAI_SPEECH_MODEL:gpt-4o-mini-tts}
-            voice: alloy
+          model: ${OPENAI_SPEECH_MODEL:gpt-4o-mini-tts}
+          voice: alloy

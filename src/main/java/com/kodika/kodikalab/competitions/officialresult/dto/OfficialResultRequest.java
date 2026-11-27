@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.competitions.officialresult.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.competitions.officialresult.OfficialResultValidationException;
 import java.util.Map;
 

@@ -1,9 +1,9 @@
 package com.kodika.kodikalab.profiles;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.exc.InvalidFormatException;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerLevel;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
@@ -57,7 +57,7 @@ public class ProfileRequestReader {
                 throw new ProfileValidationException(INVALID_LEVEL, Map.of());
             }
             throw new ProfileValidationException(INVALID_JSON, Map.of());
-        } catch (JsonProcessingException | IllegalArgumentException exception) {
+        } catch (JacksonException | IllegalArgumentException exception) {
             throw new ProfileValidationException(INVALID_JSON, Map.of());
         }
     }

@@ -10,19 +10,16 @@ spring:
         transcription: openai
     openai:
       api-key: ${GROQ_API_KEY}
-      base-url: https://api.groq.com/openai
+      # Spring AI 2.0 usa el SDK oficial de OpenAI: la URL base debe incluir la versión (/v1).
+      base-url: https://api.groq.com/openai/v1
       chat:
-        options:
-          model: ${GROQ_CHAT_MODEL:openai/gpt-oss-20b}
-          temperature: 0
+        model: ${GROQ_CHAT_MODEL:openai/gpt-oss-20b}
+        temperature: 0
       embedding:
         api-key: ${COHERE_API_KEY}
         base-url: https://api.cohere.ai/compatibility/v1
-        embeddings-path: /embeddings
-        options:
-          # embed-v4.0 devuelve 1536 dimensiones por defecto, como text-embedding-3-small, y cabe en un índice HNSW.
-          model: ${COHERE_EMBEDDING_MODEL:embed-v4.0}
+        # embed-v4.0 devuelve 1536 dimensiones por defecto, como text-embedding-3-small, y cabe en un índice HNSW.
+        model: ${COHERE_EMBEDDING_MODEL:embed-v4.0}
       audio:
         transcription:
-          options:
-            model: ${GROQ_TRANSCRIPTION_MODEL:whisper-large-v3-turbo}
+          model: ${GROQ_TRANSCRIPTION_MODEL:whisper-large-v3-turbo}

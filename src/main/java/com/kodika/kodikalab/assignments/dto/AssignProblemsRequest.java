@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.assignments.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.common.json.StrictJson;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

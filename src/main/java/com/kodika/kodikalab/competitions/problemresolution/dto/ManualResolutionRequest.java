@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.competitions.problemresolution.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.competitions.problemresolution.ResolutionValidationException;
 import java.util.Map;
 
@@ -19,9 +19,9 @@ public record ManualResolutionRequest(String language, String evidenceUrl) {
         if (value == null || value.isNull()) {
             return null;
         }
-        if (!value.isTextual()) {
+        if (!value.isString()) {
             throw new ResolutionValidationException(Map.of(field, "Debe ser una cadena de texto"));
         }
-        return value.textValue();
+        return value.stringValue();
     }
 }

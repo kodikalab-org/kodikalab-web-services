@@ -1,7 +1,9 @@
 package com.kodika.kodikalab.profiles;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import com.kodika.kodikalab.common.exception.UnauthorizedException;
 import com.kodika.kodikalab.profiles.coach.CoachProfileService;
@@ -15,7 +17,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -43,7 +44,9 @@ class ProfileControllerTests {
     CoachProfileService coachService;
     MockMvc mvc;
     LocalValidatorFactoryBean validator;
-    ObjectMapper mapper = Jackson2ObjectMapperBuilder.json().build();
+    ObjectMapper mapper = JsonMapper.builder().configureForJackson2()
+            // Same as the application mapper: unknown properties are ignored.
+            .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
     User practitioner = user(7, Role.PRACTICANTE);
     User coach = user(8, Role.COACH);
 

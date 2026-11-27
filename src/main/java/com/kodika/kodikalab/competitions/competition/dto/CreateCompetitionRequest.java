@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.competitions.competition.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.competitions.competition.CompetitionAccessType;
 import com.kodika.kodikalab.competitions.competition.CompetitionStatus;
 import com.kodika.kodikalab.competitions.competition.CompetitionValidationException;
@@ -56,11 +56,11 @@ public record CreateCompetitionRequest(Integer teamId, String eventName, String 
         if (value == null || value.isNull()) {
             return null;
         }
-        if (!value.isTextual()) {
+        if (!value.isString()) {
             errors.put(field, "Debe ser una cadena de texto");
             return null;
         }
-        return value.textValue();
+        return value.stringValue();
     }
 
     private static <E extends Enum<E>> E enumeration(JsonNode body, String field, Class<E> type,
