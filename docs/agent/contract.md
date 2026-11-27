@@ -1,7 +1,7 @@
 # Contrato del agente de KodikaLab (F1.2)
 
-Propuesta para revisión del equipo. **Los endpoints todavía no existen**: este documento fija lo que backend y
-frontend van a construir. Hoy existen los tipos de la respuesta y una tool de ejemplo.
+Este documento fija lo que backend y frontend construyen. Hoy funciona **`POST /agent/chat`** con el agente
+`insights` (temas débiles y recomendación de problemas); el estado de cada pieza está en la sección 7.
 
 ## 1. Reglas generales
 
@@ -70,9 +70,9 @@ datos**.
 
 | Campo | Tipo | Contenido |
 |---|---|---|
-| `agent` | texto | `teams`, `insights`, `actions` o `info` |
+| `agent` | texto | `teams`, `insights`, `actions`, `info`, o `none` si ninguno corresponde |
 | `teams` | lista | `groupId`, `name`, `expectedLevel`, `sessionSchedule`, `differences` (vacía = coincidencia exacta) |
-| `problems` | lista | `problemId`, `title`, `url`, `topic`, `difficulty`, `reason` |
+| `problems` | lista | `problemId`, `title`, `url`, `topic`, `difficulty`, `reason`, `source` (`CATALOG` o `CODEFORCES`) |
 | `chart` | objeto | `title`, `unit`, `labels`, `values` (un valor por etiqueta) |
 | `action` | objeto | `actionId`, `type`, `summary`, `expiresAt` (ISO 8601 con zona) |
 
@@ -89,7 +89,28 @@ El frontend **no calcula cifras**: dibuja lo que recibe.
 | `429` | Se superó el límite de uso |
 | `503` | El proveedor de IA no responde o la IA está desactivada |
 
-Una consulta que el rol no permite **no** es un error HTTP: responde `200` con un `message` que lo explica.
+Una consulta que el rol no permite **no** es un error HTTP: responde `200` con un `message` que lo explica. Un agente
+sin tools responde `200` indicando que la función todavía no está disponible.
+
+**Memoria (pendiente, F2.3):** cada mensaje se atiende por separado. `conversationId` se genera o se devuelve tal
+cual, y el `404` de conversación ajena todavía no existe. Si el agente pregunta de qué equipo se trata, hay que
+repetir la solicitud completa con su nombre.
+
+### Recomendación de problemas (US-16)
+
+- **Temas:** los de menor cobertura (hasta 5, con 3 propuestas cada uno), o el tema que pida el coach.
+- **Dificultad:** el rango pedido; si no, desde la mediana de lo que el equipo resolvió hasta 300 puntos más; sin
+  historial con dificultad, de menor a mayor.
+- **Fuente:** primero el catálogo, sin problemas ya asignados al equipo. Si faltan opciones, Codeforces. Un problema
+  de Codeforces llega sin `problemId`: hay que importarlo (`POST /problems/codeforces/import`) antes de asignarlo.
+- **Limitación:** Codeforces clasifica con etiquetas en inglés (`graphs`, `dp`). Un tema del catálogo con otro nombre
+  (por ejemplo, «Grafos») no recibe respaldo de Codeforces.
+- Sin datos suficientes, sin opciones o sin acceso, no se propone nada y el mensaje explica la condición.
+
+### Protecciones
+
+10 mensajes por usuario y minuto; como máximo 5 llamadas a tools por mensaje; 30 s y 1 reintento por llamada al
+proveedor; un error inesperado de una tool no se envía al modelo.
 
 ## 4. `POST /agent/voice`
 
@@ -149,8 +170,10 @@ respuestas en streaming), debe propagar el contexto de seguridad.
 |---|---|
 | `AgentDefinition` (`agent/core`) | Creada |
 | `AgentResponse`, `ResponseData`, `TeamMatchInfo`, `ProblemInfo`, `ChartData`, `ActionInfo` | Creados |
-| `ToolOutcome`, `InsightTools.getWeakTopics` | Creados y probados con Groq |
-| Endpoints, router, catálogo, memoria, RAG y voz | Pendientes |
+| `ToolOutcome`, `InsightTools` (`getWeakTopics`, `recommendProblems`) | Funcionando |
+| `POST /agent/chat`, router, catálogo, protecciones | Funcionando |
+| Agentes `teams`, `actions`, `info`; resumen de US-17 | Declarados o pendientes |
+| Memoria y conversaciones, confirmaciones, RAG, voz, traducción de mensajes | Pendientes |
 
 `ProblemInfo` y `ToolOutcome` no estaban en la lista de 28 clases de DOC.05: la estructura de KodikaLab tendrá
 30, salvo que el equipo decida otra cosa.

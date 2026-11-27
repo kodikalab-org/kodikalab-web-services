@@ -93,7 +93,7 @@ class RuntimeBoundaryTests {
                         "/teams/{id}/memberships/{memberId}/clarification",
                         "/problems", "/problems", "/problems/assign", "/problems/assigned",
                         "/problems/codeforces/import", "/problems/codeforces/search",
-                        "/problems/assigned/{competitionProblemId}");
+                        "/problems/assigned/{competitionProblemId}", "/agent/chat");
     }
 
     @Test

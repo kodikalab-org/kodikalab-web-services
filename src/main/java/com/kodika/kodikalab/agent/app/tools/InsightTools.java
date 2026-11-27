@@ -93,8 +93,7 @@ public class InsightTools {
         List<String> details = new ArrayList<>(result.problems().stream().map(ProblemRecommendation::topic)
                 .distinct().toList());
         details.addAll(result.notices());
-        return new ToolOutcome(Status.OK, "La aplicación ya muestra los problemas propuestos y sus motivos. Los "
-                + "temas considerados aparecen en el detalle; invita al coach a elegir los que le convengan.", details);
+        return new ToolOutcome(Status.OK, "Propuestas de problemas preparadas para los temas del detalle", details);
     }
 
     private static ProblemInfo card(ProblemRecommendation problem) {
@@ -153,7 +152,7 @@ public class InsightTools {
         if (own.isEmpty()) {
             return ToolOutcome.of(Status.INSUFFICIENT_DATA, "Todavía no tienes equipos a tu cargo");
         }
-        return new ToolOutcome(Status.NEEDS_TEAM, "Pregunta de cuál de estos equipos se trata y pide que repita la solicitud incluyendo su nombre",
+        return new ToolOutcome(Status.NEEDS_TEAM, "Falta saber de cuál de estos equipos se trata",
                 own.stream().map(MyTeamResponse::name).toList());
     }
 

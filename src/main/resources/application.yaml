@@ -25,6 +25,15 @@ spring:
       audio:
         transcription: none
         speech: none
+    # Protecciones del agente: un error inesperado de una tool no se envía al modelo y el ciclo de tools tiene tope.
+    tools:
+      throw-exception-on-error: true
+      limits:
+        max-total-tool-calls: 5
+    # Tiempo máximo y reintentos de cada llamada al proveedor (solo aplica con un perfil ai-*).
+    openai:
+      timeout: 30s
+      max-retries: 1
 
   # 1. Conexión a Base de Datos
   datasource:
