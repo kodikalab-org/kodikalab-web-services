@@ -7,10 +7,24 @@ server:
     include-stacktrace: never
     include-exception: false
 spring:
+  # Jackson 3 conservando los valores por defecto de Jackson 2: el contrato JSON de la API no cambia.
+  jackson:
+    use-jackson2-defaults: true
   config:
     import: optional:file:.env[.properties]
   application:
     name: kodikalab
+
+  # IA desactivada por defecto: sin un perfil ai-groq o ai-openai no se crea ningún modelo ni se exige una clave.
+  ai:
+    model:
+      chat: none
+      embedding: none
+      image: none
+      moderation: none
+      audio:
+        transcription: none
+        speech: none
 
   # 1. Conexión a Base de Datos
   datasource:

@@ -1,6 +1,7 @@
 package com.kodika.kodikalab.analytics;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.kodika.kodikalab.analytics.dto.TeamRankingResponse;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -14,7 +15,7 @@ import static org.mockito.Mockito.*;
 
 class RankingSnapshotServiceTests {
     TeamRankingSnapshotRepository repository = mock(TeamRankingSnapshotRepository.class);
-    ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    ObjectMapper mapper = JsonMapper.builder().configureForJackson2().build();
     RankingSnapshotService service = new RankingSnapshotService(repository, mapper);
 
     @Test

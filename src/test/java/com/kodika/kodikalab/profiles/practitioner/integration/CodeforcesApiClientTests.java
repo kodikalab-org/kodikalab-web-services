@@ -1,6 +1,6 @@
 package com.kodika.kodikalab.profiles.practitioner.integration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -62,6 +62,13 @@ class CodeforcesApiClientTests {
     @AfterEach
     void tearDown() {
         server.stop(0);
+    }
+
+    @Test
+    void unreadableBodyIsReportedAsUnavailable() {
+        body.set("<html><body>Codeforces is under maintenance</body></html>");
+
+        assertThatThrownBy(() -> client.requireUser("tourist")).isInstanceOf(CodeforcesUnavailableException.class);
     }
 
     @Test

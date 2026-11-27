@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.architecture;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,7 +38,7 @@ class OficialErdFileTests {
 
     private static List<JsonNode> visible(String idList, String entities) {
         List<JsonNode> result = new ArrayList<>();
-        erd.get("doc").get(idList).forEach(id -> result.add(collection(entities).get(id.asText())));
+        erd.get("doc").get(idList).forEach(id -> result.add(collection(entities).get(id.asString())));
         return result;
     }
 
@@ -65,32 +65,32 @@ class OficialErdFileTests {
     @Test
     void visibleTablesAreExactlyTheModelTables() {
         List<String> tables = visible("tableIds", "tableEntities").stream()
-                .map(table -> table.get("name").asText().toLowerCase(Locale.ROOT)).toList();
+                .map(table -> table.get("name").asString().toLowerCase(Locale.ROOT)).toList();
         assertThat(tables).containsExactlyInAnyOrderElementsOf(ErdSchemaIntegrationTests.ERD.keySet());
     }
 
     @Test
     void columnsMatchNamesTypesLengthsNullabilityAndDefaults() {
         for (JsonNode table : visible("tableIds", "tableEntities")) {
-            String name = table.get("name").asText().toLowerCase(Locale.ROOT);
+            String name = table.get("name").asString().toLowerCase(Locale.ROOT);
             List<ErdSchemaIntegrationTests.Col> expected = ErdSchemaIntegrationTests.ERD.get(name);
             List<JsonNode> columns = new ArrayList<>();
-            table.get("columnIds").forEach(id -> columns.add(collection("tableColumnEntities").get(id.asText())));
+            table.get("columnIds").forEach(id -> columns.add(collection("tableColumnEntities").get(id.asString())));
 
-            assertThat(columns.stream().map(column -> column.get("name").asText().toLowerCase(Locale.ROOT)).toList())
+            assertThat(columns.stream().map(column -> column.get("name").asString().toLowerCase(Locale.ROOT)).toList())
                     .as("columnas de %s", name)
                     .containsExactlyElementsOf(expected.stream().map(ErdSchemaIntegrationTests.Col::name).toList());
             for (int i = 0; i < expected.size(); i++) {
                 var model = expected.get(i);
                 JsonNode column = columns.get(i);
                 String label = name + "." + model.name();
-                String dataType = column.get("dataType").asText();
+                String dataType = column.get("dataType").asString();
                 int options = column.get("options").asInt();
                 assertThat(jdbcType(dataType)).as("tipo de %s", label).isEqualTo(model.type());
                 assertThat(length(dataType)).as("longitud de %s", label).isEqualTo(model.length());
                 assertThat((options & 8) == 0 && (options & 2) == 0).as("nullable de %s", label).isEqualTo(model.nullable());
                 if (model.defaultFragment() != null) {
-                    assertThat(column.get("default").asText().replace("'", "")).as("default de %s", label)
+                    assertThat(column.get("default").asString().replace("'", "")).as("default de %s", label)
                             .contains(model.defaultFragment());
                 }
             }
@@ -107,17 +107,17 @@ class OficialErdFileTests {
     }
 
     private static String endpoint(JsonNode side) {
-        String table = collection("tableEntities").get(side.get("tableId").asText()).get("name").asText();
-        String column = collection("tableColumnEntities").get(side.get("columnIds").get(0).asText()).get("name").asText();
+        String table = collection("tableEntities").get(side.get("tableId").asString()).get("name").asString();
+        String column = collection("tableColumnEntities").get(side.get("columnIds").get(0).asString()).get("name").asString();
         return (table + "." + column).toLowerCase(Locale.ROOT);
     }
 
     @Test
     void extensionTablesAreDocumentedAsApprovedExtensions() {
         for (JsonNode table : visible("tableIds", "tableEntities")) {
-            String name = table.get("name").asText();
+            String name = table.get("name").asString();
             if (name.equals("ranking_equipo_actual") || name.equals("resultado_oficial_competencia")) {
-                assertThat(table.get("comment").asText()).as("comentario de %s", name).startsWith("Extensión aprobada");
+                assertThat(table.get("comment").asString()).as("comentario de %s", name).startsWith("Extensión aprobada");
             }
         }
     }

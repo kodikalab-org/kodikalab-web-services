@@ -1,6 +1,6 @@
 package com.kodika.kodikalab.profiles;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.profiles.coach.CoachProfileService;
 import com.kodika.kodikalab.profiles.coach.dto.CoachProfileRequest;
 import com.kodika.kodikalab.profiles.practitioner.PractitionerProfileService;

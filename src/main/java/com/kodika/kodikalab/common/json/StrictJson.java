@@ -1,6 +1,6 @@
 package com.kodika.kodikalab.common.json;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.common.exception.FieldValidationException;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
@@ -49,11 +49,11 @@ public final class StrictJson {
         if (value == null || value.isNull()) {
             return null;
         }
-        if (!value.isTextual()) {
+        if (!value.isString()) {
             errors.put(errorKey, "Debe ser una cadena de texto");
             return null;
         }
-        return value.textValue();
+        return value.stringValue();
     }
 
     public static <E extends Enum<E>> E enumeration(JsonNode node, String field, Class<E> type, String errorKey,

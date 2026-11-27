@@ -1,0 +1,25 @@
+# Perfil de pruebas: chat y transcripción con Groq, embeddings con Cohere. No activar junto con ai-openai.
+# Sin voz hablada: la documentación de Groq solo ofrece texto a voz en inglés y árabe.
+# Los vectores de proveedores distintos no son compatibles: no compartir la tabla vectorial con ai-openai.
+spring:
+  ai:
+    model:
+      chat: openai
+      embedding: openai
+      audio:
+        transcription: openai
+    openai:
+      api-key: ${GROQ_API_KEY}
+      # Spring AI 2.0 usa el SDK oficial de OpenAI: la URL base debe incluir la versión (/v1).
+      base-url: https://api.groq.com/openai/v1
+      chat:
+        model: ${GROQ_CHAT_MODEL:openai/gpt-oss-20b}
+        temperature: 0
+      embedding:
+        api-key: ${COHERE_API_KEY}
+        base-url: https://api.cohere.ai/compatibility/v1
+        # embed-v4.0 devuelve 1536 dimensiones por defecto, como text-embedding-3-small, y cabe en un índice HNSW.
+        model: ${COHERE_EMBEDDING_MODEL:embed-v4.0}
+      audio:
+        transcription:
+          model: ${GROQ_TRANSCRIPTION_MODEL:whisper-large-v3-turbo}

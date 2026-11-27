@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.auth;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.kodika.kodikalab.auth.dto.PasswordResetConfirmRequest;
 import com.kodika.kodikalab.auth.dto.PasswordResetRequest;
 import com.kodika.kodikalab.auth.dto.PasswordResetResponse;

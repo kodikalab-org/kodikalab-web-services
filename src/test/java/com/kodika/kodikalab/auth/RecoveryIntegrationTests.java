@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.auth;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.support.Bearer;
 import com.kodika.kodikalab.users.Role;
 import com.kodika.kodikalab.users.User;
@@ -22,7 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -105,7 +105,7 @@ class RecoveryIntegrationTests {
         MvcResult result = send("/auth/register", "{\"firstName\":\"Usuario\",\"lastName\":\"Prueba\",\"email\":\""
                 + email + "\",\"password\":\"" + password + "\",\"role\":\"PRACTICANTE\"}", null);
         assertThat(result.getResponse().getStatus()).isEqualTo(201);
-        return json(result).get("recoveryCode").asText();
+        return json(result).get("recoveryCode").asString();
     }
 
     private MvcResult login(String email, String password) throws Exception {
@@ -114,7 +114,7 @@ class RecoveryIntegrationTests {
 
     private String tokenOf(MvcResult login) throws Exception {
         assertThat(login.getResponse().getStatus()).isEqualTo(200);
-        return json(login).get("token").asText();
+        return json(login).get("token").asString();
     }
 
     private MvcResult recover(String email, String code, String newPassword) throws Exception {
@@ -137,7 +137,7 @@ class RecoveryIntegrationTests {
                 + email + "\",\"password\":\"Password123\",\"role\":\"COACH\"}", null);
         assertThat(result.getResponse().getStatus()).isEqualTo(201);
         JsonNode body = json(result);
-        assertThat(body.get("recoveryCode").asText()).matches(CODE_FORMAT);
+        assertThat(body.get("recoveryCode").asString()).matches(CODE_FORMAT);
         assertThat(body.has("token")).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM information_schema.columns WHERE table_schema = ? "
                 + "AND table_name = 'usuario'", Integer.class, SCHEMA)).isEqualTo(7);
@@ -153,9 +153,9 @@ class RecoveryIntegrationTests {
 
         MvcResult recovered = recover(email, firstCode.toLowerCase(), "Nueva1234");
         assertThat(recovered.getResponse().getStatus()).isEqualTo(200);
-        String secondCode = json(recovered).get("recoveryCode").asText();
+        String secondCode = json(recovered).get("recoveryCode").asString();
         assertThat(secondCode).matches(CODE_FORMAT).isNotEqualTo(firstCode);
-        assertThat(json(recovered).get("message").asText()).contains("Contraseña actualizada");
+        assertThat(json(recovered).get("message").asString()).contains("Contraseña actualizada");
 
         // La contraseña se guardó con BCrypt y es otra.
         assertThat(storedHash(email)).startsWith("$2").isNotEqualTo(oldHash);
@@ -170,7 +170,7 @@ class RecoveryIntegrationTests {
         // El código nuevo sirve una vez más y rota otra vez.
         MvcResult again = recover(email, secondCode, "Tercera1234");
         assertThat(again.getResponse().getStatus()).isEqualTo(200);
-        assertThat(json(again).get("recoveryCode").asText()).isNotEqualTo(secondCode);
+        assertThat(json(again).get("recoveryCode").asString()).isNotEqualTo(secondCode);
         assertThat(teamsStatus(newToken)).isEqualTo(401);
     }
 
@@ -187,7 +187,7 @@ class RecoveryIntegrationTests {
         MvcResult disabled = recover(suspended, suspendedCode, "Nueva1234");
         for (MvcResult result : List.of(wrong, unknown, disabled)) {
             assertThat(result.getResponse().getStatus()).isEqualTo(401);
-            assertThat(json(result).get("message").asText()).isEqualTo(INVALID);
+            assertThat(json(result).get("message").asString()).isEqualTo(INVALID);
             assertThat(json(result).has("recoveryCode")).isFalse();
         }
         assertThat(unknown.getResponse().getContentAsString()).isEqualTo(wrong.getResponse().getContentAsString());
@@ -238,15 +238,15 @@ class RecoveryIntegrationTests {
 
         MvcResult anonymous = send("/auth/recovery-code", "{\"password\":\"Password123\"}", null);
         assertThat(anonymous.getResponse().getStatus()).isEqualTo(401);
-        assertThat(json(anonymous).get("message").asText()).startsWith("Debe iniciar sesión");
+        assertThat(json(anonymous).get("message").asString()).startsWith("Debe iniciar sesión");
         MvcResult wrong = send("/auth/recovery-code", "{\"password\":\"Wrong1234\"}", token);
         assertThat(wrong.getResponse().getStatus()).isEqualTo(401);
-        assertThat(json(wrong).get("message").asText()).isEqualTo("Credenciales inválidas");
+        assertThat(json(wrong).get("message").asString()).isEqualTo("Credenciales inválidas");
         assertThat(send("/auth/recovery-code", "{}", token).getResponse().getStatus()).isEqualTo(400);
 
         MvcResult shown = send("/auth/recovery-code", "{\"password\":\"Password123\"}", token);
         assertThat(shown.getResponse().getStatus()).isEqualTo(200);
-        assertThat(json(shown).get("recoveryCode").asText()).isEqualTo(code);
+        assertThat(json(shown).get("recoveryCode").asString()).isEqualTo(code);
         assertThat(shown.getResponse().getHeader(HttpHeaders.CACHE_CONTROL)).contains("no-store");
     }
 
@@ -262,7 +262,7 @@ class RecoveryIntegrationTests {
         users.saveAndFlush(old);
 
         String token = tokenOf(login(old.getEmail(), "Password123"));
-        String code = json(send("/auth/recovery-code", "{\"password\":\"Password123\"}", token)).get("recoveryCode").asText();
+        String code = json(send("/auth/recovery-code", "{\"password\":\"Password123\"}", token)).get("recoveryCode").asString();
         assertThat(code).matches(CODE_FORMAT);
         assertThat(recover(old.getEmail(), code, "Nueva1234").getResponse().getStatus()).isEqualTo(200);
         assertThat(login(old.getEmail(), "Nueva1234").getResponse().getStatus()).isEqualTo(200);
@@ -273,7 +273,7 @@ class RecoveryIntegrationTests {
         MvcResult result = send("/auth/recovery", "{\"email\":\"" + newEmail()
                 + "\",\"recoveryCode\":\"AAAA-BBBB-CCCC-DDDD-EEEE-FFFF\",\"newPassword\":\"Nueva1234\"}", "token-roto");
         assertThat(result.getResponse().getStatus()).isEqualTo(401);
-        assertThat(json(result).get("message").asText()).isEqualTo(INVALID);
+        assertThat(json(result).get("message").asString()).isEqualTo(INVALID);
     }
 
     @Test

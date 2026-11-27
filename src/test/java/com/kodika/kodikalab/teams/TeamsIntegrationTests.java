@@ -17,7 +17,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.resttestclient.TestRestTemplate;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Pruebas HTTP y PostgreSQL para US04, US05 y US06.
  * Utiliza un esquema temporal dentro de la base de pruebas.
  */
+@AutoConfigureTestRestTemplate
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @EnabledIfEnvironmentVariable(named = "PROFILE_TEST_DB_URL", matches = ".+")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)

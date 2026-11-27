@@ -1,13 +1,12 @@
 package com.kodika.kodikalab.auth.dto;
 
 import com.kodika.kodikalab.users.Role;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
-import java.io.IOException;
+import tools.jackson.core.JsonParser;
+import tools.jackson.core.JsonToken;
+import tools.jackson.databind.DeserializationContext;
+import tools.jackson.databind.ValueDeserializer;
+import tools.jackson.databind.annotation.JsonDeserialize;
+import tools.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
@@ -46,17 +45,17 @@ public record RegisterRequest(
     }
 
     /** Only enum names are accepted, never numeric ordinals. */
-    public static class RoleDeserializer extends JsonDeserializer<Role> {
+    public static class RoleDeserializer extends ValueDeserializer<Role> {
         @Override
-        public Role deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+        public Role deserialize(JsonParser parser, DeserializationContext context) {
             if (parser.hasToken(JsonToken.VALUE_STRING)) {
                 try {
-                    return Role.valueOf(parser.getText());
+                    return Role.valueOf(parser.getString());
                 } catch (IllegalArgumentException ignored) {
                     // Fall through to the same safe invalid-role response.
                 }
             }
-            throw InvalidFormatException.from(parser, "Rol inválido", parser.getText(), Role.class);
+            throw InvalidFormatException.from(parser, "Rol inválido", parser.getString(), Role.class);
         }
     }
 

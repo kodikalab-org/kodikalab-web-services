@@ -1,7 +1,8 @@
 package com.kodika.kodikalab.profiles.practitioner.integration;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.common.exception.NotFoundException;
 import java.io.IOException;
 import java.net.URI;
@@ -68,10 +69,10 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
     public CodeforcesUserInfo requireUser(String handle) {
         JsonNode users = request("/user.info?handles=" + encode(handle));
         JsonNode user = users.isArray() && !users.isEmpty() ? users.get(0) : null;
-        if (user == null || !user.path("handle").isTextual()) {
+        if (user == null || !user.path("handle").isString()) {
             throw new CodeforcesUnavailableException();
         }
-        return new CodeforcesUserInfo(user.get("handle").asText(),
+        return new CodeforcesUserInfo(user.get("handle").asString(),
                 user.hasNonNull("rating") ? user.get("rating").asInt() : null);
     }
 
@@ -82,14 +83,14 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
         List<CodeforcesSubmission> result = new ArrayList<>();
         for (JsonNode submission : submissions) {
             JsonNode problem = submission.path("problem");
-            if (!submission.path("creationTimeSeconds").isIntegralNumber() || !problem.path("index").isTextual()) {
+            if (!submission.path("creationTimeSeconds").isIntegralNumber() || !problem.path("index").isString()) {
                 throw new CodeforcesUnavailableException();
             }
             result.add(new CodeforcesSubmission(submission.get("creationTimeSeconds").asLong(),
                     problem.hasNonNull("contestId") ? problem.get("contestId").asInt() : null,
-                    problem.get("index").asText(),
+                    problem.get("index").asString(),
                     problem.hasNonNull("rating") ? problem.get("rating").asInt() : null,
-                    submission.path("verdict").asText(null)));
+                    submission.path("verdict").asString(null)));
         }
         return List.copyOf(result);
     }
@@ -108,7 +109,7 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
             throw new CodeforcesUnavailableException();
         }
         for (JsonNode problem : problems) {
-            if (index.equalsIgnoreCase(problem.path("index").asText(""))) {
+            if (index.equalsIgnoreCase(problem.path("index").asString(""))) {
                 return Optional.of(toProblem(problem, contestId));
             }
         }
@@ -133,17 +134,17 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
     }
 
     private static CodeforcesProblem toProblem(JsonNode problem, int contestId) {
-        if (!problem.path("index").isTextual() || !problem.path("name").isTextual()) {
+        if (!problem.path("index").isString() || !problem.path("name").isString()) {
             throw new CodeforcesUnavailableException();
         }
         List<String> tags = new ArrayList<>();
         for (JsonNode tag : problem.path("tags")) {
-            if (tag.isTextual()) {
-                tags.add(tag.asText());
+            if (tag.isString()) {
+                tags.add(tag.asString());
             }
         }
-        return new CodeforcesProblem(contestId, problem.get("index").asText().toUpperCase(Locale.ROOT),
-                problem.get("name").asText(), problem.hasNonNull("rating") ? problem.get("rating").asInt() : null,
+        return new CodeforcesProblem(contestId, problem.get("index").asString().toUpperCase(Locale.ROOT),
+                problem.get("name").asString(), problem.hasNonNull("rating") ? problem.get("rating").asInt() : null,
                 tags);
     }
 
@@ -180,8 +181,8 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
             if (root == null) {
                 throw new CodeforcesUnavailableException();
             }
-            if (!"OK".equals(root.path("status").asText())) {
-                String comment = root.path("comment").asText("").toLowerCase(Locale.ROOT);
+            if (!"OK".equals(root.path("status").asString())) {
+                String comment = root.path("comment").asString("").toLowerCase(Locale.ROOT);
                 if (notFound.test(comment)) {
                     return null;
                 }
@@ -194,7 +195,7 @@ public class CodeforcesApiClient implements CodeforcesClient, CodeforcesProblemC
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new CodeforcesUnavailableException();
-        } catch (IOException | IllegalArgumentException exception) {
+        } catch (IOException | JacksonException | IllegalArgumentException exception) {
             throw new CodeforcesUnavailableException();
         }
     }

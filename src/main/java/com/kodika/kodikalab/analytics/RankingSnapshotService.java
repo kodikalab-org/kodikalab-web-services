@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.analytics;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.kodika.kodikalab.analytics.dto.LastValidRanking;
 import com.kodika.kodikalab.analytics.dto.TeamRankingResponse;
 import java.time.OffsetDateTime;
@@ -24,7 +24,7 @@ public class RankingSnapshotService {
     public void save(TeamRankingResponse ranking, OffsetDateTime calculatedAt) {
         try {
             repository.replaceIfNewer(ranking.teamId(), calculatedAt, objectMapper.writeValueAsString(ranking));
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalStateException("No se pudo conservar el ranking válido", exception);
         }
     }
@@ -38,7 +38,7 @@ public class RankingSnapshotService {
                     throw new IllegalStateException("El ranking conservado es inconsistente");
                 }
                 return new LastValidRanking(snapshot.getCalculatedAt(), ranking);
-            } catch (JsonProcessingException exception) {
+            } catch (JacksonException exception) {
                 throw new IllegalStateException("No se pudo recuperar el ranking válido", exception);
             }
         });

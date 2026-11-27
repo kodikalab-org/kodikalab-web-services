@@ -1,7 +1,7 @@
 package com.kodika.kodikalab.problems.problem.dto;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.kodika.kodikalab.common.json.StrictJson;
 import com.kodika.kodikalab.problems.problem.SourcePlatform;
 import java.util.ArrayList;
@@ -26,8 +26,8 @@ public record CreateProblemRequest(String title, String url, SourcePlatform sour
             topics = new ArrayList<>();
             for (int index = 0; index < topicNodes.size(); index++) {
                 JsonNode topic = topicNodes.get(index);
-                if (topic.isTextual()) {
-                    topics.add(topic.textValue());
+                if (topic.isString()) {
+                    topics.add(topic.stringValue());
                 } else {
                     errors.put("topics[" + index + "]", "Debe ser una cadena de texto");
                 }
